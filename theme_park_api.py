@@ -6,6 +6,8 @@ from adafruit_display_text.label import Label
 import json
 import os
 
+# Test
+
 try:
     import rtc
     import microcontroller
