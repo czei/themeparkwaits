@@ -1,3 +1,5 @@
+
+
 import board
 import digitalio
 import storage
@@ -23,6 +25,6 @@ storage.remount("/", drive_state)
 button = digitalio.DigitalInOut(board.BUTTON_UP)
 if button.value is False:
     try:
-        os.remove("wifi.dat")
+        os.remove("secrets.py")
     except OSError:
         print('File wifi.dat does not exist')
