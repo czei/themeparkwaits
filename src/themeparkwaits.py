@@ -283,7 +283,7 @@ def generate_main_page():
 
 @web_server.route("/style.css")
 def base(request: Request):
-    f = open("style.css")
+    f = open("src/style.css")
     data = f.read()
     f.close()
     return adafruit_httpserver.Response(request, data, content_type="text/html")
@@ -315,7 +315,6 @@ def base(request: Request):
     page += """
     <h2>Settings</h2>
     <div>
-    <h1>New Version!</h1>
     <form action=\"/settings.html\" method=\"POST\">"""
 
     for color_setting_name, color_value in settings.settings.items():
@@ -350,15 +349,21 @@ def base(request: Request):
         else:
             page += f"<p>The latest release \'{latest}\' is newer than the currently installed release \'{release}\'</p>"
             page += """<p><ol>
-            <li>Click on the upgrade button below to download the latest release and install it.</li>  
-            <li>The LED will be unresponsive for 3-10 minutes.</li>
-            <li><b>Do not turn the device off during the upgrade process.</b></li>
-            </p>
+            <li>Click on the upgrade button below to download the latest release and install it.</br></li>  
             <br>
+            <li>The LED will be unresponsive for 3-10 minutes. The screen will flash several times with random characters, do not be alarmed.</li>
+            <br>
+            <li><b>Do not turn the device off during the upgrade process.</b></li>
+            <br>
+            </p>
+            <li>
             <form action=\"/upgrade.html\" method=\"POST\">
             <p><button type="submit">Upgrade</button></p>
-            </form>"""
-    
+            </form>
+            </li>
+            </ol>
+            """
+
     
     except ValueError as e:
         page += "<p>Unable to find latest software release on git code server.</p>"
@@ -417,8 +422,10 @@ print (f"Release version is {ota_updater.get_version("src")}")
 
 def download_and_install_update_if_available():
     print (f"Checking upgrade from {ota_updater.get_version("src")}")
+    run_setup_message("About to install update. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
     ss, pp = src.theme_park_api.load_credentials()
     ota_updater.install_update_if_available_after_boot(ss,pp)
+    supervisor.reload()
 
 async def run_web_server():
     while True:

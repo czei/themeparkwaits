@@ -130,7 +130,7 @@ class OTAUpdater:
         print(f"Checking git release number at: {url}")
         latest_release = self.http_client.get('https://api.github.com/repos/{}/releases/latest'.format(self.github_repo), headers=self.headers)
         gh_json = latest_release.json()
-        print(f"Raw Github data: {gh_json}")
+        # print(f"Raw Github data: {gh_json}")
         try:
             version = gh_json['tag_name']
         except KeyError as e:
@@ -149,10 +149,13 @@ class OTAUpdater:
 
     def _download_all_files(self, version, sub_dir=''):
         url = 'https://api.github.com/repos/{}/contents{}{}{}?ref=refs/tags/{}'.format(self.github_repo, self.github_src_dir, self.main_dir, sub_dir, version)
-        gc.collect() 
-        file_list = self.http_client.get(url)
+        print(f"Fetching file list from {url}")
+        gc.collect()
+        file_list = self.http_client.get(url,headers=self.headers)
         file_list_json = file_list.json()
+        #print(f"List of files to copy {file_list_json}")
         for file in file_list_json:
+            # print(f"Copying file {file.name}")
             path = self.modulepath(self.new_version_dir + '/' + file['path'].replace(self.main_dir + '/', '').replace(self.github_src_dir, ''))
             if file['type'] == 'file':
                 gitPath = file['path']
@@ -167,7 +170,7 @@ class OTAUpdater:
         file_list.close()
 
     def _download_file(self, version, gitPath, path):
-        self.http_client.get('https://raw.githubusercontent.com/{}/{}/{}'.format(self.github_repo, version, gitPath), saveToFile=path)
+        self.http_client.get('https://raw.githubusercontent.com/{}/{}/{}'.format(self.github_repo, version, gitPath), headers=self.headers)
 
     def _copy_secrets_file(self):
         if self.secrets_file:
@@ -192,12 +195,14 @@ class OTAUpdater:
         print('Update installed, please reboot now')
 
     def _rmtree(self, directory):
-        for entry in os.ilistdir(directory):
-            is_dir = entry[1] == 0x4000
+        for entry in os.listdir(directory):
+            print(f"Deleting file {directory + '/' + entry}")
+            stat = os.stat(directory + '/' + entry)
+            is_dir = (stat[0] & 0o170000) == 0o040000
             if is_dir:
-                self._rmtree(directory + '/' + entry[0])
+                self._rmtree(directory + '/' + entry)
             else:
-                os.remove(directory + '/' + entry[0])
+                os.remove(directory + '/' + entry)
         os.rmdir(directory)
 
     def _os_supports_rename(self) -> bool:
