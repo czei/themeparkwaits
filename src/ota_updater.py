@@ -1,5 +1,8 @@
 import os, gc
-from .httpclient import HttpClient
+import adafruit_requests
+import socketpool
+import wifi
+import ssl
 
 class OTAUpdater:
     """
@@ -7,8 +10,11 @@ class OTAUpdater:
     optimized for low power usage.
     """
 
-    def __init__(self, github_repo, github_src_dir='', module='', main_dir='main', new_version_dir='next', secrets_file=None, headers={}):
-        self.http_client = HttpClient(headers=headers)
+    def __init__(self, http_client_param, github_repo, github_src_dir='', module='', main_dir='main', new_version_dir='next', secrets_file=None, headers={}):
+        # self.http_client = adafruit_requests.Session(socketpool.SocketPool(wifi.radio), ssl.create_default_context())
+        # self.http_client = HttpClient(headers=headers)
+        self.headers = headers
+        self.http_client = http_client_param
         self.github_repo = github_repo.rstrip('/').replace('https://github.com/', '')
         self.github_src_dir = '' if len(github_src_dir) < 1 else github_src_dir.rstrip('/') + '/'
         self.module = module.rstrip('/')
@@ -89,15 +95,13 @@ class OTAUpdater:
 
     @staticmethod
     def _using_network(ssid, password):
-        import network
-        sta_if = network.WLAN(network.STA_IF)
-        if not sta_if.isconnected():
+        import wifi
+        if not wifi.radio.connected:
             print('connecting to network...')
-            sta_if.active(True)
-            sta_if.connect(ssid, password)
-            while not sta_if.isconnected():
+            wifi.radio.connect(ssid, password)
+            while not wifi.radio.connected:
                 pass
-        print('network config:', sta_if.ifconfig())
+        print('network config:', wifi.radio.ap_info)
 
     def _check_for_new_version(self):
         current_version = self.get_version(self.modulepath(self.main_dir))
@@ -122,8 +126,11 @@ class OTAUpdater:
         return '0.0'
 
     def get_latest_version(self):
-        latest_release = self.http_client.get('https://api.github.com/repos/{}/releases/latest'.format(self.github_repo))
+        url = "https://api.github.com/repos/{}/releases/latest".format(self.github_repo)
+        print(f"Checking git release number at: {url}")
+        latest_release = self.http_client.get('https://api.github.com/repos/{}/releases/latest'.format(self.github_repo), headers=self.headers)
         gh_json = latest_release.json()
+        print(f"Raw Github data: {gh_json}")
         try:
             version = gh_json['tag_name']
         except KeyError as e:

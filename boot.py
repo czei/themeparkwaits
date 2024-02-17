@@ -4,6 +4,8 @@ import board
 import digitalio
 import storage
 import os
+import src.theme_park_api
+from src.ota_updater import OTAUpdater
 
 # See if we need to mount the drive read-only on the Matrix S3
 # side so the computer side can edit files.
@@ -28,3 +30,4 @@ if button.value is False:
         os.remove("secrets.py")
     except OSError:
         print('File wifi.dat does not exist')
+

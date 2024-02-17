@@ -48,104 +48,205 @@ def set_system_clock(http_requests):
     return datetime_object
 
 
-def populate_park_list(requests):
-    """
-    Returns an iterable list of theme parks and their ids from Queue Times.
-    ONLY WORKS ON CircuitPython hardware.
-    :return:
-    """
-    url = "https://queue-times.com/parks.json"
-    response = requests.get(url)
-    json_response = response.json()
-    return sorted(get_theme_parks_from_json(json_response))
+# def populate_park_list(requests):
+#     """
+#     Returns an iterable list of theme parks and their ids from Queue Times.
+#     ONLY WORKS ON CircuitPython hardware.
+#     :return:
+#     """
+#     url = "https://queue-times.com/parks.json"
+#     response = requests.get(url)
+#     json_response = response.json()
+#     return get_theme_parks_from_json(json_response))
 
 
-def get_theme_parks_from_json(json):
-    """
-    Return a list of theme parks and their ids
-    :return: a tuple of park name and id
-    """
-    park_list = []
-    for company in json:
-        # print(f"company = {company}")
-        for parks in company:
-            if parks == "parks":
-                # print(f"park list = {parks}")
-                park = company[parks]
-                name = ""
-                park_id = 0
-                latitude = 0
-                longitude = 0
-                for item in park:
-                    # print(f"park = {item}")
-                    for element in item:
-                        if element == "name":
-                            name = item[element]
-                        if element == "id":
-                            park_id = item[element]
-                        if element == "latitude":
-                            latitude = item[element]
-                        if element == "longitude":
-                            longitude = item[element]
-                    name_id = tuple([name, park_id, latitude, longitude])
-                    # print(f"Adding tuple {name_id}")
-                    park_list.append(name_id)
-
-    return park_list
-
-
-def get_park_url_from_name(park_list, park_name):
-    """
-    Takes the output from get_theme_parks_from_json and assembles
-    the URL to get individual ride data.
-    :param park_list: A list of tuples of park names and ids
-    :param park_name: The string describing the Theme Park
-    :return: JSON url for a particular theme park
-    """
-    # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
-    url1 = "https://queue-times.com/parks/"
-    url2 = "/queue_times.json"
-    for park in park_list:
-        if park[0] == park_name:
-            park_id = park[1]
-            url = url1 + str(park_id) + url2
-            return url
+# def get_theme_parks_from_json(json):
+#     """
+#     Return a list of theme parks and their ids
+#     :return: a tuple of park name and id
+#     """
+#     park_list = []
+#     for company in json:
+#         # print(f"company = {company}")
+#         for parks in company:
+#             if parks == "parks":
+#                 # print(f"park list = {parks}")
+#                 park = company[parks]
+#                 name = ""
+#                 park_id = 0
+#                 latitude = 0
+#                 longitude = 0
+#                 for item in park:
+#                     # print(f"park = {item}")
+#                     for element in item:
+#                         if element == "name":
+#                             name = item[element]
+#                         if element == "id":
+#                             park_id = item[element]
+#                         if element == "latitude":
+#                             latitude = item[element]
+#                         if element == "longitude":
+#                             longitude = item[element]
+#                     name_id = tuple([name, park_id, latitude, longitude])
+#                     # print(f"Adding tuple {name_id}")
+#                     park_list.append(name_id)
+#
+#     return park_list
 
 
-def get_park_url_from_id(park_list, park_id):
-    """
-    Takes the output from get_theme_parks_from_json and assembles
-    the URL to get individual ride data.
-    :param park_list: A list of tuples of park names and ids
-    :param park_id: The id from QueueTimes.com
-    :return: JSON url for a particular theme park
-    """
-    # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
-    url1 = "https://queue-times.com/parks/"
-    url2 = "/queue_times.json"
-    return url1 + str(park_id) + url2
+# def get_park_url_from_name(park_list, park_name):
+#     """
+#     Takes the output from get_theme_parks_from_json and assembles
+#     the URL to get individual ride data.
+#     :param park_list: A list of tuples of park names and ids
+#     :param park_name: The string describing the Theme Park
+#     :return: JSON url for a particular theme park
+#     """
+#     # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
+#     url1 = "https://queue-times.com/parks/"
+#     url2 = "/queue_times.json"
+#     for park in park_list:
+#         if park[0] == park_name:
+#             park_id = park[1]
+#             url = url1 + str(park_id) + url2
+#             return url
+#
+
+# def get_park_url_from_id(park_list, park_id):
+#     """
+#     Takes the output from get_theme_parks_from_json and assembles
+#     the URL to get individual ride data.
+#     :param park_list: A list of tuples of park names and ids
+#     :param park_id: The id from QueueTimes.com
+#     :return: JSON url for a particular theme park
+#     """
+#     # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
+#     url1 = "https://queue-times.com/parks/"
+#     url2 = "/queue_times.json"
+#     return url1 + str(park_id) + url2
+
+class ThemeParkList:
+    '''
+    The ThemeParkList class is used to manage a list of ThemePark objects.
+    It provides various utility methods to interact with, and retrieve data from the list.
+    '''
+    def __init__(self, json_response):
+        self.park_list = []
+        self.current_park = ThemePark()
+        self.skip_meet = False
+        self.skip_closed = False
+
+        for company in json_response:
+            for parks in company:
+                if parks == "parks":
+                    # print(f"park list = {parks}")
+                    park = company[parks]
+                    name = ""
+                    park_id = 0
+                    latitude = 0
+                    longitude = 0
+                    for item in park:
+                        # print(f"park = {item}")
+                        for element in item:
+                            if element == "name":
+                                name = item[element]
+                            if element == "id":
+                                park_id = item[element]
+                            if element == "latitude":
+                                latitude = item[element]
+                            if element == "longitude":
+                                longitude = item[element]
+                        #name_id = tuple([name, park_id, latitude, longitude])
+                        park = ThemePark("", name, park_id, latitude, longitude)
+                        # print(f"Adding tuple {name_id}")
+                        self.park_list.append(park)
+
+    @staticmethod
+    def get_park_url_from_id(self, park_id):
+        url1 = "https://queue-times.com/parks/"
+        url2 = "/queue_times.json"
+        return url1 + str(park_id) + url2
+
+    def load_settings(self, sm):
+
+        keys = sm.settings.keys()
+
+        if "current_park_id" in keys:
+            id = sm.settings["current_park_id"]
+            park = self.get_park_by_id(id)
+            self.current_park = park
+        if "skip_meet" in keys:
+            self.skip_meet = sm.settings["skip_meet"]
+        if "skip_closed" in keys:
+            self.skip_closed = sm.settings["skip_closed"]
+
+    def get_park_url_from_name(self, park_name):
+        """
+        Takes the output from get_theme_parks_from_json and assembles
+        the URL to get individual ride data.
+        :param park_list: A list of tuples of park names and ids
+        :param park_name: The string describing the Theme Park
+        :return: JSON url for a particular theme park
+        """
+        # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
+        url1 = "https://queue-times.com/parks/"
+        url2 = "/queue_times.json"
+        for park in self.park_list:
+            if park.name == park_name:
+                park_id = park.id
+                url = url1 + str(park_id) + url2
+                return url
+
+    def get_park_by_id(self, id):
+        for park in self.park_list:
+            if park.id == id:
+                return park
+
+    def get_park_location_from_id(self, park_id):
+        """
+        Takes the output from get_theme_parks_from_json and assembles
+        the URL to get individual ride data.
+        :param park_id: The id from QueueTimes.com
+        :return: JSON url for a particular theme park
+        """
+        # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
+        for park in self.park_list:
+            if park.id == park_id:
+                return park.latitude, park.longitude
+
+    def get_park_name_from_id(self, park_id):
+        park_name = ""
+        for park in self.park_list:
+            if park.id == park_id:
+                park_name = park.name
+                return park_name
+
+    def parse(self, str_params):
+        params = str_params.split("&")
+        print(f"Params = {params}")
+        self.skip_meet = False
+        self.skip_closed = False
+        for param in params:
+            name_value = param.split("=")
+            if name_value[0] == "park-id":
+                self.current_park = self.get_park_by_id(int(name_value[1]))
+                print(f"New park name = {self.current_park.name}")
+                print(f"New park id = {self.current_park.id}")
+                print(f"New park latitude = {self.current_park.latitude}")
+                print(f"New park longitude = {self.current_park.longitude}")
+            if name_value[0] == "skip_closed":
+                print("Skip closed is True")
+                self.skip_closed = True
+            if name_value[0] == "skip_meet":
+                print("Skip meet is True")
+                self.skip_meet = True
 
 
-def get_park_location_from_id(park_list, park_id):
-    """
-    Takes the output from get_theme_parks_from_json and assembles
-    the URL to get individual ride data.
-    :param park_list: A list of tuples of park names and ids
-    :param park_id: The id from QueueTimes.com
-    :return: JSON url for a particular theme park
-    """
-    # Magic Kingdom URL example: https://queue-times.com/parks/6/queue_times.json
-    for park in park_list:
-        if park[1] == park_id:
-            return park[2], park[3]
-
-
-def get_park_name_from_id(park_list, park_id):
-    park_name = ""
-    for park in park_list:
-        if park[1] == park_id:
-            park_name = park[0]
-            return park_name
+    def store_settings(self, sm):
+        sm.settings["current_park_name"] = self.current_park.name
+        sm.settings["current_park_id"] = self.current_park.id
+        sm.settings["skip_meet"] = self.skip_meet
+        sm.settings["skip_closed"] = self.skip_closed
 
 
 class ThemeParkRide:
@@ -167,7 +268,7 @@ class ThemeParkRide:
 
 
 class ThemePark:
-    def __init__(self, json_data=(), name="", id=0, latitude=0.0, longitude=0.0):
+    def __init__(self, json_data=(), name="", id=-1, latitude=0.0, longitude=0.0):
         """
         :param self:
         :param json_data: Python JSON objects from a single park
@@ -180,8 +281,8 @@ class ThemePark:
         self.latitude = latitude
         self.longitude = longitude
         self.rides = self.get_rides_from_json(json_data)
-        self.skip_meet = False
-        self.skip_closed = False
+        #self.skip_meet = False
+        #self.skip_closed = False
 
     @staticmethod
     def remove_non_ascii(orig_str):
@@ -194,6 +295,11 @@ class ThemePark:
             if ord(c) < 128:
                 new_str += c
         return new_str
+
+    def get_url(self):
+        url1 = "https://queue-times.com/parks/"
+        url2 = "/queue_times.json"
+        return url1 + str(self.id) + url2
 
     def get_rides_from_json(self, json_data):
         """
@@ -290,48 +396,9 @@ class ThemePark:
         self.id = new_id
         self.counter = 0
 
-    def parse(self, str_params, park_list):
-        params = str_params.split("&")
-        print(f"Params = {params}")
-        self.skip_meet = False
-        self.skip_closed = False
-        for param in params:
-            name_value = param.split("=")
-            # print(f"param = {param}")
-            # print(f"Name_value = {name_value}")
-            if name_value[0] == "park-id":
-                self.id = int(name_value[1])
-                self.name = get_park_name_from_id(park_list, self.id)
-                location = get_park_location_from_id(park_list, self.id)
-                self.latitude = location[0]
-                self.longitude = location[1]
-                print(f"New park name = {self.name}")
-                print(f"New park id = {self.id}")
-                print(f"New park latitude = {self.latitude}")
-                print(f"New park longitude = {self.longitude}")
-            if name_value[0] == "skip_closed":
-                print("Skip closed is True")
-                self.skip_closed = True
-            if name_value[0] == "skip_meet":
-                print("Skip meet is True")
-                self.skip_meet = True
 
-    def store_settings(self, sm):
-        sm.settings["current_park_name"] = self.name
-        sm.settings["current_park_id"] = self.id
-        sm.settings["skip_meet"] = self.skip_meet
-        sm.settings["skip_closed"] = self.skip_closed
 
-    def load_settings(self, sm):
-        keys = sm.settings.keys()
-        if "current_park_name" in keys:
-            self.name = sm.settings["current_park_name"]
-        if "current_park_id" in keys:
-            self.id = sm.settings["current_park_id"]
-        if "skip_meet" in keys:
-            self.skip_meet = sm.settings["skip_meet"]
-        if "skip_closed" in keys:
-            self.skip_closed = sm.settings["skip_closed"]
+
 
 
 class ThemeParkIterator:
@@ -649,14 +716,15 @@ class MessageQueue:
     async def add_vacation(self, vac):
         if vac.is_set() is True:
             days_until = vac.get_days_until()
-            if days_until >= 1:
+            if days_until > 1:
                 vac_message = f"Vacation to {vac.name} in: {days_until} days"
                 self.add_scroll_message(vac_message, 0)
             elif days_until == 1:
-                vac_message = f"Your vacation to {vac.name} is tomorrow!!!"
+                vac_message = f"Your vacation to {vac.name} is tomorrow!!!!!!!!!!!!!"
                 self.add_scroll_message(vac_message, 0)
 
-    async def add_rides(self, park):
+    async def add_rides(self, park_list):
+        park = park_list.current_park
         print(f"MessageQueue.add_rides() called for: {park.name}:{park.id}")
         self.func_queue.append(self.display.show_scroll_message)
         required_message = f"Wait times for {park.name} provided by {REQUIRED_MESSAGE}"
@@ -670,11 +738,11 @@ class MessageQueue:
             return
 
         for ride in park.rides:
-            if "Meet" in ride.name and park.skip_meet == True:
+            if "Meet" in ride.name and park_list.skip_meet == True:
                 print(f"Skipping character meet: {ride.name}")
                 continue
 
-            if ride.is_open() is False and park.skip_closed == True:
+            if ride.is_open() is False and park_list.skip_closed == True:
                 continue
 
             if ride.open_flag is True:
@@ -793,6 +861,7 @@ class SettingsManager:
             return {}
 
     def save_settings(self):
+        print(f"Saving settings {self.settings}")
         with open(self.filename, 'w') as f:
             json.dump(self.settings, f)
 

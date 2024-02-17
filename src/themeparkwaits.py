@@ -28,19 +28,17 @@ from adafruit_httpserver import (
 )
 from adafruit_matrixportal.matrixportal import MatrixPortal
 
-import src.theme_park_api
 from src import theme_park_api, wifimgr
 from src.theme_park_api import set_system_clock, ColorUtils, MatrixPortalDisplay
-from src.theme_park_api import get_park_name_from_id
+from src.theme_park_api import ThemeParkList
 from src.theme_park_api import ThemePark
 from src.theme_park_api import Vacation
 from src.theme_park_api import AsyncScrollingDisplay
 from src.theme_park_api import MessageQueue
-from src.theme_park_api import get_park_url_from_id
-from src.theme_park_api import populate_park_list
 from src.theme_park_api import SettingsManager
 from src.theme_park_api import load_credentials
 from src.webgui import generate_header
+from src.ota_updater import OTAUpdater
 
 try:
     import board
@@ -108,9 +106,7 @@ display_hardware = framebufferio.FramebufferDisplay(
 display_hardware.refresh(minimum_frames_per_second=0)
 
 # Load settings from JSON file
-current_park = ThemePark()
 settings = SettingsManager("../settings.json")
-current_park.load_settings(settings)
 
 # Params for the next vacation, if set
 vacation_date = Vacation()
@@ -168,7 +164,7 @@ else:
     except (RuntimeError, ConnectionError, ValueError):
         while wifi.radio.connected is not True:
             setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
-            run_setup_message(setup_message, 10)
+            run_setup_message(setup_message, 100000)
 
 # print(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
 
@@ -190,25 +186,16 @@ mdns_server.hostname = "themeparkwaits"
 mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 
 
-# Get a list of rides to populate the currently selected ride
-async def populate_ride_list(parks, park_id):
-    url = get_park_url_from_id(parks, park_id)
-    # print(f"Configuring park {park_id} from {url}")
-    response = http_requests.get(url)
-    await asyncio.sleep(0)
-    current_park.name = get_park_name_from_id(parks, park_id)
-    await asyncio.sleep(0)
-    current_park.set_rides(response.json())
-
-
 async def update_live_wait_time():
-    if current_park.id <= 0:
+    if park_list.current_park.id <= 0:
         return
-    url = get_park_url_from_id(park_list, current_park.id)
+    print(f"Updating Park {park_list.current_park.name}:{park_list.current_park.id}")
+    local_url = park_list.current_park.get_url()
+    print(f"From URL: {url}")
     # print(f"Updating Park from URL: {url}")
-    response = http_requests.get(url)
-    json_response = response.json()
-    current_park.update(json_response)
+    local_response = http_requests.get(local_url)
+    json_response = local_response.json()
+    park_list.current_park.update(json_response)
 
 def generate_main_page():
     page = generate_header()
@@ -217,12 +204,12 @@ def generate_main_page():
     page += "<div>"
     page += "<form action=\"/\" method=\"GET\">"
     page += "<p><select name=\"park-id\" id=\"park-id\">\n"
-    for park in park_list:
-        park_name = ThemePark.remove_non_ascii(park[0])
-        if park[1] == current_park.id:
-            page += f"<option value=\"{park[1]}\" selected>{park_name}</option>\n"
+    for park in park_list.park_list:
+        park_name = ThemePark.remove_non_ascii(park.name)
+        if park.id == park_list.current_park.id:
+            page += f"<option value=\"{park.id}\" selected>{park_name}</option>\n"
         else:
-            page += f"<option value=\"{park[1]}\">{park_name}</option>\n"
+            page += f"<option value=\"{park.id}\">{park_name}</option>\n"
     page += "</select></p>"
 
     page += "<p><label for=\"Name\"></label></p>"
@@ -295,11 +282,20 @@ def generate_main_page():
 
 @web_server.route("/style.css")
 def base(request: Request):
-    f = open("../style.css")
+    f = open("style.css")
     data = f.read()
     f.close()
     return adafruit_httpserver.Response(request, data, content_type="text/html")
 
+
+@web_server.route("/upgrade.html", [POST])
+def base(request: Request):
+    ss, pp = load_credentials()
+    #   #ota_updater.install_update_if_available_after_boot(ss,pp)
+    ota_updater.check_for_update_to_install_during_next_reboot()
+
+    #Reboot device
+    supervisor.reload()
 
 @web_server.route("/settings.html", [GET, POST])
 def base(request: Request):
@@ -315,9 +311,11 @@ def base(request: Request):
             print("Unable to save settings, drive is read only.")
 
     page = generate_header()
-    page += "<h2>Settings</h2>"
-    page += "<div>"
-    page += "<form action=\"/settings.html\" method=\"POST\">"
+    page += """
+    <h2>Settings</h2>
+    <div>
+    <h1>New Version!</h1>
+    <form action=\"/settings.html\" method=\"POST\">"""
 
     for color_setting_name, color_value in settings.settings.items():
         if "color" in color_setting_name:
@@ -326,25 +324,45 @@ def base(request: Request):
             page += ColorUtils.html_color_chooser(color_setting_name, hex_num_str=color_value)
             page += "</p>"
 
-    page += "<p>"
-    page += f"<label for=\"Name\">Scroll Speed</label>"
-    page += "<select name=\"scroll_speed\" id=\"scroll_speed\">"
+    page += """<p>
+            <label for=\"Name\">Scroll Speed</label>
+            <select name=\"scroll_speed\" id=\"scroll_speed\">"""
     for speed in ["Slow", "Medium", "Fast"]:
         if speed == settings.settings.get("scroll_speed"):
             page += f"<option value=\"{speed}\" selected>{speed}</option>\n"
         else:
             page += f"<option value=\"{speed}\">{speed}</option>\n"
         page += "</p>"
-    page += "</select>"
 
-    page += "<p>"
-    page += "<label for=\"Submit\"></label>"
-    page += "<input type=\"submit\">"
-    page += "</p>"
-    page += "</form>"
-    page += "</div>"
-    page += "<body>"
+    page += """</select>
+        <p>
+        <label for=\"Submit\"></label>
+        <input type=\"submit\">
+        </p>
+        </form>"""
 
+    try:
+        release = ota_updater.get_version("src")
+        latest = ota_updater.get_latest_version()
+        if latest == release:
+            page += f"<p>The current installed version {release} is up to date.</p>"
+        else:
+            page += f"<p>The latest release \'{latest}\' is newer than the currently installed release \'{release}\'</p>"
+            page += """<p><ol>
+            <li>Click on the upgrade button below to download the latest release and install it.</li>  
+            <li>The LED will be unresponsive for 3-10 minutes.</li>
+            <li><b>Do not turn the device off during the upgrade process.</b></li>
+            </p>
+            <br>
+            <form action=\"/upgrade.html\" method=\"POST\">
+            <p><button type="submit">Upgrade</button></p>
+            </form>"""
+    
+    
+    except ValueError as e:
+        page += "<p>Unable to find latest software release on git code server.</p>"
+
+    page += "</div><body>"
     return adafruit_httpserver.Response(request, page, content_type="text/html")
 
 
@@ -352,8 +370,8 @@ def base(request: Request):
 def base(request: Request):
     if len(request.query_params) > 0:
         vacation_date.parse(str(request.query_params))
-        current_park.parse(str(request.query_params), park_list)
-        current_park.store_settings(settings)
+        park_list.parse(str(request.query_params))
+        park_list.store_settings(settings)
 
         if vacation_date.is_set() is True:
             vacation_date.store_settings(settings)
@@ -390,6 +408,16 @@ def start_web_server(wserver):
 
 start_web_server(web_server)
 
+TOKEN='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'
+#TOKEN='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'
+GITHUBREPO='https://github.com/Czeiszperger/themeparkwaits.release'
+ota_updater = OTAUpdater(http_requests, GITHUBREPO, main_dir="src", headers={'Authorization': 'TOKEN {}'.format(TOKEN)})
+print (f"Release version is {ota_updater.get_version("src")}")
+
+def download_and_install_update_if_available():
+    print (f"Checking upgrade from {ota_updater.get_version("src")}")
+    ss, pp = src.theme_park_api.load_credentials()
+    ota_updater.install_update_if_available_after_boot(ss,pp)
 
 async def run_web_server():
     while True:
@@ -413,15 +441,15 @@ async def run_display():
         try:
             # print(f"Messages regen_flag is {messages.regenerate_flag}")
             # print(f"Park valid flag is {current_park.is_valid()}")
-            if current_park.is_valid() is False:
+            if park_list.current_park.is_valid() is False:
                 messages.init()
                 messages.add_scroll_message(theme_park_api.CONFIGURATION_MESSAGE)
                 # await display.show_configuration_message()
-            elif messages.regenerate_flag is True and current_park.is_valid() is True:
+            elif messages.regenerate_flag is True and park_list.current_park.is_valid() is True:
                 messages.init()
                 await update_live_wait_time()
                 await messages.add_vacation(vacation_date)
-                await messages.add_rides(current_park)
+                await messages.add_rides(park_list)
                 messages.regenerate_flag = False
 
             await messages.show()
@@ -441,16 +469,16 @@ async def update_ride_times():
     """
     while True:
         try:
-            if current_park.is_open is True:
+            if park_list.current_park.is_open is True:
                 await asyncio.sleep(300)
             else:
                 await asyncio.sleep(3600)
 
-            if len(current_park.rides) > 0:
+            if len(park_list.current_park.rides) > 0:
                 await update_live_wait_time()
                 messages.init()
                 await messages.add_vacation(vacation_date)
-                await messages.add_rides(current_park)
+                await messages.add_rides(park_list)
 
         except OSError as e:
             print("Caught exception OSError:", e)
@@ -460,13 +488,16 @@ async def update_ride_times():
             traceback.print_exc()
 
 try:
-    # The current selected park, empty at first
-    # A list of all ~150 supported parks
-    park_list = populate_park_list(http_requests)
+    # A list of all ~80 supported parks
+    url = "https://queue-times.com/parks.json"
+    response = http_requests.get(url)
+    json_response = response.json()
+    park_list = ThemeParkList(json_response)
+    park_list.load_settings(settings)
 except OSError as e:
     print("Caught exception OSError:", e)
     messages.init()
-    messages.add_scroll_message("Unable to contact wait time server.  Will try again in 5 minutes.")
+    messages.add_scroll_message("Unable to contact queue-times.com.  Will try again in 5 minutes.")
 
 # Set device time from the internet
 try:
@@ -474,6 +505,10 @@ try:
 except OSError as e:
     print("Caught exception OSError:", e)
     messages.add_scroll_message("Unable to contact time server.")
+
+# Should only work if the user had previously called
+# ota_updater.check_for_update_to_install_during_next_reboot()
+download_and_install_update_if_available()
 
 asyncio.run(asyncio.gather(
     run_display(),
