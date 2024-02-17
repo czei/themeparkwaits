@@ -216,12 +216,13 @@ class OTAUpdater:
         if not self._exists_dir(toPath):
             self._mk_dirs(toPath)
 
-        for entry in os.ilistdir(fromPath):
-            is_dir = entry[1] == 0x4000
+        for entry in os.listdir(fromPath):
+            stat = os.stat(fromPath+ '/' + entry)
+            is_dir = (stat[0] & 0o170000) == 0o040000
             if is_dir:
-                self._copy_directory(fromPath + '/' + entry[0], toPath + '/' + entry[0])
+                self._copy_directory(fromPath + '/' + entry, toPath + '/' + entry)
             else:
-                self._copy_file(fromPath + '/' + entry[0], toPath + '/' + entry[0])
+                self._copy_file(fromPath + '/' + entry, toPath + '/' + entry)
 
     def _copy_file(self, fromPath, toPath):
         with open(fromPath) as fromFile:

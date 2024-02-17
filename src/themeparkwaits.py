@@ -198,6 +198,7 @@ async def update_live_wait_time():
     json_response = local_response.json()
     park_list.current_park.update(json_response)
 
+
 def generate_main_page():
     page = generate_header()
     page += "<br>"
@@ -295,8 +296,9 @@ def base(request: Request):
     #   #ota_updater.install_update_if_available_after_boot(ss,pp)
     ota_updater.check_for_update_to_install_during_next_reboot()
 
-    #Reboot device
+    # Reboot device
     supervisor.reload()
+
 
 @web_server.route("/settings.html", [GET, POST])
 def base(request: Request):
@@ -364,7 +366,7 @@ def base(request: Request):
             </ol>
             """
 
-    
+
     except ValueError as e:
         page += "<p>Unable to find latest software release on git code server.</p>"
 
@@ -414,18 +416,23 @@ def start_web_server(wserver):
 
 start_web_server(web_server)
 
-TOKEN='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'
-#TOKEN='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'
-GITHUBREPO='https://github.com/Czeiszperger/themeparkwaits.release'
+TOKEN = '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'
+# TOKEN='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'
+GITHUBREPO = 'https://github.com/Czeiszperger/themeparkwaits.release'
 ota_updater = OTAUpdater(http_requests, GITHUBREPO, main_dir="src", headers={'Authorization': 'TOKEN {}'.format(TOKEN)})
-print (f"Release version is {ota_updater.get_version("src")}")
+print(f"Release version is {ota_updater.get_version("src")}")
+
 
 def download_and_install_update_if_available():
-    print (f"Checking upgrade from {ota_updater.get_version("src")}")
-    run_setup_message("About to install update. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
-    ss, pp = src.theme_park_api.load_credentials()
-    ota_updater.install_update_if_available_after_boot(ss,pp)
-    supervisor.reload()
+    release = ota_updater.get_version("src")
+    latest = ota_updater.get_latest_version()
+    print(f"Current version is {release}, latest version is: {latest}")
+    if latest > release:
+        run_setup_message("About to install update. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
+        ss, pp = src.theme_park_api.load_credentials()
+        if ota_updater.install_update_if_available_after_boot(ss, pp) is True:
+            supervisor.reload()
+
 
 async def run_web_server():
     while True:
@@ -494,6 +501,7 @@ async def update_ride_times():
             messages.add_scroll_message("Unable to contact wait time server.  Will try again in 5 minutes.")
         except RuntimeError:
             traceback.print_exc()
+
 
 try:
     # A list of all ~80 supported parks
