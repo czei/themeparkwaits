@@ -424,11 +424,10 @@ print(f"Release version is {ota_updater.get_version("src")}")
 
 
 def download_and_install_update_if_available():
-    release = ota_updater.get_version("src")
-    latest = ota_updater.get_latest_version()
+    release, latest = ota_updater.check_for_new_version()
     print(f"Current version is {release}, latest version is: {latest}")
-    if latest > release:
-        run_setup_message("About to install update. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
+    if ota_updater.update_available_at_boot() is True:
+        run_setup_message(f"Installing version {latest}. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
         ss, pp = src.theme_park_api.load_credentials()
         if ota_updater.install_update_if_available_after_boot(ss, pp) is True:
             supervisor.reload()

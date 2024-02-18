@@ -39,13 +39,17 @@ class OTAUpdater:
             bool: true if a new version is available, false otherwise
         """
 
-        (current_version, latest_version) = self._check_for_new_version()
+        (current_version, latest_version) = self.check_for_new_version()
         if latest_version > current_version:
             print('New version available, will download and install on next reboot')
             self._create_new_version_file(latest_version)
             return True
 
         return False
+
+    def update_available_at_boot(self)->bool:
+        is_available = self.new_version_dir in os.listdir(self.module) and '.version' in os.listdir(self.modulepath(self.new_version_dir))
+        return is_available
 
     def install_update_if_available_after_boot(self, ssid, password) -> bool:
         """This method will install the latest version if out-of-date after boot.
@@ -80,7 +84,7 @@ class OTAUpdater:
             bool: true if a new version is available, false otherwise
         """
 
-        (current_version, latest_version) = self._check_for_new_version()
+        (current_version, latest_version) = self.check_for_new_version()
         if latest_version > current_version:
             print('Updating to version {}...'.format(latest_version))
             self._create_new_version_file(latest_version)
@@ -103,7 +107,7 @@ class OTAUpdater:
                 pass
         print('network config:', wifi.radio.ap_info)
 
-    def _check_for_new_version(self):
+    def check_for_new_version(self):
         current_version = self.get_version(self.modulepath(self.main_dir))
         latest_version = self.get_latest_version()
 
