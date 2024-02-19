@@ -88,9 +88,13 @@ class OTAUpdater:
         if latest_version > current_version:
             print('Updating to version {}...'.format(latest_version))
             self._create_new_version_file(latest_version)
+            print('Downing new version {}...'.format(latest_version))
             self._download_new_version(latest_version)
+            print("Copying secretys.py file")
             self._copy_secrets_file()
+            print("Deleting old version")
             self._delete_old_version()
+            print("Installing new version")
             self._install_new_version()
             return True
         
