@@ -22,12 +22,17 @@ drive_state = not button.value
 # print(f"Drive mount logic is: {drive_state}")
 storage.remount("/", drive_state)
 
-# See if the user wants to reset the Wifi info
-# in case the software retry fails.
+def remove_file(filename):
+    try:
+        os.remove(filename)
+    except OSError:
+        print(f"File {filename} could not be deleted.")
+
+# See if the user wants to reset the Wifi and default settings
 button = digitalio.DigitalInOut(board.BUTTON_UP)
 if button.value is False:
-    try:
-        os.remove("secrets.py")
-    except OSError:
-        print('File wifi.dat does not exist')
+    remove_file("secrets.py")
+    remove_file("settings.json")
+
+
 
