@@ -44,6 +44,8 @@ class OTAUpdater:
             print('New version available, will download and install on next reboot')
             self._create_new_version_file(latest_version)
             return True
+        else:
+            print(f'New version not available: {current_version}:{latest_version}')
 
         return False
 
@@ -88,7 +90,7 @@ class OTAUpdater:
         if latest_version > current_version:
             print('Updating to version {}...'.format(latest_version))
             self._create_new_version_file(latest_version)
-            print('Downing new version {}...'.format(latest_version))
+            print('Downloading new version {}...'.format(latest_version))
             self._download_new_version(latest_version)
             print("Copying secretys.py file")
             self._copy_secrets_file()
@@ -196,6 +198,7 @@ class OTAUpdater:
     def _install_new_version(self):
         print('Installing new version at {} ...'.format(self.modulepath(self.main_dir)))
         if self._os_supports_rename():
+            print(f"Renaming {self.new_version_dir} to {self.modulepath(self.main_dir)}")
             os.rename(self.modulepath(self.new_version_dir), self.modulepath(self.main_dir))
         else:
             self._copy_directory(self.modulepath(self.new_version_dir), self.modulepath(self.main_dir))
@@ -214,11 +217,12 @@ class OTAUpdater:
         os.rmdir(directory)
 
     def _os_supports_rename(self) -> bool:
-        self._mk_dirs('otaUpdater/osRenameTest')
-        os.rename('otaUpdater', 'otaUpdated')
-        result = len(os.listdir('otaUpdated')) > 0
-        self._rmtree('otaUpdated')
-        return result
+        return False
+        # self._mk_dirs('otaUpdater/osRenameTest')
+        # os.rename('otaUpdater', 'otaUpdated')
+        # result = len(os.listdir('otaUpdated')) > 0
+        # self._rmtree('otaUpdated')
+        # return result
 
     def _copy_directory(self, fromPath, toPath):
         if not self._exists_dir(toPath):
@@ -230,6 +234,7 @@ class OTAUpdater:
             if is_dir:
                 self._copy_directory(fromPath + '/' + entry, toPath + '/' + entry)
             else:
+                print(f"Copying {fromPath}/{entry} to {toPath}/{entry}" )
                 self._copy_file(fromPath + '/' + entry, toPath + '/' + entry)
 
     def _copy_file(self, fromPath, toPath):
