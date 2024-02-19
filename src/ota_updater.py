@@ -230,7 +230,8 @@ class OTAUpdater:
 
         for entry in os.listdir(fromPath):
             stat = os.stat(fromPath+ '/' + entry)
-            is_dir = (stat[0] & 0o170000) == 0o040000
+            #is_dir = (stat[0] & 0o170000) == 0o040000
+            is_dir = (stat[0] & 0x4000) != 0
             if is_dir:
                 self._copy_directory(fromPath + '/' + entry, toPath + '/' + entry)
             else:
