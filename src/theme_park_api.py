@@ -158,9 +158,12 @@ class ThemeParkList:
                             if element == "longitude":
                                 longitude = item[element]
                         #name_id = tuple([name, park_id, latitude, longitude])
-                        park = ThemePark("", name, park_id, latitude, longitude)
+                        park = ThemePark("", ThemePark.remove_non_ascii(name), park_id, latitude, longitude)
                         # print(f"Adding tuple {name_id}")
                         self.park_list.append(park)
+
+        sorted_park_list = sorted(self.park_list, key=lambda park: park.name)
+        self.park_list = sorted_park_list
 
     @staticmethod
     def get_park_url_from_id(self, park_id):

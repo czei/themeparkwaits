@@ -207,7 +207,8 @@ def generate_main_page():
     page += "<form action=\"/\" method=\"GET\">"
     page += "<p><select name=\"park-id\" id=\"park-id\">\n"
     for park in park_list.park_list:
-        park_name = ThemePark.remove_non_ascii(park.name)
+        park_name = park.name
+
         if park.id == park_list.current_park.id:
             page += f"<option value=\"{park.id}\" selected>{park_name}</option>\n"
         else:
