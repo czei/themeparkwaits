@@ -17,10 +17,11 @@ except ModuleNotFoundError:
         class RTC:
             def __init__(self):
                 self.datetime = datetime()
+#'Red': '0xcc3333',
 
 class ColorUtils:
     colors = {'White': '0x7f7f7f',
-              'Red': '0xcc3333',
+              'Red': '0xff0000',
               'Yellow': '0xff9600',
               'Orange': '0xff2800',
               'Green': '0x00ff00',
@@ -567,10 +568,6 @@ class Vacation:
 class Display:
     def __init__(self, sm):
         self.settings_manager = sm
-        self.RED_COLOR = 0xCC3333
-        self.BLUE_COLOR = 0x0000AA
-        self.BLACK_COLOR = 0x000000
-        self.WHITE_COLOR = 0xFFFFFF
 
     async def show_ride_closed(self, dummy):
         print("Ride closed")
@@ -716,7 +713,7 @@ class MatrixPortalDisplay(Display):
                 23,
                 int(self.matrix_portal.graphics.display.height * 0.75) - 2,
             ),
-            text_color=self.BLUE_COLOR,
+            text_color=ColorUtils.colors["Blue"],
             scrolling=False,
             text_scale=2,
         )
@@ -729,7 +726,7 @@ class MatrixPortalDisplay(Display):
                 0,
                 int(self.matrix_portal.graphics.display.height * 0.25) + 10,
             ),
-            text_color=self.RED_COLOR,
+            text_color=ColorUtils.colors["Red"],
             scrolling=True,
             text_scale=1,
         )
@@ -742,7 +739,7 @@ class MatrixPortalDisplay(Display):
                 (int((self.matrix_portal.graphics.display.width - 7 * 6) / 2)),
                 6,
             ),
-            text_color=self.BLUE_COLOR,
+            text_color=ColorUtils.colors["Blue"]
         )
 
     async def show_ride_closed(self, dummy):
