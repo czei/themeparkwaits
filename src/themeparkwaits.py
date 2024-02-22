@@ -81,7 +81,7 @@ displayio.release_displays()
 DISPLAY_WIDTH = 64
 DISPLAY_HEIGHT = 32
 DISPLAY_ROTATION = 0
-BIT_DEPTH = 3
+BIT_DEPTH = 6
 AUTO_REFRESH = True
 
 matrix = rgbmatrix.RGBMatrix(
@@ -336,9 +336,22 @@ def base(request: Request):
         else:
             page += f"<option value=\"{speed}\">{speed}</option>\n"
         page += "</p>"
+    page += "</select>"
 
-    page += """</select>
-        <p>
+    page += """<p>
+            <label for=\"Name\">Brightness</label>
+            <select name=\"brightness_scale\" id=\"brightness_scale\">"""
+    for scale in ["1.0", "0.9", "0.8", "0.7", "0.6", "0.5", "0.4","0.3", "0.2"]:
+        print(f"Scale value is {float(scale) * 10}")
+        scale_display = round(float(scale) * 10)
+        if scale == settings.settings.get("brightness_scale"):
+            page += f"<option value=\"{scale}\" selected>{scale_display}</option>\n"
+        else:
+            page += f"<option value=\"{scale}\">{scale_display}</option>\n"
+        page += "</p>"
+    page += "</select>"
+
+    page += """<p>
         <label for=\"Submit\"></label>
         <input type=\"submit\">
         </p>

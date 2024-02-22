@@ -18,6 +18,93 @@ except ModuleNotFoundError:
             def __init__(self):
                 self.datetime = datetime()
 
+class ColorUtils:
+    colors = {'White': '0x7f7f7f',
+              'Red': '0xcc3333',
+              'Yellow': '0xff9600',
+              'Orange': '0xff2800',
+              'Green': '0x00ff00',
+              'Teal': '0x00ff78',
+              'Cyan': '0x00ffff',
+              'Blue': '0x0000aa',
+              'Purple': '0xb400ff',
+              'Magenta': '0xff0016',
+              'Black': '0x000000',
+              'Gold': '0xffde1e',
+              'Pink': '0xf25aff',
+              'Aqua': '0x32ffff',
+              'Jade': '0x00ff28',
+              'Amber': '0xff6400',
+              'Old Lace': '0xfdf5e6'}
+
+    @staticmethod
+    def html_color_chooser(name, hex_num_str):
+        """
+        :param name: Name of the HTML select field
+        :param hex_num_str:  A string representation of the selected color
+        :return:
+        """
+        html = ""
+        html += f"<select name=\"{name}\" id=\"{id}\">\n"
+        for color in ColorUtils.colors:
+            if ColorUtils.colors[color] == hex_num_str:
+                html += f"<option value=\"{ColorUtils.colors[color]}\" selected>{color}</option>\n"
+            else:
+                html += f"<option value=\"{ColorUtils.colors[color]}\">{color}</option>\n"
+
+        html += "</select>"
+        return html
+
+    @staticmethod
+    def hex_str_to_number(hex_string):
+        return int(hex_string, 16)
+
+    @staticmethod
+    def number_to_hex_string(num):
+        return hex(num)
+
+    @staticmethod
+    def scale_color(hex_string, scale):
+        r, g, b = ColorUtils.hex_str_to_rgb(hex_string)
+        r = int(r * scale)
+        g = int(g * scale)
+        b = int(b * scale)
+        r_hex = hex(r)
+        if r == 0:
+            r_hex = "00"
+        elif r_hex.startswith("0x"):
+            r_hex = r_hex[2:]
+
+        g_hex = hex(g)
+        if g == 0:
+            g_hex = "00"
+        elif g_hex.startswith("0x"):
+            g_hex = g_hex[2:]
+
+        b_hex = hex(b)
+        if b == 0:
+            b_hex = "00"
+        elif b_hex.startswith("0x"):
+            b_hex = b_hex[2:]
+
+        new_hex_str = "0x" + r_hex + g_hex + b_hex
+        print(f"hex string {hex_string} scaled by {scale} to {new_hex_str}")
+        return new_hex_str
+
+    @staticmethod
+    def hex_str_to_rgb(hex_string):
+        # Remove leading characters
+        if hex_string.startswith('0x'):
+            hex_string = hex_string[2:]
+
+        # Check that the input is valid
+        if len(hex_string) != 6:
+            raise ValueError('Input string should be in the format #RRGGBB')
+
+        # Split the input into rgb components
+        r, g, b = int(hex_string[0:2], 16), int(hex_string[2:4], 16), int(hex_string[4:6], 16)
+
+        return r, g, b
 
 def set_system_clock(http_requests):
     # Set device time from the internet
@@ -550,11 +637,12 @@ class AsyncScrollingDisplay(Display):
         self.hardware.root_group = self.main_group
 
     def set_colors(self, settings):
-        new_color = int(settings.settings["ride_wait_time_color"])
-        self.wait_time_name.color = int(settings.settings["ride_name_color"])
-        self.wait_time.color = int(settings.settings["ride_wait_time_color"])
-        self.closed.color = int(settings.settings["ride_wait_time_color"])
-        self.scrolling_label.color = int(settings.settings["default_color"])
+        scale = float(settings.settings["brightness_scale"])
+        print(f"New brightness scale is: {scale}")
+        self.wait_time_name.color = int(ColorUtils.scale_color(settings.settings["ride_name_color"], scale))
+        self.wait_time.color = int(ColorUtils.scale_color(settings.settings["ride_wait_time_color"], scale))
+        self.closed.color = int(ColorUtils.scale_color(settings.settings["ride_wait_time_color"], scale))
+        self.scrolling_label.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
 
     async def off(self):
         self.scrolling_group.hidden = True
@@ -773,52 +861,6 @@ class MessageQueue:
             self.index = 0
 
 
-class ColorUtils:
-    # def __init__(self, d, delay_param=4):
-    colors = {'White': '0xffffff',
-              'Red': '0xcc3333',
-              'Yellow': '0xff9600',
-              'Orange': '0xff2800',
-              'Green': '0x00ff00',
-              'Teal': '0x00ff78',
-              'Cyan': '0x00ffff',
-              'Blue': '0x0000aa',
-              'Purple': '0xb400ff',
-              'Magenta': '0xff0016',
-              'Black': '0x000000',
-              'Gold': '0xffde1e',
-              'Pink': '0xf25aff',
-              'Aqua': '0x32ffff',
-              'Jade': '0x00ff28',
-              'Amber': '0xff6400',
-              'Old Lace': '0xfdf5e6'}
-
-    @staticmethod
-    def html_color_chooser(name, hex_num_str):
-        """
-        :param name: Name of the HTML select field
-        :param hex_num_str:  A string representation of the selected color
-        :return:
-        """
-        html = ""
-        html += f"<select name=\"{name}\" id=\"{id}\">\n"
-        for color in ColorUtils.colors:
-            if ColorUtils.colors[color] == hex_num_str:
-                html += f"<option value=\"{ColorUtils.colors[color]}\" selected>{color}</option>\n"
-            else:
-                html += f"<option value=\"{ColorUtils.colors[color]}\">{color}</option>\n"
-
-        html += "</select>"
-        return html
-
-    @staticmethod
-    def hex_str_to_number(hex_string):
-        return int(hex_string, 16)
-
-    @staticmethod
-    def number_to_hex_string(num):
-        return hex(num)
-
 
 # Can't get dataclasses to work on MatrixPortal S3.
 # Saving to JSON by hand.
@@ -829,6 +871,8 @@ class SettingsManager:
         self.settings = self.load_settings()
         self.scroll_speed = {"Slow": 0.06, "Medium": 0.04, "Fast": 0.02}
 
+        if self.settings.get("brightness_scale") is None:
+            self.settings["brightness_scale"] = "0.5"
         if self.settings.get("skip_closed") is None:
             self.settings["skip_closed"] = False
         if self.settings.get("skip_meet") is None:
@@ -838,7 +882,7 @@ class SettingsManager:
         if self.settings.get("ride_name_color") is None:
             self.settings["ride_name_color"] = ColorUtils.colors["Blue"]
         if self.settings.get("ride_wait_time_color") is None:
-            self.settings["ride_wait_time_color"] = ColorUtils.colors["White"]
+            self.settings["ride_wait_time_color"] = ColorUtils.colors["Old Lace"]
         if self.settings.get("scroll_speed") is None:
             self.settings["scroll_speed"] = "Medium"
 
