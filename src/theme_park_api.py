@@ -576,7 +576,7 @@ class Display:
         print(f"Ride wait time is {ride_wait_time}")
 
     async def show_configuration_message(self):
-        print(f"Showing configuration message: {CONFIGURATION_MESSAGE}")
+        print(f"Showing configuration message")
 
     async def show_ride_name(self, ride_name):
         print(f"Ride name is {ride_name}")
@@ -753,9 +753,9 @@ class MatrixPortalDisplay(Display):
     async def show_configuration_message(self):
         self.matrix_portal.set_text("", self.STANDBY)
         self.matrix_portal.set_text("", self.WAIT_TIME)
-        self.matrix_portal.set_text("Configure at ", self.RIDE_NAME)
+        self.matrix_portal.set_text(f"Configure at http://{self.settings_manager.settings["domain_name"]}.local", self.RIDE_NAME)
         self.matrix_portal.scroll_text(self.scroll_delay)
-        self.matrix_portal.set_text("http://themeparkwaits.local", self.RIDE_NAME)
+        self.matrix_portal.set_text(f"http://", self.RIDE_NAME)
         self.matrix_portal.scroll_text(self.scroll_delay)
 
     async def show_ride_name(self, ride_name):
@@ -780,7 +780,6 @@ class MatrixPortalDisplay(Display):
 
 
 REQUIRED_MESSAGE = "queue-times.com"
-CONFIGURATION_MESSAGE = "Configure at http://themeparkwaits.local"
 
 
 #  The things to display on the screen
@@ -868,6 +867,8 @@ class SettingsManager:
         self.settings = self.load_settings()
         self.scroll_speed = {"Slow": 0.06, "Medium": 0.04, "Fast": 0.02}
 
+        if self.settings.get("domain_name") is None:
+            self.settings["domain_name"] = "themeparkwaits"
         if self.settings.get("brightness_scale") is None:
             self.settings["brightness_scale"] = "0.5"
         if self.settings.get("skip_closed") is None:

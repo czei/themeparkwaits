@@ -183,7 +183,7 @@ web_server = adafruit_httpserver.Server(socket_pool, "/static", debug=False)
 
 # Configure DNS so that users can configure at http://themeparkwaits.local
 mdns_server = mdns.Server(wifi.radio)
-mdns_server.hostname = "themeparkwaits"
+mdns_server.hostname = settings.settings["domain_name"]
 mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 
 
@@ -314,6 +314,10 @@ def base(request: Request):
         except OSError:
             print("Unable to save settings, drive is read only.")
 
+    # If they changed the name of the host, then we'll need to reboot
+    if mdns_server.hostname != settings.settings["domain_name"]:
+        supervisor.reload()
+
     page = generate_header()
     page += """
     <h2>Settings</h2>
@@ -350,6 +354,13 @@ def base(request: Request):
             page += f"<option value=\"{scale}\">{scale_display}</option>\n"
         page += "</p>"
     page += "</select>"
+
+    #page += "<h2>Configure </h2>"
+    #page += "<div>"
+    page += "<p>"
+    page += "<label for=\"Name\">Hostname:</label>"
+    page += f"<input type=\"text\" name=\"domain_name\" style=\"text-align: left;\" value=\"{settings.settings["domain_name"]}\">"
+    page += "</p>"
 
     page += """<p>
         <label for=\"Submit\"></label>
@@ -468,13 +479,13 @@ async def run_display():
             # print(f"Park valid flag is {current_park.is_valid()}")
             if park_list.current_park.is_valid() is False:
                 messages.init()
-                messages.add_scroll_message(theme_park_api.CONFIGURATION_MESSAGE)
-                # await display.show_configuration_message()
+                messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
             elif messages.regenerate_flag is True and park_list.current_park.is_valid() is True:
                 messages.init()
                 await update_live_wait_time()
-                await messages.add_vacation(vacation_date)
+                messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
                 await messages.add_rides(park_list)
+                await messages.add_vacation(vacation_date)
                 messages.regenerate_flag = False
 
             await messages.show()
