@@ -4,8 +4,6 @@ import board
 import digitalio
 import storage
 import os
-import src.theme_park_api
-from src.ota_updater import OTAUpdater
 
 # See if we need to mount the drive read-only on the Matrix S3
 # side so the computer side can edit files.
@@ -19,7 +17,7 @@ drive_state = not button.value
 
 # False makes the USB drive read-only to the computer
 # storage.remount("/", False)
-# print(f"Drive mount logic is: {drive_state}")
+print(f"Drive mount logic is: {drive_state}")
 storage.remount("/", drive_state)
 
 def remove_file(filename):

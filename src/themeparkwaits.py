@@ -3,6 +3,7 @@
 # View information about ride wait times at any theme park
 # Copyright 2024 3DUPFitters LLC
 #
+import adafruit_logging
 import board
 import asyncio
 import mdns
@@ -16,6 +17,7 @@ import rgbmatrix
 import framebufferio
 import adafruit_requests
 import adafruit_httpserver
+import adafruit_logging as logging
 from adafruit_datetime import datetime
 
 from adafruit_httpserver import (
@@ -40,6 +42,14 @@ from src.theme_park_api import SettingsManager
 from src.theme_park_api import load_credentials
 from src.webgui import generate_header
 from src.ota_updater import OTAUpdater
+
+logger = logging.getLogger('Test')
+logger.setLevel(logging.DEBUG)
+#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+try:
+    logger.addHandler(logging.FileHandler("error_log"))
+except OSError:
+    print("Read-only file system")
 
 try:
     import board
@@ -121,8 +131,6 @@ vacation_date.load_settings(settings)
 # to a new location.
 #
 def run_setup_message(setup_text, repeat_count):
-    # print("Starting Wifi Configure message")
-
     local_portal = MatrixPortal(status_neopixel=board.NEOPIXEL, debug=True)
     local_display = MatrixPortalDisplay(local_portal, settings)
 
@@ -131,10 +139,10 @@ def run_setup_message(setup_text, repeat_count):
             local_display.sync_show_scroll_message(setup_text)
             time.sleep(1)
             now = datetime.now()
-            # print(f"The current time:  {now.hour}:{now.minute}")
 
-        except RuntimeError:
-            traceback.print_exc()
+        except RuntimeError as e:
+            #traceback.print_exc()
+            logger.error(str(e))
 
 
 # Setup WI-FI Password
@@ -152,8 +160,9 @@ if ssid == "" and password == "":
         if wifimgr.get_connection() is not None:
             wifi.radio.connect(ssid, password)
 
-    except (RuntimeError, ConnectionError, ValueError):
-        traceback.print_exc()
+    except (RuntimeError, ConnectionError, ValueError) as e:
+        #traceback.print_exc()
+        logger.error(str(e))
     finally:
         supervisor.reload()
 #
@@ -167,7 +176,7 @@ else:
             setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
             run_setup_message(setup_message, 100000)
 
-# print(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
 
 # The messages class contains a list of function calls
 # to the local Display class, which in turn uses the displayio Display
@@ -190,10 +199,9 @@ mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 async def update_live_wait_time():
     if park_list.current_park.id <= 0:
         return
-    print(f"Updating Park {park_list.current_park.name}:{park_list.current_park.id}")
+    logger.info(f"Updating Park {park_list.current_park.name}:{park_list.current_park.id}")
     local_url = park_list.current_park.get_url()
-    print(f"From URL: {url}")
-    # print(f"Updating Park from URL: {url}")
+    logger.info(f"From URL: {url}")
     local_response = http_requests.get(local_url)
     json_response = local_response.json()
     park_list.current_park.update(json_response)
@@ -227,7 +235,7 @@ def generate_main_page():
     page += "</div>\n"
 
     page += "<div class=\"myCheckbox\">\n"
-    print(f"skip_closed is {settings.settings["skip_closed"]}")
+    logger.info(f"skip_closed is {settings.settings["skip_closed"]}")
     if settings.settings["skip_closed"] is True:
         page += "<label><input type=\"checkbox\" id=\"skip_closed\" name=\"skip_closed\" Checked>Skip Closed Rides</label>"
     else:
@@ -312,7 +320,7 @@ def base(request: Request):
             # Save the settings to disk
             settings.save_settings()
         except OSError:
-            print("Unable to save settings, drive is read only.")
+            logger.critical("Unable to save settings, drive is read only.")
 
     # If they changed the name of the host, then we'll need to reboot
     if mdns_server.hostname != settings.settings["domain_name"]:
@@ -346,7 +354,7 @@ def base(request: Request):
             <label for=\"Name\">Brightness</label>
             <select name=\"brightness_scale\" id=\"brightness_scale\">"""
     for scale in ["1.0", "0.9", "0.8", "0.7", "0.6", "0.5", "0.4","0.3", "0.2"]:
-        print(f"Scale value is {float(scale) * 10}")
+        logger.info(f"Scale value is {float(scale) * 10}")
         scale_display = round(float(scale) * 10)
         if scale == settings.settings.get("brightness_scale"):
             page += f"<option value=\"{scale}\" selected>{scale_display}</option>\n"
@@ -414,7 +422,7 @@ def base(request: Request):
             # Save the settings to disk
             settings.save_settings()
         except OSError:
-            print("Unable to save settings, drive is read only.")
+            logger.critical("Unable to save settings, drive is read only.")
 
         request.query_params = ({})
         head = Headers({"Location": "/"})
@@ -426,14 +434,14 @@ def base(request: Request):
 
 
 def start_web_server(wserver):
-    print("starting server..")
+    logger.debug("starting web server..")
     # startup the server
     try:
         wserver.start(str(wifi.radio.ipv4_address), 80)
-        print("Listening on http://%s:80" % wifi.radio.ipv4_address)
+        logger.debug("Listening on http://%s:80" % wifi.radio.ipv4_address)
     except OSError:
         time.sleep(5)
-        print("restarting device..")
+        logger.debug("restarting device..")
         supervisor.reload()
 
 
@@ -443,7 +451,7 @@ TOKEN = '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'
 # TOKEN='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'
 GITHUBREPO = 'https://github.com/Czeiszperger/themeparkwaits.release'
 ota_updater = OTAUpdater(http_requests, GITHUBREPO, main_dir="src", headers={'Authorization': 'TOKEN {}'.format(TOKEN)})
-print(f"Release version is {ota_updater.get_version("src")}")
+logger.debug(f"Release version is {ota_updater.get_version("src")}")
 
 
 def download_and_install_update_if_available():
@@ -451,7 +459,7 @@ def download_and_install_update_if_available():
         # run_setup_message(f"Updating software. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
         ss, pp = src.theme_park_api.load_credentials()
         if ota_updater.install_update_if_available_after_boot(ss, pp) is True:
-            print("Updated software, rebooting now...")
+            logger.debug("Updated software, rebooting now...")
             supervisor.reload()
 
 
@@ -467,32 +475,37 @@ async def run_web_server():
 
         # If you want you can stop the server by calling server.stop() anywhere in your code
         except OSError as error:
-            print(error)
-            traceback.print_exc()
+            logger.error(str(error))
+            # traceback.print_exc()
             continue
 
 
 async def run_display():
     while True:
         try:
-            # print(f"Messages regen_flag is {messages.regenerate_flag}")
-            # print(f"Park valid flag is {current_park.is_valid()}")
+            logger.debug(f"Messages regen_flag is {messages.regenerate_flag}")
             if park_list.current_park.is_valid() is False:
+                logger.debug("No Settings file, no valid park")
                 messages.init()
                 messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
+                messages.add_splash(3)
+                await messages.show()
+                await messages.show()
             elif messages.regenerate_flag is True and park_list.current_park.is_valid() is True:
                 messages.init()
                 await update_live_wait_time()
                 messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
                 await messages.add_rides(park_list)
                 await messages.add_vacation(vacation_date)
+                await messages.add_splash(3)
                 messages.regenerate_flag = False
 
             await messages.show()
             await asyncio.sleep(0)  # let other tasks run
 
-        except RuntimeError:
-            traceback.print_exc()
+        except RuntimeError as error:
+            logger.error(str(error))
+            #traceback.print_exc()
 
 
 async def update_ride_times():
@@ -510,14 +523,16 @@ async def update_ride_times():
             if len(park_list.current_park.rides) > 0:
                 await update_live_wait_time()
                 messages.init()
-                await messages.add_vacation(vacation_date)
                 await messages.add_rides(park_list)
+                await messages.add_vacation(vacation_date)
+                await messages.add_splash(3)
 
-        except OSError as e:
-            print("Caught exception OSError:", e)
+        except OSError as error:
             messages.init()
             messages.add_scroll_message("Unable to contact wait time server.  Will try again in 5 minutes.")
-        except RuntimeError:
+            logger.error(str(error))
+        except RuntimeError as error:
+            logger.error(str(error))
             traceback.print_exc()
 
 
@@ -529,7 +544,7 @@ try:
     park_list = ThemeParkList(json_response)
     park_list.load_settings(settings)
 except OSError as e:
-    print("Caught exception OSError:", e)
+    logger.critical("Caught exception OSError:", e)
     messages.init()
     messages.add_scroll_message("Unable to contact queue-times.com.  Will try again in 5 minutes.")
 
@@ -537,7 +552,7 @@ except OSError as e:
 try:
     set_system_clock(http_requests)
 except OSError as e:
-    print("Caught exception OSError:", e)
+    logger.error("Caught exception OSError:", e)
     messages.add_scroll_message("Unable to contact time server.")
 
 # Should only work if the user had previously called

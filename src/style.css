@@ -56,7 +56,7 @@ input { display: table-cell;
 }
 
 .navbar a:hover, .dropdown:hover .dropbtn {
-   background-color: red;
+   background-color: gray;
 }
 
 .gear-icon {
