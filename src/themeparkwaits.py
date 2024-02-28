@@ -44,7 +44,8 @@ from src.webgui import generate_header
 from src.ota_updater import OTAUpdater
 
 logger = logging.getLogger('Test')
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
 #formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 try:
     logger.addHandler(logging.FileHandler("error_log"))
@@ -483,23 +484,23 @@ async def run_web_server():
 async def run_display():
     while True:
         try:
-            logger.debug(f"Messages regen_flag is {messages.regenerate_flag}")
-            if park_list.current_park.is_valid() is False:
-                logger.debug("No Settings file, no valid park")
+            # The first time booting the app force the user to configure
+            # a park and learn about the GUI.
+            while park_list.current_park.is_valid() is False:
+                logger.debug("Current park is invalid")
                 messages.init()
                 messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
-                messages.add_splash(3)
+                await messages.add_splash(2)
                 await messages.show()
                 await messages.show()
-            elif messages.regenerate_flag is True and park_list.current_park.is_valid() is True:
-                messages.init()
-                await update_live_wait_time()
-                messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
-                await messages.add_rides(park_list)
-                await messages.add_vacation(vacation_date)
-                await messages.add_splash(3)
-                messages.regenerate_flag = False
 
+            # If the user has updated their settings the regenerate_flag will be true
+            # and we need to redo the message queue
+            if messages.regenerate_flag is True:
+                logger.debug(f"regen_flag is {messages.regenerate_flag}, updating ride times for {park_list.current_park.name}")
+                await update_ride_times()
+
+            # Show the next message in the queue
             await messages.show()
             await asyncio.sleep(0)  # let other tasks run
 
@@ -507,8 +508,16 @@ async def run_display():
             logger.error(str(error))
             #traceback.print_exc()
 
-
 async def update_ride_times():
+    await update_live_wait_time()
+    messages.init()
+    await messages.add_rides(park_list)
+    await messages.add_vacation(vacation_date)
+    messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
+    await messages.add_splash(2)
+    messages.regenerate_flag = False
+
+async def periodically_update_ride_times():
     """
     If the user has selected a park, update the ride values ever so often.
     :return:
@@ -521,11 +530,7 @@ async def update_ride_times():
                 await asyncio.sleep(3600)
 
             if len(park_list.current_park.rides) > 0:
-                await update_live_wait_time()
-                messages.init()
-                await messages.add_rides(park_list)
-                await messages.add_vacation(vacation_date)
-                await messages.add_splash(3)
+                await update_ride_times()
 
         except OSError as error:
             messages.init()
@@ -565,5 +570,5 @@ start_web_server(web_server)
 asyncio.run(asyncio.gather(
     run_display(),
     run_web_server(),
-    update_ride_times()
+    periodically_update_ride_times()
 ))

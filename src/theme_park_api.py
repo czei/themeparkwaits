@@ -7,7 +7,8 @@ import json
 
 import adafruit_logging as logging
 logger = logging.getLogger('Test')
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
 #formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 try:
@@ -615,13 +616,15 @@ class AsyncScrollingDisplay(Display):
         await self.off()
         logger.debug("Showing the splash screen")
         self.splash_group.hidden = False
+        await asyncio.sleep(4)
+        self.splash_group.hidden = True
 
     async def show_ride_name(self, ride_name):
         # await self.off()
         await super().show_ride_name(ride_name)
         self.wait_time_name.text = ride_name
         self.wait_time_name_group.hidden = False
-        while self.scroll(self.wait_time_name) is True:
+        while self.scroll_x(self.wait_time_name) is True:
             await asyncio.sleep(self.settings_manager.get_scroll_speed())
         await asyncio.sleep(1)
         self.wait_time.text = ""
@@ -639,13 +642,13 @@ class AsyncScrollingDisplay(Display):
         self.scrolling_label.text = message
         self.scrolling_group.hidden = False
 
-        while self.scroll(self.scrolling_label) is True:
+        while self.scroll_x(self.scrolling_label) is True:
             await asyncio.sleep(self.settings_manager.get_scroll_speed())
             self.hardware.refresh(minimum_frames_per_second=0)
 
         self.scrolling_group.hidden = True
 
-    def scroll(self, line):
+    def scroll_x(self, line):
         line.x = line.x - 1
         line_width = line.bounding_box[2]
         if line.x < -line_width:
@@ -871,6 +874,7 @@ class SettingsManager:
         return " ".join(word[0].upper() + word[1:] for word in new_name.split(' '))
 
     def load_settings(self):
+        logger.info(f"Loading settings {self.filename}")
         try:
             with open(self.filename, 'r') as f:
                 return json.load(f)
@@ -878,7 +882,7 @@ class SettingsManager:
             return {}
 
     def save_settings(self):
-        logger.info(f"Saving settings {self.settings}")
+        logger.info(f"Saving settings {self.filename}")
         with open(self.filename, 'w') as f:
             json.dump(self.settings, f)
 
