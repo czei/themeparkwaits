@@ -512,9 +512,9 @@ async def run_display():
 async def update_ride_times():
     await update_live_wait_time()
     messages.init()
-    # await messages.add_rides(park_list)
-    # await messages.add_vacation(vacation_date)
-    # messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
+    await messages.add_rides(park_list)
+    await messages.add_vacation(vacation_date)
+    messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_splash(2)
     messages.regenerate_flag = False
 
