@@ -163,7 +163,7 @@ if ssid == "" and password == "":
 
     except (RuntimeError, ConnectionError, ValueError) as e:
         #traceback.print_exc()
-        logger.error(str(e))
+        logger.error(f"The wifi password is wrong: {str(e)}")
     finally:
         supervisor.reload()
 #
@@ -172,8 +172,9 @@ if ssid == "" and password == "":
 else:
     try:
         wifi.radio.connect(ssid, password)
-    except (RuntimeError, ConnectionError, ValueError):
+    except (RuntimeError, ConnectionError, ValueError) as e:
         while wifi.radio.connected is not True:
+            logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
             setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
             run_setup_message(setup_message, 100000)
 
@@ -387,7 +388,7 @@ def base(request: Request):
             page += """<p><ol>
             <li>Click on the upgrade button below to download the latest release and install it.</br></li>  
             <br>
-            <li>The LED will be unresponsive for 3-10 minutes. The screen will flash several times with random characters, do not be alarmed.</li>
+            <li>The LED will be unresponsive for 3-10 minutes. The screen will flash several times with random characters and <b>may go blank for up to 10 minutes</b>.</li>
             <br>
             <li><b>Do not turn the device off during the upgrade process.</b></li>
             <br>
@@ -511,9 +512,9 @@ async def run_display():
 async def update_ride_times():
     await update_live_wait_time()
     messages.init()
-    await messages.add_rides(park_list)
-    await messages.add_vacation(vacation_date)
-    messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
+    # await messages.add_rides(park_list)
+    # await messages.add_vacation(vacation_date)
+    # messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_splash(2)
     messages.regenerate_flag = False
 

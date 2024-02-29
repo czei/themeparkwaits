@@ -31,8 +31,8 @@ except ModuleNotFoundError:
 class ColorUtils:
     colors = {'White': '0x7f7f7f',
               'Red': '0xff0000',
-              'Yellow': '0xff9600',
-              'Orange': '0xff2800',
+              'Yellow': '0xffff00',
+              'Orange': '0xffa500',
               'Green': '0x00ff00',
               'Teal': '0x00ff78',
               'Cyan': '0x00ffff',
@@ -569,6 +569,8 @@ class AsyncScrollingDisplay(Display):
         self.splash_group.hidden = True
         self.splash_group.append(self.splash_line1)
         self.splash_group.append(self.splash_line2)
+        self.splash_line1.color = int(ColorUtils.colors["Yellow"])
+        self.splash_line2.color = int(ColorUtils.colors["Orange"])
 
         self.main_group = displayio.Group()
         self.main_group.hidden = False
@@ -653,6 +655,24 @@ class AsyncScrollingDisplay(Display):
         line_width = line.bounding_box[2]
         if line.x < -line_width:
             line.x = self.hardware.width
+            return False
+        return True
+
+    def scroll_y(self, line, down=True):
+        orig_y = line.y
+        if down is True:
+            line.y = line.y - line.bounding_box[1]
+        else:
+            line.y = line.y + line.bounding_box[1]
+        while line.y != orig_y:
+            if down is True:
+                line.y = line.y - 1
+            else:
+                line.y = line.y + 1
+
+        line_height = line.bounding_box[1]
+        if line.y < -line_height:
+            line.y = self.hardware.height
             return False
         return True
 
