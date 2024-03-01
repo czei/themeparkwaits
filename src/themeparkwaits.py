@@ -7,6 +7,7 @@ import sys
 sys.path.append('/src/lib')
 import adafruit_logging
 import board
+import gc
 import asyncio
 import mdns
 import time
@@ -94,7 +95,7 @@ displayio.release_displays()
 DISPLAY_WIDTH = 64
 DISPLAY_HEIGHT = 32
 DISPLAY_ROTATION = 0
-BIT_DEPTH = 6
+BIT_DEPTH = 4
 AUTO_REFRESH = True
 
 matrix = rgbmatrix.RGBMatrix(
@@ -522,6 +523,8 @@ async def update_ride_times():
     messages.regenerate_flag = False
 
 async def periodically_update_ride_times():
+    gc.collect()
+    logger.info("Memory available: {gc.mem_free()}")
     """
     If the user has selected a park, update the ride values ever so often.
     :return:
