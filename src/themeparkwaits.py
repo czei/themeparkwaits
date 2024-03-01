@@ -3,6 +3,8 @@
 # View information about ride wait times at any theme park
 # Copyright 2024 3DUPFitters LLC
 #
+import sys
+sys.path.append('/src/lib')
 import adafruit_logging
 import board
 import asyncio
@@ -386,8 +388,9 @@ def base(request: Request):
         else:
             page += f"<p>The latest release \'{latest}\' is newer than the currently installed release \'{release}\'</p>"
             page += """<p><ol>
-            <li>Click on the upgrade button below to download the latest release and install it.</br></li>  
+            <li>Click on the upgrade button below to download the latest release and install it.</li>  
             <br>
+            <li>The web GUI will immediately stop working.<li>  
             <li>The LED will be unresponsive for 3-10 minutes. The screen will flash several times with random characters and <b>may go blank for up to 10 minutes</b>.</li>
             <br>
             <li><b>Do not turn the device off during the upgrade process.</b></li>

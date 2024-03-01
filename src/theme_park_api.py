@@ -1,3 +1,11 @@
+#
+# Theme Park Waits
+# View information about ride wait times at any theme park
+# Copyright 2024 3DUPFitters LLC
+#
+import sys
+sys.path.append('/src/lib')
+
 import terminalio
 import asyncio
 import displayio
@@ -7,8 +15,7 @@ import json
 
 import adafruit_logging as logging
 logger = logging.getLogger('Test')
-#logger.setLevel(logging.DEBUG)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.ERROR)  # Use DEBUG for testing
 #formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 try:

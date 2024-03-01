@@ -217,12 +217,11 @@ class OTAUpdater:
         os.rmdir(directory)
 
     def _os_supports_rename(self) -> bool:
-        return False
-        # self._mk_dirs('otaUpdater/osRenameTest')
-        # os.rename('otaUpdater', 'otaUpdated')
-        # result = len(os.listdir('otaUpdated')) > 0
-        # self._rmtree('otaUpdated')
-        # return result
+        self._mk_dirs('otaUpdater/osRenameTest')
+        os.rename('otaUpdater', 'otaUpdated')
+        result = len(os.listdir('otaUpdated')) > 0
+        self._rmtree('otaUpdated')
+        return result
 
     #
     # Now only works on simple directories with no sub-directories
@@ -231,15 +230,17 @@ class OTAUpdater:
         if not self._exists_dir(toPath):
             self._mk_dirs(toPath)
 
+        print(f"Copying directory {fromPath} to {toPath}")
         for entry in os.listdir(fromPath):
-            #stat = os.stat(fromPath+ '/' + entry)
-            #is_dir = (stat[0] & 0o170000) == 0o040000
-            #is_dir = (stat[0] & 0x4000) != 0
-            #if is_dir:
-            #    self._copy_directory(fromPath + '/' + entry, toPath + '/' + entry)
-            #else:
-            print(f"Copying {fromPath}/{entry} to {toPath}/{entry}" )
-            self._copy_file(fromPath + '/' + entry, toPath + '/' + entry)
+            stat = os.stat(fromPath+ '/' + entry)
+            is_dir = (stat[0] & 0o170000) == 0o040000
+            is_dir = (stat[0] & 0x4000) != 0
+            if is_dir:
+                print(f"Calling copy_directory again {fromPath} to {toPath}")
+                self._copy_directory(fromPath + '/' + entry, toPath + '/' + entry)
+            else:
+                print(f"Copying file {fromPath}/{entry} to {toPath}/{entry}" )
+                self._copy_file(fromPath + '/' + entry, toPath + '/' + entry)
 
     def _copy_file(self, fromPath, toPath):
         with open(fromPath) as fromFile:

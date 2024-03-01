@@ -1,3 +1,8 @@
+#
+# Theme Park Waits
+# View information about ride wait times at any theme park
+# Copyright 2024 3DUPFitters LLC
+#
 from app.ota_updater import OTAUpdater
 def connectToWifiAndUpdate():
     import time, machine, network, gc, app.secrets as secrets
