@@ -380,11 +380,9 @@ def base(request: Request):
         page += "</p>"
     page += "</select>"
 
-    # page += "<h2>Configure </h2>"
-    # page += "<div>"
     page += "<p>"
     page += "<label for=\"Name\">Hostname:</label>"
-    page += f"<input type=\"text\" name=\"domain_name\" style=\"text-align: left;\" value=\"{settings.settings["domain_name"]}\">"
+    page += f"<input type=\"text\" name=\"domain_name\" style=\"text-align: left;\" value=\"{settings.settings["domain_name"]}\">.local"
     page += "</p>"
 
     page += """<p>
