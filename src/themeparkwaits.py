@@ -4,6 +4,9 @@
 # Copyright 2024 3DUPFitters LLC
 #
 import sys
+# import tracemalloc
+# tracemalloc.start()
+
 sys.path.append('/src/lib')
 import adafruit_logging
 import board
@@ -43,13 +46,14 @@ from src.theme_park_api import AsyncScrollingDisplay
 from src.theme_park_api import MessageQueue
 from src.theme_park_api import SettingsManager
 from src.theme_park_api import load_credentials
+from src.theme_park_api import url_decode
 from src.webgui import generate_header
 from src.ota_updater import OTAUpdater
 
 logger = logging.getLogger('Test')
-#logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.ERROR)
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# logger.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 try:
     logger.addHandler(logging.FileHandler("error_log"))
 except OSError:
@@ -145,12 +149,27 @@ def run_setup_message(setup_text, repeat_count):
             now = datetime.now()
 
         except RuntimeError as e:
-            #traceback.print_exc()
+            # traceback.print_exc()
             logger.error(str(e))
 
 
 # Setup WI-FI Password
 ssid, password = load_credentials()
+
+
+def try_wifi_until_connected():
+    attempts = 1
+    try:
+        wifi.radio.connect(ssid, password)
+    except (RuntimeError, ConnectionError, ValueError) as e:
+        while wifi.radio.connected is not True:
+            logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
+            #  Give it a couple of attempts to connect before reporting an error
+            if attempts > 4:
+                setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
+                run_setup_message(setup_message, 1)
+            attempts = attempts + 1
+        logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
 
 #
 # True when first starting device or the Wifi has been reset
@@ -165,7 +184,7 @@ if ssid == "" and password == "":
             wifi.radio.connect(ssid, password)
 
     except (RuntimeError, ConnectionError, ValueError) as e:
-        #traceback.print_exc()
+        # traceback.print_exc()
         logger.error(f"The wifi password is wrong: {str(e)}")
     finally:
         supervisor.reload()
@@ -173,15 +192,7 @@ if ssid == "" and password == "":
 # The Wifi credentials already existed
 #
 else:
-    try:
-        wifi.radio.connect(ssid, password)
-    except (RuntimeError, ConnectionError, ValueError) as e:
-        while wifi.radio.connected is not True:
-            logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
-            setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
-            run_setup_message(setup_message, 100000)
-
-logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+    try_wifi_until_connected()
 
 # The messages class contains a list of function calls
 # to the local Display class, which in turn uses the displayio Display
@@ -202,6 +213,7 @@ mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 
 
 async def update_live_wait_time():
+    try_wifi_until_connected()
     if park_list.current_park.id <= 0:
         return
     logger.info(f"Updating Park {park_list.current_park.name}:{park_list.current_park.id}")
@@ -319,6 +331,7 @@ def base(request: Request):
     # Parse new settings
     if request.method == POST:
         for name, value in request.form_data.items():
+            logger.debug(f"Name = {name} Value={value}")
             settings.settings[name] = value
         display.set_colors(settings)
         try:
@@ -358,7 +371,7 @@ def base(request: Request):
     page += """<p>
             <label for=\"Name\">Brightness</label>
             <select name=\"brightness_scale\" id=\"brightness_scale\">"""
-    for scale in ["1.0", "0.9", "0.8", "0.7", "0.6", "0.5", "0.4","0.3", "0.2"]:
+    for scale in ["1.0", "0.9", "0.8", "0.7", "0.6", "0.5", "0.4", "0.3", "0.2"]:
         logger.info(f"Scale value is {float(scale) * 10}")
         scale_display = round(float(scale) * 10)
         if scale == settings.settings.get("brightness_scale"):
@@ -368,8 +381,8 @@ def base(request: Request):
         page += "</p>"
     page += "</select>"
 
-    #page += "<h2>Configure </h2>"
-    #page += "<div>"
+    # page += "<h2>Configure </h2>"
+    # page += "<div>"
     page += "<p>"
     page += "<label for=\"Name\">Hostname:</label>"
     page += f"<input type=\"text\" name=\"domain_name\" style=\"text-align: left;\" value=\"{settings.settings["domain_name"]}\">"
@@ -451,8 +464,6 @@ def start_web_server(wserver):
         supervisor.reload()
 
 
-
-
 TOKEN = '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'
 # TOKEN='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'
 GITHUBREPO = 'https://github.com/Czeiszperger/themeparkwaits.release'
@@ -502,7 +513,8 @@ async def run_display():
             # If the user has updated their settings the regenerate_flag will be true
             # and we need to redo the message queue
             if messages.regenerate_flag is True:
-                logger.debug(f"regen_flag is {messages.regenerate_flag}, updating ride times for {park_list.current_park.name}")
+                logger.debug(
+                    f"regen_flag is {messages.regenerate_flag}, updating ride times for {park_list.current_park.name}")
                 await update_ride_times()
 
             # Show the next message in the queue
@@ -511,7 +523,8 @@ async def run_display():
 
         except RuntimeError as error:
             logger.error(str(error))
-            #traceback.print_exc()
+            # traceback.print_exc()
+
 
 async def update_ride_times():
     await update_live_wait_time()
@@ -522,17 +535,23 @@ async def update_ride_times():
     await messages.add_splash(2)
     messages.regenerate_flag = False
 
+
 async def periodically_update_ride_times():
-    gc.collect()
-    logger.info("Memory available: {gc.mem_free()}")
     """
     If the user has selected a park, update the ride values ever so often.
     :return:
     """
     while True:
         try:
+            gc.collect()
+            mem_free = gc.mem_free()
+            logger.debug(f"Memory available: {mem_free}")
+
+            if mem_free < 200000:
+                logger.critical(f"Low memory: {mem_free}")
+
             if park_list.current_park.is_open is True:
-                await asyncio.sleep(300)
+                await asyncio.sleep(600)
             else:
                 await asyncio.sleep(3600)
 
