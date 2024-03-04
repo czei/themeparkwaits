@@ -16,7 +16,6 @@ import json
 import adafruit_logging as logging
 logger = logging.getLogger('Test')
 logger.setLevel(logging.ERROR)  # Use DEBUG for testing
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 try:
     logger.addHandler(logging.FileHandler("error_log"))
