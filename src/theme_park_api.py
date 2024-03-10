@@ -11,7 +11,9 @@ import asyncio
 import displayio
 from adafruit_datetime import datetime
 from adafruit_display_text.label import Label
+from src.color_utils import ColorUtils
 import json
+from adafruit_bitmap_font import bitmap_font
 
 import adafruit_logging as logging
 logger = logging.getLogger('Test')
@@ -33,93 +35,6 @@ except ModuleNotFoundError:
             def __init__(self):
                 self.datetime = datetime()
 #'Red': '0xcc3333',
-
-class ColorUtils:
-    colors = {'White': '0x7f7f7f',
-              'Red': '0xff0000',
-              'Yellow': '0xffff00',
-              'Orange': '0xffa500',
-              'Green': '0x00ff00',
-              'Teal': '0x00ff78',
-              'Cyan': '0x00ffff',
-              'Blue': '0x0000aa',
-              'Purple': '0xb400ff',
-              'Magenta': '0xff00ff',
-              'Black': '0x000000',
-              'Gold': '0xffde1e',
-              'Pink': '0xf25aff',
-              'Aqua': '0x32ffff',
-              'Jade': '0x00ff28',
-              'Amber': '0xff6400',
-              'Old Lace': '0xfdf5e6'}
-
-    @staticmethod
-    def html_color_chooser(name, hex_num_str):
-        """
-        :param name: Name of the HTML select field
-        :param hex_num_str:  A string representation of the selected color
-        :return:
-        """
-        html = ""
-        html += f"<select name=\"{name}\" id=\"{id}\">\n"
-        for color in ColorUtils.colors:
-            if ColorUtils.colors[color] == hex_num_str:
-                html += f"<option value=\"{ColorUtils.colors[color]}\" selected>{color}</option>\n"
-            else:
-                html += f"<option value=\"{ColorUtils.colors[color]}\">{color}</option>\n"
-
-        html += "</select>"
-        return html
-
-    @staticmethod
-    def hex_str_to_number(hex_string):
-        return int(hex_string, 16)
-
-    @staticmethod
-    def number_to_hex_string(num):
-        return hex(num)
-
-    @staticmethod
-    def scale_color(hex_string, scale):
-        r, g, b = ColorUtils.hex_str_to_rgb(hex_string)
-        r = int(r * scale)
-        g = int(g * scale)
-        b = int(b * scale)
-        r_hex = hex(r)
-        if r == 0:
-            r_hex = "00"
-        elif r_hex.startswith("0x"):
-            r_hex = r_hex[2:]
-
-        g_hex = hex(g)
-        if g == 0:
-            g_hex = "00"
-        elif g_hex.startswith("0x"):
-            g_hex = g_hex[2:]
-
-        b_hex = hex(b)
-        if b == 0:
-            b_hex = "00"
-        elif b_hex.startswith("0x"):
-            b_hex = b_hex[2:]
-
-        new_hex_str = "0x" + r_hex + g_hex + b_hex
-        return new_hex_str
-
-    @staticmethod
-    def hex_str_to_rgb(hex_string):
-        # Remove leading characters
-        if hex_string.startswith('0x'):
-            hex_string = hex_string[2:]
-
-        # Check that the input is valid
-        if len(hex_string) != 6:
-            raise ValueError('Input string should be in the format #RRGGBB')
-
-        # Split the input into rgb components
-        r, g, b = int(hex_string[0:2], 16), int(hex_string[2:4], 16), int(hex_string[4:6], 16)
-
-        return r, g, b
 
 def set_system_clock(http_requests):
     # Set device time from the internet
@@ -579,6 +494,24 @@ class AsyncScrollingDisplay(Display):
         self.splash_line1.color = int(ColorUtils.colors["Yellow"])
         self.splash_line2.color = int(ColorUtils.colors["Orange"])
 
+        self.queue_line1 = Label(
+            terminalio.FONT,
+            text="Powered by")
+        self.queue_line1.color = int(ColorUtils.colors["Yellow"])
+        self.queue_line1.x = 0
+        self.queue_line1.y = 10
+
+        self.queue_line2 = Label(
+            bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
+            text="queue-times.com")
+        self.queue_line2.color = int(ColorUtils.colors["Orange"])
+        self.queue_line2.x = 1
+        self.queue_line2.y = 25
+        self.queue_group = displayio.Group()
+        self.queue_group.hidden = True
+        self.queue_group.append(self.queue_line1)
+        self.queue_group.append(self.queue_line2)
+
         self.main_group = displayio.Group()
         self.main_group.hidden = False
         self.main_group.append(self.scrolling_group)
@@ -586,6 +519,7 @@ class AsyncScrollingDisplay(Display):
         self.main_group.append(self.wait_time_group)
         self.main_group.append(self.closed_group)
         self.main_group.append(self.splash_group)
+        self.main_group.append(self.queue_group)
         self.hardware.root_group = self.main_group
 
     def set_colors(self, settings):
@@ -627,6 +561,8 @@ class AsyncScrollingDisplay(Display):
         self.splash_group.hidden = False
         await asyncio.sleep(4)
         self.splash_group.hidden = True
+
+
 
     async def show_ride_name(self, ride_name):
         # await self.off()

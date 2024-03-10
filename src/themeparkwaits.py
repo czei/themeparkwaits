@@ -38,7 +38,8 @@ from adafruit_httpserver import (
 from adafruit_matrixportal.matrixportal import MatrixPortal
 
 from src import theme_park_api, wifimgr
-from src.theme_park_api import set_system_clock, ColorUtils, MatrixPortalDisplay
+from src.color_utils import ColorUtils
+from src.theme_park_api import set_system_clock, MatrixPortalDisplay
 from src.theme_park_api import ThemeParkList
 from src.theme_park_api import ThemePark
 from src.theme_park_api import Vacation
@@ -215,12 +216,17 @@ async def update_live_wait_time():
     try_wifi_until_connected()
     if park_list.current_park.id <= 0:
         return
-    logger.info(f"Updating Park {park_list.current_park.name}:{park_list.current_park.id}")
-    local_url = park_list.current_park.get_url()
-    logger.info(f"From URL: {url}")
-    local_response = http_requests.get(local_url)
-    json_response = local_response.json()
-    park_list.current_park.update(json_response)
+    try:
+        logger.info(f"About to start HTTP GET for Park {park_list.current_park.name}:{park_list.current_park.id}")
+        local_url = park_list.current_park.get_url()
+        logger.info(f"From URL: {url}")
+        local_response = http_requests.get(local_url)
+        json_response = local_response.json()
+        logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
+        park_list.current_park.update(json_response)
+
+    except OSError:
+        logger.critical("Unable to update ride times.")
 
 
 def generate_main_page():
@@ -371,7 +377,6 @@ def base(request: Request):
             <label for=\"Name\">Brightness</label>
             <select name=\"brightness_scale\" id=\"brightness_scale\">"""
     for scale in ["1.0", "0.9", "0.8", "0.7", "0.6", "0.5", "0.4", "0.3", "0.2"]:
-        logger.info(f"Scale value is {float(scale) * 10}")
         scale_display = round(float(scale) * 10)
         if scale == settings.settings.get("brightness_scale"):
             page += f"<option value=\"{scale}\" selected>{scale_display}</option>\n"
@@ -389,8 +394,11 @@ def base(request: Request):
         <label for=\"Submit\"></label>
         <input type=\"submit\">
         </p>
-        </form>"""
+        </form></div>"""
 
+    page += """<p>
+            <h2>Settings</h2>
+            </div>"""
     try:
         release = ota_updater.get_version("src")
         latest = ota_updater.get_latest_version()
@@ -411,6 +419,7 @@ def base(request: Request):
             <form action=\"/upgrade.html\" method=\"POST\">
             <p><button type="submit">Upgrade</button></p>
             </form>
+            </div>
             """
 
 
@@ -418,6 +427,8 @@ def base(request: Request):
         page += "<p>Unable to find latest software release on git code server.</p>"
 
     page += "</div><body>"
+
+    run_garbage_collector()
     return adafruit_httpserver.Response(request, page, content_type="text/html")
 
 
@@ -533,6 +544,12 @@ async def update_ride_times():
     messages.regenerate_flag = False
 
 
+def run_garbage_collector():
+    gc.collect()
+    mem_free = gc.mem_free()
+    logger.debug(f"Memory available: {mem_free}")
+    return mem_free
+
 async def periodically_update_ride_times():
     """
     If the user has selected a park, update the ride values ever so often.
@@ -540,10 +557,7 @@ async def periodically_update_ride_times():
     """
     while True:
         try:
-            gc.collect()
-            mem_free = gc.mem_free()
-            logger.debug(f"Memory available: {mem_free}")
-
+            mem_free = run_garbage_collector()
             if mem_free < 200000:
                 logger.critical(f"Low memory: {mem_free}")
 
