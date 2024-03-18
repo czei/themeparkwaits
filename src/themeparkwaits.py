@@ -4,6 +4,7 @@
 # Copyright 2024 3DUPFitters LLC
 #
 import sys
+
 # import tracemalloc
 # tracemalloc.start()
 
@@ -171,6 +172,7 @@ def try_wifi_until_connected():
             attempts = attempts + 1
         logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
 
+
 #
 # True when first starting device or the Wifi has been reset
 #
@@ -212,6 +214,9 @@ mdns_server.hostname = settings.settings["domain_name"]
 mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 
 
+# TODO Convert to non-blocking
+# https://docs.circuitpython.org/en/latest/shared-bindings/socketpool/index.html
+#
 async def update_live_wait_time():
     try_wifi_until_connected()
     if park_list.current_park.id <= 0:
@@ -549,6 +554,7 @@ def run_garbage_collector():
     mem_free = gc.mem_free()
     logger.debug(f"Memory available: {mem_free}")
     return mem_free
+
 
 async def periodically_update_ride_times():
     """
