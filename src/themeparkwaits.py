@@ -218,7 +218,7 @@ mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 # https://docs.circuitpython.org/en/latest/shared-bindings/socketpool/index.html
 #
 async def update_live_wait_time():
-    start_time = time.monotonic()
+
     try_wifi_until_connected()
     if park_list.current_park.id <= 0:
         return
@@ -230,10 +230,7 @@ async def update_live_wait_time():
         json_response = local_response.json()
         logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
         park_list.current_park.update(json_response)
-        end_time = time.monotonic()
-        elapsed_time = end_time - start_time
-        if elapsed_time > 2:
-            logger.error(f"Updating wait times took {elapsed_time} seconds")
+
 
     except OSError:
         logger.critical("Unable to update ride times.")
@@ -545,6 +542,7 @@ async def run_display():
 
 
 async def update_ride_times():
+    start_time = time.monotonic()
     await update_live_wait_time()
     messages.init()
     await messages.add_rides(park_list)
@@ -552,6 +550,10 @@ async def update_ride_times():
     messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_splash(2)
     messages.regenerate_flag = False
+    end_time = time.monotonic()
+    elapsed_time = end_time - start_time
+    if elapsed_time > 2:
+        logger.error(f"Updating wait times took {elapsed_time} seconds")
 
 
 def run_garbage_collector():

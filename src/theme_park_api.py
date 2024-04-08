@@ -761,6 +761,7 @@ class MessageQueue:
             return
 
         for ride in park.rides:
+            await asyncio.sleep(0)
             if "Meet" in ride.name and park_list.skip_meet == True:
                 logger.info(f"Skipping character meet: {ride.name}")
                 continue
