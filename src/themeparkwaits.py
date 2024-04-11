@@ -532,6 +532,10 @@ async def run_display():
                     f"regen_flag is {messages.regenerate_flag}, updating ride times for {park_list.current_park.name}")
                 await update_ride_times()
 
+            mem_free = run_garbage_collector()
+            if mem_free < 200000:
+                logger.critical(f"Low memory: {mem_free}")
+
             # Show the next message in the queue
             await messages.show()
             await asyncio.sleep(0)  # let other tasks run
@@ -575,10 +579,6 @@ async def periodically_update_ride_times():
     """
     while True:
         try:
-            mem_free = run_garbage_collector()
-            if mem_free < 200000:
-                logger.critical(f"Low memory: {mem_free}")
-
             if park_list.current_park.is_open is True:
                 await asyncio.sleep(600)
             else:
