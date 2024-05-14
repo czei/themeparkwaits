@@ -4,20 +4,24 @@
 # Copyright 2024 3DUPFitters LLC
 #
 import sys
+
 sys.path.append('/src/lib')
 
-import terminalio
 import asyncio
 import displayio
+import terminalio
 from adafruit_datetime import datetime
 from adafruit_display_text.label import Label
 from src.color_utils import ColorUtils
 import json
+import time
 from adafruit_bitmap_font import bitmap_font
 
 import adafruit_logging as logging
+
 logger = logging.getLogger('Test')
-logger.setLevel(logging.ERROR)  # Use DEBUG for testing
+# logger.setLevel(logging.ERROR)  # Use DEBUG for testing
+logger.setLevel(logging.DEBUG)  # Use DEBUG for testing
 
 try:
     logger.addHandler(logging.FileHandler("error_log"))
@@ -34,6 +38,8 @@ except ModuleNotFoundError:
         class RTC:
             def __init__(self):
                 self.datetime = datetime()
+
+
 #'Red': '0xcc3333',
 
 def set_system_clock(http_requests):
@@ -71,6 +77,7 @@ class ThemeParkList:
     The ThemeParkList class is used to manage a list of ThemePark objects.
     It provides various utility methods to interact with, and retrieve data from the list.
     '''
+
     def __init__(self, json_response):
         self.park_list = []
         self.current_park = ThemePark()
@@ -181,7 +188,6 @@ class ThemeParkList:
             if name_value[0] == "skip_meet":
                 logger.debug("Skip meet is True")
                 self.skip_meet = True
-
 
     def store_settings(self, sm):
         sm.settings["current_park_name"] = self.current_park.name
@@ -337,10 +343,6 @@ class ThemePark:
         self.counter = 0
 
 
-
-
-
-
 class ThemeParkIterator:
     def __init__(self, park):
         """
@@ -451,7 +453,7 @@ class AsyncScrollingDisplay(Display):
         # Configure Ride Times
         self.wait_time_name = Label(terminalio.FONT)
         self.wait_time_name.x = 0
-        self.wait_time_name.y = 6
+        self.wait_time_name.y = 7
         self.wait_time_name.scale = 1
         self.wait_time_name_group = displayio.Group()
         self.wait_time_name_group.append(self.wait_time_name)
@@ -479,20 +481,62 @@ class AsyncScrollingDisplay(Display):
             terminalio.FONT,
             text="THEME PARK")
         self.splash_line1.x = self.hardware.width
-        self.splash_line1.x = 3
-        self.splash_line1.y = 5
+        self.splash_line1.x = 2
+        self.splash_line1.y = 7
         self.splash_line2 = Label(
             terminalio.FONT,
             text="WAITS",
             scale=2)
         self.splash_line2.x = 3
-        self.splash_line2.y = 20
+        self.splash_line2.y = 22
         self.splash_group = displayio.Group()
         self.splash_group.hidden = True
         self.splash_group.append(self.splash_line1)
         self.splash_group.append(self.splash_line2)
         self.splash_line1.color = int(ColorUtils.colors["Yellow"])
         self.splash_line2.color = int(ColorUtils.colors["Orange"])
+
+        # Message to show when wait times are updating
+        self.update_line1 = Label(
+            terminalio.FONT,
+            text="Wait Times")
+        self.update_line1.x = 2
+        self.update_line1.y = 9
+        self.update_line2 = Label(
+            terminalio.FONT,
+            text="Powered By",
+            scale=1)
+        self.update_line2.x = 2
+        self.update_line2.y = 24
+        self.update_group = displayio.Group()
+        self.update_group.hidden = True
+        self.update_group.append(self.update_line1)
+        self.update_group.append(self.update_line2)
+        self.update_line1.color = int(ColorUtils.colors["Yellow"])
+        self.update_line2.color = int(ColorUtils.colors["Yellow"])
+
+        # Message to show when wait times are updating
+        self.required_line1 = Label(
+            terminalio.FONT,
+            text="FROM")
+        self.required_line1.x = 12
+        self.required_line1.y = 12
+        #self.required_line2 = Label(
+        #    terminalio.FONT,
+        #    text="queue-times.com",
+        #    scale=1)
+        self.required_line2 = Label(
+            bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
+            text="queue-times.com")
+
+        self.required_line2.x = 2
+        self.required_line2.y = 15
+        self.required_group = displayio.Group()
+        self.required_group.hidden = True
+        # self.required_group.append(self.required_line1)
+        self.required_group.append(self.required_line2)
+        self.required_line1.color = int(ColorUtils.colors["Yellow"])
+        self.required_line2.color = int(ColorUtils.colors["Yellow"])
 
         self.queue_line1 = Label(
             terminalio.FONT,
@@ -519,6 +563,8 @@ class AsyncScrollingDisplay(Display):
         self.main_group.append(self.wait_time_group)
         self.main_group.append(self.closed_group)
         self.main_group.append(self.splash_group)
+        self.main_group.append(self.update_group)
+        self.main_group.append(self.required_group)
         self.main_group.append(self.queue_group)
         self.hardware.root_group = self.main_group
 
@@ -531,6 +577,10 @@ class AsyncScrollingDisplay(Display):
         self.scrolling_label.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
         self.splash_line1.color = int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
         self.splash_line2.color = int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
+        self.update_line1.color = int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
+        self.update_line2.color = int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
+        self.required_line1.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
+        self.required_line2.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
 
     async def off(self):
         self.scrolling_group.hidden = True
@@ -538,6 +588,8 @@ class AsyncScrollingDisplay(Display):
         self.wait_time_group.hidden = True
         self.closed_group.hidden = True
         self.splash_group.hidden = True
+        self.update_group.hidden = True
+        self.required_group.hidden = True
 
     async def show_ride_closed(self, dummy):
         await super().show_ride_closed(dummy)
@@ -562,11 +614,20 @@ class AsyncScrollingDisplay(Display):
         await asyncio.sleep(4)
         self.splash_group.hidden = True
 
+    async def show_update(self, on_flag):
+        await self.off()
+        logger.debug("Showing the update screen")
+        self.update_group.hidden = not on_flag
 
+    async def show_required(self, on_flag):
+        await self.off()
+        logger.debug("Showing the update screen")
+        self.required_group.hidden = not on_flag
 
     async def show_ride_name(self, ride_name):
         # await self.off()
         await super().show_ride_name(ride_name)
+        await asyncio.sleep(.5)
         self.wait_time_name.text = ride_name
         self.wait_time_name_group.hidden = False
         while self.scroll_x(self.wait_time_name) is True:
@@ -585,6 +646,7 @@ class AsyncScrollingDisplay(Display):
         self.wait_time_name_group.hidden = True
         self.scrolling_label.text = message
         self.scrolling_group.hidden = False
+        await asyncio.sleep(.5)
 
         while self.scroll_x(self.scrolling_label) is True:
             await asyncio.sleep(self.settings_manager.get_scroll_speed())
@@ -678,7 +740,8 @@ class MatrixPortalDisplay(Display):
     async def show_configuration_message(self):
         self.matrix_portal.set_text("", self.STANDBY)
         self.matrix_portal.set_text("", self.WAIT_TIME)
-        self.matrix_portal.set_text(f"Configure at http://{self.settings_manager.settings["domain_name"]}.local", self.RIDE_NAME)
+        self.matrix_portal.set_text(f"Configure at http://{self.settings_manager.settings["domain_name"]}.local",
+                                    self.RIDE_NAME)
         self.matrix_portal.scroll_text(self.scroll_delay)
         self.matrix_portal.set_text(f"http://", self.RIDE_NAME)
         self.matrix_portal.scroll_text(self.scroll_delay)
@@ -716,15 +779,15 @@ class MessageQueue:
         self.init()
 
     def add_scroll_message(self, the_message, delay=2):
-        self.func_queue.insert(0, self.display.show_scroll_message)
-        self.param_queue.insert(0, the_message)
-        self.delay_queue.insert(0, delay)
+        self.func_queue.append(self.display.show_scroll_message)
+        self.param_queue.append(the_message)
+        self.delay_queue.append(delay)
 
     async def add_splash(self, delay):
         logger.debug("Adding splash message to queue")
-        self.func_queue.insert(0,self.display.show_splash)
-        self.param_queue.insert(0,"")
-        self.delay_queue.insert(0,delay)
+        self.func_queue.append(self.display.show_splash)
+        self.param_queue.append("")
+        self.delay_queue.append(delay)
 
     def init(self):
         self.func_queue = []
@@ -742,17 +805,15 @@ class MessageQueue:
                 vac_message = f"Your vacation to {vac.name} is tomorrow!!!!!!!!!!!!!"
                 self.add_scroll_message(vac_message, 0)
 
-    def add_required_message(self, park):
+    async def add_required_message(self, parkName):
         self.func_queue.append(self.display.show_scroll_message)
-        required_message = f"Wait times for {park.name} provided by {REQUIRED_MESSAGE}"
+        required_message = f"Wait times for {parkName} provided by {REQUIRED_MESSAGE}"
         self.param_queue.append(required_message)
         self.delay_queue.append(self.delay)
 
     async def add_rides(self, park_list):
         park = park_list.current_park
         logger.debug(f"MessageQueue.add_rides() called for: {park.name}:{park.id}")
-        self.add_required_message(park)
-
 
         if park.is_open is False:
             self.func_queue.append(self.display.show_scroll_message)
@@ -791,7 +852,6 @@ class MessageQueue:
         self.index += 1
         if self.index >= len(self.func_queue):
             self.index = 0
-
 
 
 # Can't get dataclasses to work on MatrixPortal S3.
@@ -864,7 +924,7 @@ def url_decode(input_string):
     i = 0
     while i < len(input_string):
         if input_string[i] == "%" and i < len(input_string) - 2:
-            hex_value = input_string[i+1:i+3].lower()
+            hex_value = input_string[i + 1:i + 3].lower()
             if all(c in hex_chars for c in hex_value):
                 result += chr(int(hex_value, 16))
                 i += 3
@@ -872,3 +932,15 @@ def url_decode(input_string):
         result += input_string[i]
         i += 1
     return result
+
+
+class Timer:
+    def __init__(self, time_to_wait):
+        self.target_length = time_to_wait
+        self.start_time = time.monotonic()
+
+    def finished(self):
+        return (time.monotonic() - self.start_time) > self.target_length
+
+    def reset(self):
+        self.start_time = time.monotonic()
