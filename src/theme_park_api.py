@@ -501,13 +501,13 @@ class AsyncScrollingDisplay(Display):
             terminalio.FONT,
             text="Wait Times")
         self.update_line1.x = 2
-        self.update_line1.y = 9
+        self.update_line1.y = 10
         self.update_line2 = Label(
             terminalio.FONT,
             text="Powered By",
             scale=1)
         self.update_line2.x = 2
-        self.update_line2.y = 24
+        self.update_line2.y = 22
         self.update_group = displayio.Group()
         self.update_group.hidden = True
         self.update_group.append(self.update_line1)
@@ -517,23 +517,18 @@ class AsyncScrollingDisplay(Display):
 
         # Message to show when wait times are updating
         self.required_line1 = Label(
-            terminalio.FONT,
-            text="FROM")
-        self.required_line1.x = 12
-        self.required_line1.y = 12
-        #self.required_line2 = Label(
-        #    terminalio.FONT,
-        #    text="queue-times.com",
-        #    scale=1)
-        self.required_line2 = Label(
             bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
             text="queue-times.com")
-
-        self.required_line2.x = 2
-        self.required_line2.y = 15
+        self.required_line2 = Label(
+            bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
+            text="Updating Now")
+        self.required_line1.x = 3
+        self.required_line1.y = 12
+        self.required_line2.x = 8
+        self.required_line2.y = 20
         self.required_group = displayio.Group()
         self.required_group.hidden = True
-        # self.required_group.append(self.required_line1)
+        self.required_group.append(self.required_line1)
         self.required_group.append(self.required_line2)
         self.required_line1.color = int(ColorUtils.colors["Yellow"])
         self.required_line2.color = int(ColorUtils.colors["Yellow"])
@@ -577,8 +572,8 @@ class AsyncScrollingDisplay(Display):
         self.scrolling_label.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
         self.splash_line1.color = int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
         self.splash_line2.color = int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
-        self.update_line1.color = int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
-        self.update_line2.color = int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
+        self.update_line1.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
+        self.update_line2.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
         self.required_line1.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
         self.required_line2.color = int(ColorUtils.scale_color(settings.settings["default_color"], scale))
 

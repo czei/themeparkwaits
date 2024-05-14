@@ -100,8 +100,8 @@ DISPLAY_HEIGHT = 32
 DISPLAY_ROTATION = 0
 BIT_DEPTH = 4
 AUTO_REFRESH = True
-TIME_BETWEEN_UPDATES = 10 * 60
-# TIME_BETWEEN_UPDATES = 2 * 60
+# TIME_BETWEEN_UPDATES = 10 * 60
+TIME_BETWEEN_UPDATES = 2 * 60
 
 matrix = rgbmatrix.RGBMatrix(
     width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, bit_depth=BIT_DEPTH,
@@ -397,13 +397,12 @@ def base(request: Request):
     page += "<label for=\"Name\">Hostname:</label>"
     page += f"<input type=\"text\" name=\"domain_name\" style=\"text-align: left;\" value=\"{settings.settings["domain_name"]}\">.local"
     page += "</p>"
-    page += "<p>Note: changing the hostname can take up to five minutes to take effect. Please be patient.</p>"
-
     page += """<p>
         <label for=\"Submit\"></label>
         <input type=\"submit\">
         </p>
         </form></div>"""
+    page += "<p>Note: Changing the hostname can take up to five minutes to take effect. During this process the display will appear to be broken and non-responsive. <b>Please be patient and do not touch it until it comes back to life.</b></p>"
 
     page += """<p>
             <h2>Software</h2>
@@ -567,9 +566,9 @@ async def update_ride_times_wrapper():
     messages.regenerate_flag = False
     await asyncio.sleep(0)  # let other tasks run
 
-    messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_rides(park_list)
     await messages.add_vacation(vacation_date)
+    messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_splash(2)
     await display.show_required(False)
     end_time = time.monotonic()
