@@ -572,10 +572,10 @@ async def update_ride_times_wrapper():
     await messages.add_splash(2)
     await display.show_required(False)
     end_time = time.monotonic()
-    await asyncio.sleep(0)  # let other tasks run
     elapsed_time = end_time - start_time
     if elapsed_time > 20:
         logger.error(f"Updating wait times took {elapsed_time} seconds")
+    await asyncio.sleep(1)  # let other tasks run
 
 
 def run_garbage_collector():
