@@ -52,7 +52,7 @@ from src.ota_updater import OTAUpdater
 
 logger = logging.getLogger('Test')
 logger.setLevel(logging.ERROR)
-#logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 try:
     logger.addHandler(logging.FileHandler("error_log"))
 except OSError:

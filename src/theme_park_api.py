@@ -816,6 +816,11 @@ class MessageQueue:
             self.param_queue.append(park.name + " is closed")
             return
 
+        # Start with the park name
+        self.func_queue.append(self.display.show_scroll_message)
+        self.delay_queue.append(self.delay)
+        self.param_queue.append(park.name + " wait times...")
+
         for ride in park.rides:
             await asyncio.sleep(0)
             if "Meet" in ride.name and park_list.skip_meet == True:
