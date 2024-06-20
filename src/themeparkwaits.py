@@ -7,7 +7,7 @@ import sys
 
 sys.path.append('/src/lib')
 import adafruit_logging
-import board
+# import board
 import gc
 import asyncio
 import mdns

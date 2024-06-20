@@ -24,9 +24,9 @@ logger.setLevel(logging.ERROR)  # Use DEBUG for testing
 # logger.setLevel(logging.DEBUG)  # Use DEBUG for testing
 
 try:
-    logger.addHandler(logging.FileHandler("error_log"))
+   logger.addHandler(logging.FileHandler("error_log"))
 except OSError:
-    print("Read-only file system")
+   print("Read-only file system")
 
 try:
     import rtc
@@ -261,14 +261,15 @@ class ThemePark:
         if len(json_data) <= 0:
             return ride_list
 
-        # Some parks consist of Lands, and some don't.  We'll
-        # try to parse both.
+        # Some parks consist of Lands, some don't have lands at all,
+        # and some have both.  We'll # try to parse all 3 kinds.
         lands_list = json_data["lands"]
         for land in lands_list:
+            logger.debug(f"Land = {land}")
             rides = land["rides"]
             for ride in rides:
                 name = ride["name"]
-                # logger.debug(f"Ride = {name}")
+                logger.debug(f"Ride = {name}")
                 ride_id = ride["id"]
                 wait_time = ride["wait_time"]
                 open_flag = ride["is_open"]
@@ -279,17 +280,17 @@ class ThemePark:
 
         # Some parks dont' have lands, but we also want to avoid
         # double-counting
-        if len(lands_list) == 0:
-            rides_list = json_data["rides"]
-            for ride in rides_list:
-                name = ride["name"]
-                ride_id = ride["id"]
-                wait_time = ride["wait_time"]
-                open_flag = ride["is_open"]
-                this_ride_object = ThemeParkRide(name, ride_id, wait_time, open_flag)
-                if this_ride_object.is_open() is True:
-                    self.is_open = True
-                ride_list.append(this_ride_object)
+        # if len(lands_list) == 0:
+        rides_not_in_a_land = json_data["rides"]
+        for ride in rides_not_in_a_land:
+            name = ride["name"]
+            ride_id = ride["id"]
+            wait_time = ride["wait_time"]
+            open_flag = ride["is_open"]
+            this_ride_object = ThemeParkRide(name, ride_id, wait_time, open_flag)
+            if this_ride_object.is_open() is True:
+                self.is_open = True
+            ride_list.append(this_ride_object)
 
         return ride_list
 
@@ -518,10 +519,10 @@ class AsyncScrollingDisplay(Display):
         # Message to show when wait times are updating
         self.required_line1 = Label(
             bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
-            text="queue-times.com")
+            text="QUEUE-TIMES.COM")
         self.required_line2 = Label(
             bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
-            text="Updating Now")
+            text="UPDATING NOW")
         self.required_line1.x = 3
         self.required_line1.y = 12
         self.required_line2.x = 8
@@ -797,7 +798,10 @@ class MessageQueue:
                 vac_message = f"Vacation to {vac.name} in: {days_until} days"
                 self.add_scroll_message(vac_message, 0)
             elif days_until == 1:
-                vac_message = f"Your vacation to {vac.name} is tomorrow!!!!!!!!!!!!!"
+                vac_message = f"Your vacation to {vac.name} is tomorrow!!!"
+                self.add_scroll_message(vac_message, 0)
+            elif days_until == 0:
+                vac_message = f"Your vacation to {vac.name} is TODAY!!!!!!!!!!!!!"
                 self.add_scroll_message(vac_message, 0)
 
     async def add_required_message(self, parkName):
