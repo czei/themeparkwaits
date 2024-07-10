@@ -3,6 +3,15 @@ import socketpool
 import storage
 import time
 import wifi
+import adafruit_logging as logging
+
+logger = logging.getLogger('Test')
+logger.setLevel(logging.ERROR)
+# logger.setLevel(logging.DEBUG)
+try:
+    logger.addHandler(logging.FileHandler("error_log"))
+except OSError:
+    print("Read-only file system")
 
 # extract access point mac address
 mac_ap = ' '.join([hex(i) for i in wifi.radio.mac_address_ap])
@@ -44,7 +53,7 @@ def do_connect(ssid, password):
     try:
         wifi.radio.connect(ssid, password)
     except Exception as e:
-        print("Exception", str(e))
+        logger.error(f"Wifi connection error: {str(e)} at {wifi.radio.ipv4_address}")
     for retry in range(200):
         connected = wifi.radio.ap_info is not None
         if connected:
@@ -350,7 +359,7 @@ def sendall(client, data):
             try:
                 client.sendall(part)
             except OSError as e:
-                print("Exception", str(e))
+                logger.error(f"Wifi error: {str(e)} in sendall()")
                 time.sleep(0.25)
                 pass
             break
@@ -406,7 +415,8 @@ def read_profiles():
     try:
         profiles [secrets.secrets['ssid']] = secrets.secrets['password']
         #profiles[ssid] = password
-    except OSError:
+    except OSError as e:
+        logger.error(f"Error: {str(e)} reading secrets file.")
         profiles = {}
     return profiles
 
@@ -472,6 +482,7 @@ def start_ap(port=80):
             try:
                 client, addr = server_socket.accept()
             except OSError as e:
+                logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
                 print("Exception", str(e))
                 time.sleep(0.25)
                 pass
@@ -536,7 +547,8 @@ def write_profiles(ssid, password):
         print('Writing ' + FILE_NETWORK_PROFILES)
         with open(FILE_NETWORK_PROFILES, "w") as f:
             f.write(''.join(lines))
+            f.close()
         return True
     except OSError as e:
-        print("Exception writing file", str(e))
+        logger.error(f"Error writing secrets.py to disk: {str(e)}")
         return False

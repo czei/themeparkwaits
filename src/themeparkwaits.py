@@ -6,7 +6,6 @@
 import sys
 
 sys.path.append('/src/lib')
-import adafruit_logging
 # import board
 import gc
 import asyncio
@@ -573,7 +572,7 @@ async def update_ride_times_wrapper():
     await display.show_required(False)
     end_time = time.monotonic()
     elapsed_time = end_time - start_time
-    if elapsed_time > 20:
+    if elapsed_time > 120:
         logger.error(f"Updating wait times took {elapsed_time} seconds")
     await asyncio.sleep(1)  # let other tasks run
 
