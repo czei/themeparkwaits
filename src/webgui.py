@@ -1,3 +1,4 @@
+from adafruit_httpserver import Server
 from rainbowio import colorwheel
 
 def remove_non_ascii(orig_str):
@@ -31,3 +32,9 @@ def generate_header():
     page += "</div>"
     page += "</div>"
     return page
+
+class WifiWebServer(Server):
+    def __init__(self, settings_param, socketpool, root_path, debug=False):
+        super().__init__(socketpool, root_path)
+
+        self.settings = settings_param

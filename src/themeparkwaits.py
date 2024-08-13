@@ -7,6 +7,7 @@ import sys
 
 sys.path.append('/src/lib')
 # import board
+import os
 import gc
 import asyncio
 import mdns
@@ -36,11 +37,11 @@ from adafruit_matrixportal.matrixportal import MatrixPortal
 
 from src import theme_park_api, wifimgr
 from src.color_utils import ColorUtils
-from src.theme_park_api import set_system_clock, MatrixPortalDisplay
+from src.theme_park_api import set_system_clock
 from src.theme_park_api import ThemeParkList
 from src.theme_park_api import ThemePark
 from src.theme_park_api import Vacation
-from src.theme_park_api import AsyncScrollingDisplay
+from src.theme_park_display import AsyncScrollingDisplay
 from src.theme_park_api import MessageQueue
 from src.theme_park_api import SettingsManager
 from src.theme_park_api import load_credentials
@@ -50,12 +51,12 @@ from src.theme_park_api import Timer
 from src.ota_updater import OTAUpdater
 
 logger = logging.getLogger('Test')
-logger.setLevel(logging.ERROR)
-# logger.setLevel(logging.DEBUG)
-try:
-    logger.addHandler(logging.FileHandler("error_log"))
-except OSError:
-    print("Read-only file system")
+# logger.setLevel(logging.ERROR)
+logger.setLevel(logging.DEBUG)
+#try:
+#    logger.addHandler(logging.FileHandler("error_log"))
+#except OSError:
+#    print("Read-only file system")
 
 try:
     import board
@@ -119,7 +120,7 @@ matrix = rgbmatrix.RGBMatrix(
     serpentine=False,
     doublebuffer=True)
 
-# Associate the RGB matrix with a Display so we can use displayio
+# Associate the RGB matrix with a Display
 display_hardware = framebufferio.FramebufferDisplay(
     matrix, auto_refresh=AUTO_REFRESH, rotation=DISPLAY_ROTATION)
 display_hardware.refresh(minimum_frames_per_second=0)
@@ -131,6 +132,26 @@ settings = SettingsManager("../settings.json")
 vacation_date = Vacation()
 vacation_date.load_settings(settings)
 
+# The messages class contains a list of function calls
+# to the local Display class, which in turn uses the displayio Display
+display = AsyncScrollingDisplay(display_hardware, settings)
+display.set_colors(settings)
+SCROLL_DELAY = 4
+messages = MessageQueue(display, SCROLL_DELAY, regen_flag=True)
+
+
+def start_web_server(server, address):
+    logger.debug("starting web server..")
+    # startup the server
+    try:
+        #server.start(str(wifi.radio.ipv4_address), 80)
+        server.start(str(address), 80)
+        logger.debug("Listening on http://%s:80" % address)
+    except OSError as e:
+        time.sleep(5)
+        logger.debug(f"Error starting web server: {e.strerror}, restarting device..")
+        supervisor.reload()
+
 
 #
 # Scroll the user instructions on how to configure the wifi
@@ -139,12 +160,13 @@ vacation_date.load_settings(settings)
 # to a new location.
 #
 def run_setup_message(setup_text, repeat_count):
-    local_portal = MatrixPortal(status_neopixel=board.NEOPIXEL, debug=True)
-    local_display = MatrixPortalDisplay(local_portal, settings)
+    #    local_portal = MatrixPortal(status_neopixel=board.NEOPIXEL, debug=True)
+    #    local_display = SimpleScrollingDisplay(local_portal, settings)
 
     for i in range(repeat_count):
         try:
-            local_display.sync_show_scroll_message(setup_text)
+            display.show_scroll_message(setup_text)
+
             time.sleep(1)
             now = datetime.now()
 
@@ -153,59 +175,100 @@ def run_setup_message(setup_text, repeat_count):
             logger.error(str(e))
 
 
-# Setup WI-FI Password
-ssid, password = load_credentials()
+async def try_wifi_until_connected():
+    ssid, password = load_credentials()
 
-
-def try_wifi_until_connected():
+    # Try to connect 3 times before giving up in
+    # case the Wifi is unstable.
     attempts = 1
-    try:
-        wifi.radio.connect(ssid, password)
-    except (RuntimeError, ConnectionError, ValueError) as e:
-        while wifi.radio.connected is not True:
+    if wifi.radio.connected is True:
+        logger.debug(f"Already connected to wifi {ssid}: at {wifi.radio.ipv4_address}")
+    else:
+        logger.debug(f"Connecting to wifi {ssid}: at {wifi.radio.ipv4_address}")
+
+    while wifi.radio.connected is not True:
+        try:
+            setup_text1 = f"Connecting to Wifi:"
+            setup_text2 = f"{ssid}"
+            await display.show_centered(setup_text1, setup_text2, 2)
+            wifi.radio.connect(ssid, password)
+        except (RuntimeError, ConnectionError, ValueError) as e:
             logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
             #  Give it a couple of attempts to connect before reporting an error
-            if attempts > 4:
-                setup_message = "Press the Reboot Button and then hold down Reset Wifi Button until the LED lights up"
-                run_setup_message(setup_message, 1)
+            # After that, delete the file containing the bad password and
+            # reset the box so the user can try the setup sequence again.
+            if attempts > 2:
+                await display.show_centered("Bad password", "Resetting...", 3)
+                try:
+                    os.remove("/secrets.py")
+                    supervisor.reload()
+                except OSError:
+                    logger.critical("Wifi file secrets.py could not be deleted.")
+                    break
             attempts = attempts + 1
-        logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+
+        if wifi.radio.connected is True:
+            logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+        else:
+            logger.critical(f"Could not connect to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+        display.off()
 
 
-#
-# True when first starting device or the Wifi has been reset
-#
-if ssid == "" and password == "":
-    setup_text = f"Connect your phone to Wifi channel {wifimgr.AP_SSID}, password \"{wifimgr.AP_PASSWORD}\"."
-    setup_text += "  Then load page http://192.168.4.1 to configure Wifi"
-    run_setup_message(setup_text, 1)
+def configure_wifi():
+    # Load Current Wifi Password
+    ssid, password = load_credentials()
 
-    try:
-        if wifimgr.get_connection() is not None:
-            wifi.radio.connect(ssid, password)
+    #
+    # True when first starting device or the Wifi has been reset
+    #
+    if ssid == "" and password == "":
+        # Have to configure Wi-FI before the network will work
+        # Run the Wifi configure GUI and the configure message at the same time
+        try:
+            wifimgr.start_access_point()
+            wifimgr.start_web_server(settings)
+            #wifimgr.web_server.serve_forever(str(wifi.radio.ipv4_address_ap))
 
-    except (RuntimeError, ConnectionError, ValueError) as e:
-        # traceback.print_exc()
-        logger.error(f"The wifi password is wrong: {str(e)}")
-    finally:
-        supervisor.reload()
-#
-# The Wifi credentials already existed
-#
-else:
-    try_wifi_until_connected()
+            asyncio.run(asyncio.gather(
+                wifimgr.run_web_server(is_wifi_password_configured),
+                run_configure_wifi_message()
+            ))
 
-# The messages class contains a list of function calls
-# to the local Display class, which in turn uses the displayio Display
-display = AsyncScrollingDisplay(display_hardware, settings)
-display.set_colors(settings)
-SCROLL_DELAY = 4
-messages = MessageQueue(display, SCROLL_DELAY, regen_flag=True)
+            wifimgr.web_server.stop()
+            wifimgr.stop_access_point()
+
+        except OSError as e:
+            logger.critical("Exception starting wifi access point and web server: {e}")
+
+    # Now that we've got an ssid and password, time to connect to
+    # the network.
+    asyncio.run(asyncio.gather(try_wifi_until_connected()))
+
+
+async def run_configure_wifi_message():
+    while is_wifi_password_configured() is False:
+        setup_text1 = f"Connect your phone to Wifi channel {wifimgr.AP_SSID}, password \"{wifimgr.AP_PASSWORD}\"."
+        setup_text2 = "  Then load page http://192.168.4.1"
+        await display.show_centered(setup_text1, setup_text2, 1)
+
 
 # Setup Global Sockets and Server
 socket_pool = socketpool.SocketPool(wifi.radio)
+
+
+def is_wifi_password_configured() -> bool:
+    ssid, password = load_credentials()
+    # logger.debug(f"SSID: {ssid} Password: {password}")
+    is_configured = ssid != "" and password != ""
+    return is_configured
+
+
 http_requests = adafruit_requests.Session(socket_pool, ssl.create_default_context())
 web_server = adafruit_httpserver.Server(socket_pool, "/static", debug=False)
+
+# Prompt for wifi configure if not exists, and then configure
+# wifi connection.
+configure_wifi()
 
 # Configure DNS so that users can configure at http://themeparkwaits.local
 mdns_server = mdns.Server(wifi.radio)
@@ -217,7 +280,7 @@ mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 # https://docs.circuitpython.org/en/latest/shared-bindings/socketpool/index.html
 #
 async def update_live_wait_time():
-    try_wifi_until_connected()
+    await try_wifi_until_connected()
     if park_list.current_park.id <= 0:
         return
     try:
@@ -228,7 +291,6 @@ async def update_live_wait_time():
         json_response = local_response.json()
         logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
         park_list.current_park.update(json_response)
-
 
     except OSError:
         logger.critical("Unable to update ride times.")
@@ -270,10 +332,10 @@ def generate_main_page():
     # page += "<label for=\"skip_closed\">Skip Closed Rides</label>\n"
     page += "</div>\n"
 
-    page += "<h2>Configure Vacation</h2>"
+    page += "<h2>Configure Countdown</h2>"
     page += "<div>"
     page += "<p>"
-    page += "<label for=\"Name\">Park:</label>"
+    page += "<label for=\"Name\">Event:</label>"
     page += f"<input type=\"text\" name=\"Name\" style=\"text-align: left;\" value=\"{vacation_date.name}\">"
     page += "</p>"
 
@@ -467,18 +529,6 @@ def base(request: Request):
     return adafruit_httpserver.Response(request, generate_main_page(), content_type="text/html")
 
 
-def start_web_server(wserver):
-    logger.debug("starting web server..")
-    # startup the server
-    try:
-        wserver.start(str(wifi.radio.ipv4_address), 80)
-        logger.debug("Listening on http://%s:80" % wifi.radio.ipv4_address)
-    except OSError as e:
-        time.sleep(5)
-        logger.debug(f"Error starting web server: {e.strerror}, restarting device..")
-        supervisor.reload()
-
-
 TOKEN = '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'
 # TOKEN='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'
 GITHUBREPO = 'https://github.com/Czeiszperger/themeparkwaits.release'
@@ -522,10 +572,6 @@ async def run_display():
                 logger.debug("Current park is invalid")
                 messages.init()
                 await display.show_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
-                #messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
-                #await messages.add_splash(2)
-                #await messages.show()
-                #await messages.show()
 
             # If the user has updated their settings the regenerate_flag will be true
             # and we need to redo the message queue.  The times also need to be updated
@@ -546,7 +592,6 @@ async def run_display():
 
         except RuntimeError as error:
             logger.error(str(error))
-            # traceback.print_exc()
 
 
 async def update_ride_times_wrapper():
@@ -614,14 +659,14 @@ async def periodically_update_ride_times():
 
 
 try:
-    # A list of all ~80 supported parks
+    # A list of all ~100 supported parks
     url = "https://queue-times.com/parks.json"
     response = http_requests.get(url)
     json_response = response.json()
     park_list = ThemeParkList(json_response)
     park_list.load_settings(settings)
 except OSError as e:
-    logger.critical("Caught exception OSError:", e)
+    logger.critical(f"Caught exception OSError: {e}")
     messages.init()
     messages.add_scroll_message("Unable to contact queue-times.com.  Will try again in 5 minutes.")
 
@@ -629,7 +674,7 @@ except OSError as e:
 try:
     set_system_clock(http_requests)
 except OSError as e:
-    logger.error("Caught exception OSError:", e)
+    logger.error(f"Caught exception OSError: {e}")
     messages.add_scroll_message("Unable to contact time server.")
 
 # Should only work if the user had previously called
@@ -637,7 +682,7 @@ except OSError as e:
 download_and_install_update_if_available()
 
 # Start the web server GUI
-start_web_server(web_server)
+start_web_server(web_server, wifi.radio.ipv4_address)
 
 asyncio.run(asyncio.gather(
     run_display(),
