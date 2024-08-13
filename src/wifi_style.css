@@ -1,0 +1,121 @@
+a {
+    color:#fff;
+}
+a:hover {
+    color:#ddd;
+}
+
+body {
+    background:#faa538;
+    color:#fff;
+    font-family:Arial, sans-serif;
+    font-size:24px;
+    margin:0;
+    padding:5px;
+}
+
+h1 {
+    font-size: 4em;
+    text-align:center;
+}
+
+p {
+    padding:1em;
+    margin:1em;
+}
+
+button {
+    background:transparent;
+    border-radius:30px;
+    border:3px solid #fff;
+    color:#fff;
+    cursor:pointer;
+    font-weight:bold;
+    padding:5px .5em;
+    text-align:center;
+    margin-top:1em;
+    margin-bottom:2em;
+    font-size: 3em;
+}
+
+button:hover {
+    color:#000;
+    background:#fff
+}
+
+.button_container {
+    display: flex;
+    justify-content: center;
+}
+
+label {
+    cursor:pointer;
+    font-size: 2em;
+}
+label.password {
+    margin-top:2em;
+}
+
+html {
+    background-repeat:no-repeat;
+    background:#333;
+    height:100%;
+    margin:0;
+}
+input.text {
+    background:transparent;
+    border-radius:30px;
+    border:3px solid #fff;
+    color:#fff;
+    font-size: 2em;
+    font-weight:bold;
+    width: 100%
+}
+table {
+    margin-left:auto;
+    margin-right:auto;
+}
+.footer {
+    font-size:1em;
+}
+.network {
+    background:transparent;
+    border-radius:1em;
+    color:#fff;
+    cursor:pointer;
+    display:inline-block;
+    font-weight:bold;
+    text-align:left;
+    margin-top:2em;
+    margin-left:1em;
+    margin-right:2em;
+    font-size:1em;
+    justify-content: center;
+}
+
+.network input[type="radio"] {
+    padding-left: 1em;
+    border:none;
+    cursor:pointer;
+    height: 4em;
+    outline:3px;
+    font-size:1.5em;
+    vertical-align: middle;
+}
+.network label {
+    display:inline-block;
+    padding:.5em .20em;
+    vertical-align: middle;
+}
+
+.password {
+    margin-top:1em;
+    font-size:1em;
+    width: 80%;
+    margin-right:1em;
+}
+
+select {
+    width: 80%;
+    font-size:2em;
+}
