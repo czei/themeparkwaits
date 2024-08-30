@@ -18,12 +18,12 @@ from adafruit_httpserver import (
 )
 
 logger = logging.getLogger('Test')
-# logger.setLevel(logging.ERROR)
-logger.setLevel(logging.DEBUG)
-# try:
-#    logger.addHandler(logging.FileHandler("error_log"))
-# except OSError:
-#    print("Read-only file system")
+logger.setLevel(logging.ERROR)
+#logger.setLevel(logging.DEBUG)
+try:
+   logger.addHandler(logging.FileHandler("error_log"))
+except OSError:
+   print("Read-only file system")
 
 
 # extract access point mac address

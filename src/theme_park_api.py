@@ -16,13 +16,13 @@ import time
 import adafruit_logging as logging
 
 logger = logging.getLogger('Test')
-# logger.setLevel(logging.ERROR)  # Use DEBUG for testing
-logger.setLevel(logging.DEBUG)  # Use DEBUG for testing
+logger.setLevel(logging.ERROR)  # Use DEBUG for testing
+#logger.setLevel(logging.DEBUG)  # Use DEBUG for testing
 
-#try:
-#    logger.addHandler(logging.FileHandler("error_log"))
-#except OSError:
-#    print("Read-only file system")
+try:
+    logger.addHandler(logging.FileHandler("error_log"))
+except OSError:
+    print("Read-only file system")
 
 try:
     import rtc

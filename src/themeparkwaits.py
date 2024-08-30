@@ -51,12 +51,12 @@ from src.theme_park_api import Timer
 from src.ota_updater import OTAUpdater
 
 logger = logging.getLogger('Test')
-# logger.setLevel(logging.ERROR)
-logger.setLevel(logging.DEBUG)
-#try:
-#    logger.addHandler(logging.FileHandler("error_log"))
-#except OSError:
-#    print("Read-only file system")
+logger.setLevel(logging.ERROR)
+#logger.setLevel(logging.DEBUG)
+try:
+    logger.addHandler(logging.FileHandler("error_log"))
+except OSError:
+    print("Read-only file system")
 
 try:
     import board
@@ -192,26 +192,37 @@ async def try_wifi_until_connected():
             setup_text2 = f"{ssid}"
             await display.show_centered(setup_text1, setup_text2, 2)
             wifi.radio.connect(ssid, password)
-        except (RuntimeError, ConnectionError, ValueError) as e:
-            logger.error(f"Wifi error: {str(e)} at {wifi.radio.ipv4_address}")
-            #  Give it a couple of attempts to connect before reporting an error
-            # After that, delete the file containing the bad password and
-            # reset the box so the user can try the setup sequence again.
-            if attempts > 2:
-                await display.show_centered("Bad password", "Resetting...", 3)
-                try:
-                    os.remove("/secrets.py")
-                    supervisor.reload()
-                except OSError:
-                    logger.critical("Wifi file secrets.py could not be deleted.")
-                    break
-            attempts = attempts + 1
+        except (RuntimeError) as e:
+            logger.error(f"Wifi runtime error: {str(e)} at {wifi.radio.ipv4_address}")
+            await display.show_scroll_message(f"Wifi runtime error: {str(e)}")
+        except (ConnectionError) as e:
+            logger.error(f"Wifi connection error: {str(e)} at {wifi.radio.ipv4_address}")
+            if "Authentication" in str(e):
+                await display.show_scroll_message(f"Bad password.  Please reset the LED scroller using the INIT button as described in the instructions.")
+            else:
+                await display.show_scroll_message(f"Wifi connection error: {str(e)}")
+        except (ValueError) as e:
+            logger.error(f"Wifi value error: {str(e)} at {wifi.radio.ipv4_address}")
+            await display.show_scroll_message(f"Wifi value error: {str(e)}")
 
-        if wifi.radio.connected is True:
-            logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
-        else:
-            logger.critical(f"Could not connect to Wifi: {ssid} at {wifi.radio.ipv4_address}")
-        display.off()
+#             #  Give it a couple of attempts to connect before reporting an error
+#             # After that, delete the file containing the bad password and
+#             # reset the box so the user can try the setup sequence again.
+#             if attempts > 2:
+#                 await display.show_centered("Bad password", "Resetting...", 3)
+#                 try:
+#                     os.remove("/secrets.py")
+#                     supervisor.reload()
+#                 except OSError:
+#                     logger.critical("Wifi file secrets.py could not be deleted.")
+#                     break
+#             attempts = attempts + 1
+
+#         if wifi.radio.connected is True:
+#             logger.info(f"Connected to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+#         else:
+#             logger.critical(f"Could not connect to Wifi: {ssid} at {wifi.radio.ipv4_address}")
+#         display.off()
 
 
 def configure_wifi():
@@ -286,7 +297,7 @@ async def update_live_wait_time():
     try:
         logger.info(f"About to start HTTP GET for Park {park_list.current_park.name}:{park_list.current_park.id}")
         local_url = park_list.current_park.get_url()
-        logger.info(f"From URL: {url}")
+        logger.info(f"From URL: {local_url}")
         local_response = http_requests.get(local_url)
         json_response = local_response.json()
         logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
@@ -536,11 +547,12 @@ ota_updater = OTAUpdater(http_requests, GITHUBREPO, main_dir="src", headers={'Au
 logger.debug(f"Release version is {ota_updater.get_version("src")}")
 
 
-def download_and_install_update_if_available():
+async def download_and_install_update_if_available():
     if ota_updater.update_available_at_boot() is True:
         # run_setup_message(f"Updating software. Do not unplug! 10  9  8  7  6  5  4  3  2  1", 1)
         ss, pp = src.theme_park_api.load_credentials()
         if ota_updater.install_update_if_available_after_boot(ss, pp) is True:
+            await display.show_scroll_message("Updating software, the LED will be blank for 10 minutes or more.  Do not unplug!")
             logger.debug("Updated software, rebooting now...")
             supervisor.reload()
 
@@ -657,18 +669,20 @@ async def periodically_update_ride_times():
             logger.error(str(error))
             traceback.print_exc()
 
-
 try:
     # A list of all ~100 supported parks
+    logger.debug("Preparing to update the park list from queue-times.com")
     url = "https://queue-times.com/parks.json"
     response = http_requests.get(url)
     json_response = response.json()
     park_list = ThemeParkList(json_response)
+    logger.debug("Finished updating park list from queue-times.com")
     park_list.load_settings(settings)
 except OSError as e:
-    logger.critical(f"Caught exception OSError: {e}")
-    messages.init()
-    messages.add_scroll_message("Unable to contact queue-times.com.  Will try again in 5 minutes.")
+    logger.critical(f"Caught exception OSError connecting to queue-times.com: {e}")
+    # messages.init()
+    while True:
+        asyncio.run(display.show_scroll_message("Unable to contact queue-times.com. Please verify Wifi network access and then restart the LED display."))
 
 # Set device time from the internet
 try:
@@ -679,7 +693,7 @@ except OSError as e:
 
 # Should only work if the user had previously called
 # ota_updater.check_for_update_to_install_during_next_reboot()
-download_and_install_update_if_available()
+asyncio.run(asyncio.gather(download_and_install_update_if_available()))
 
 # Start the web server GUI
 start_web_server(web_server, wifi.radio.ipv4_address)
