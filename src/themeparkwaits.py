@@ -7,12 +7,10 @@ import sys
 
 sys.path.append('/src/lib')
 # import board
-import os
 import gc
 import asyncio
 import mdns
 import time
-import traceback
 import wifi
 import ssl
 import socketpool
@@ -21,7 +19,6 @@ import rgbmatrix
 import framebufferio
 import adafruit_requests
 import adafruit_httpserver
-import adafruit_logging as logging
 from adafruit_datetime import datetime
 
 from adafruit_httpserver import (
@@ -41,6 +38,7 @@ from src.theme_park_api import set_system_clock
 from src.theme_park_api import ThemeParkList
 from src.theme_park_api import ThemePark
 from src.theme_park_api import Vacation
+from src.ErrorHandler import ErrorHandler
 from src.theme_park_display import AsyncScrollingDisplay
 from src.theme_park_api import MessageQueue
 from src.theme_park_api import SettingsManager
@@ -50,13 +48,7 @@ from src.webgui import generate_header
 from src.theme_park_api import Timer
 from src.ota_updater import OTAUpdater
 
-logger = logging.getLogger('Test')
-logger.setLevel(logging.ERROR)
-#logger.setLevel(logging.DEBUG)
-try:
-    logger.addHandler(logging.FileHandler("error_log"))
-except OSError:
-    print("Read-only file system")
+logger = ErrorHandler("error_log")
 
 try:
     import board
@@ -100,8 +92,8 @@ DISPLAY_HEIGHT = 32
 DISPLAY_ROTATION = 0
 BIT_DEPTH = 4
 AUTO_REFRESH = True
-TIME_BETWEEN_UPDATES = 10 * 60
-# TIME_BETWEEN_UPDATES = 2 * 60
+#TIME_BETWEEN_UPDATES = 10 * 60
+TIME_BETWEEN_UPDATES = 5 * 60
 
 matrix = rgbmatrix.RGBMatrix(
     width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, bit_depth=BIT_DEPTH,
@@ -149,7 +141,7 @@ def start_web_server(server, address):
         logger.debug("Listening on http://%s:80" % address)
     except OSError as e:
         time.sleep(5)
-        logger.debug(f"Error starting web server: {e.strerror}, restarting device..")
+        logger.error(e, "Error starting web server, restarting device..")
         supervisor.reload()
 
 
@@ -170,9 +162,9 @@ def run_setup_message(setup_text, repeat_count):
             time.sleep(1)
             now = datetime.now()
 
-        except RuntimeError as e:
-            # traceback.print_exc()
-            logger.error(str(e))
+        #except RuntimeError as e:
+        except OSError as e:
+            logger.error(e, "Error running setup message" )
 
 
 async def try_wifi_until_connected():
@@ -193,18 +185,21 @@ async def try_wifi_until_connected():
             await display.show_centered(setup_text1, setup_text2, 2)
             wifi.radio.connect(ssid, password)
         except (RuntimeError) as e:
-            logger.error(f"Wifi runtime error: {str(e)} at {wifi.radio.ipv4_address}")
+            logger.error(e,f"Wifi runtime error: {str(e)} at {wifi.radio.ipv4_address}")
             await display.show_scroll_message(f"Wifi runtime error: {str(e)}")
         except (ConnectionError) as e:
-            logger.error(f"Wifi connection error: {str(e)} at {wifi.radio.ipv4_address}")
+            logger.error(e, f"Wifi connection error: {str(e)} at {wifi.radio.ipv4_address}")
             if "Authentication" in str(e):
                 await display.show_scroll_message(f"Bad password.  Please reset the LED scroller using the INIT button as described in the instructions.")
             else:
                 await display.show_scroll_message(f"Wifi connection error: {str(e)}")
         except (ValueError) as e:
-            logger.error(f"Wifi value error: {str(e)} at {wifi.radio.ipv4_address}")
+            logger.error(e, "Wifi value error")
+            # logger.error(f"Wifi value error: {str(e)} at {wifi.radio.ipv4_address}")
             await display.show_scroll_message(f"Wifi value error: {str(e)}")
 
+        except OSError as e:
+            logger.error(e, "Unknown error connecting to Wifi")
 #             #  Give it a couple of attempts to connect before reporting an error
 #             # After that, delete the file containing the bad password and
 #             # reset the box so the user can try the setup sequence again.
@@ -249,7 +244,7 @@ def configure_wifi():
             wifimgr.stop_access_point()
 
         except OSError as e:
-            logger.critical("Exception starting wifi access point and web server: {e}")
+            logger.error(e,"Exception starting wifi access point and web server: {e}")
 
     # Now that we've got an ssid and password, time to connect to
     # the network.
@@ -298,13 +293,23 @@ async def update_live_wait_time():
         logger.info(f"About to start HTTP GET for Park {park_list.current_park.name}:{park_list.current_park.id}")
         local_url = park_list.current_park.get_url()
         logger.info(f"From URL: {local_url}")
-        local_response = http_requests.get(local_url)
-        json_response = local_response.json()
-        logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
-        park_list.current_park.update(json_response)
+        is_updated = False
+        with http_requests.get(local_url) as local_response:
+            logger.info(f"Finished HTTP GET from {park_list.current_park.name}:{park_list.current_park.id}")
+            logger.info(f"HTTP status code: {local_response.status_code}")
+            if local_response.status_code is not 200:
+                logger.error(f"HTTP GET code {local_response.status_code} failed for {park_list.current_park.name}:{park_list.current_park.id}")
+            else:
+                park_list.current_park.update(local_response.json())
+                is_updated = True
 
-    except OSError:
-        logger.critical("Unable to update ride times.")
+        if is_updated is False:
+            logger.error(f"HTTP GET failed for {park_list.current_park.name}:{park_list.current_park.id}")
+
+    except RuntimeError as e:
+        logger.error(e, "RuntimeError: Unable to update ride times.")
+    except OSError as e:
+        logger.error(e, "OSError: Unable to update ride times.")
 
 
 def generate_main_page():
@@ -420,8 +425,10 @@ def base(request: Request):
         try:
             # Save the settings to disk
             settings.save_settings()
-        except OSError:
-            logger.critical("Unable to save settings, drive is read only.")
+        # except OSError as e:
+        except OSError as e:
+            # logger.critical("Unable to save settings, drive is read only.")
+            logger.error(e, "Unable to save settings, drive is read only.")
 
     # If they changed the name of the host, then we'll need to reboot
     if mdns_server.hostname != settings.settings["domain_name"]:
@@ -528,8 +535,8 @@ def base(request: Request):
         try:
             # Save the settings to disk
             settings.save_settings()
-        except OSError:
-            logger.critical("Unable to save settings, drive is read only.")
+        except OSError as e:
+            logger.error(e, "Unable to save settings, drive is read only.")
 
         request.query_params = ({})
         head = Headers({"Location": "/"})
@@ -568,9 +575,8 @@ async def run_web_server():
                 pass
 
         # If you want you can stop the server by calling server.stop() anywhere in your code
-        except OSError as error:
-            logger.error(str(error))
-            # traceback.print_exc()
+        except OSError as e:
+            logger.error(e, "Problem in run_web_server")
             continue
 
 
@@ -596,14 +602,15 @@ async def run_display():
 
             mem_free = run_garbage_collector()
             if mem_free < 200000:
-                logger.critical(f"Low memory: {mem_free}")
+                logger.error(f"Low memory: {mem_free}")
 
             # Show the next message in the queue
             await messages.show()
             await asyncio.sleep(0)  # let other tasks run
 
-        except RuntimeError as error:
-            logger.error(str(error))
+        # except RuntimeError as e:
+        except OSError as e:
+            logger.error(e, "Exception in run_display()")
 
 
 async def update_ride_times_wrapper():
@@ -639,7 +646,7 @@ def run_garbage_collector():
     gc.collect()
     mem_free = gc.mem_free()
     end_time = time.monotonic()
-    # logger.debug(f"Memory available: {mem_free}")
+    logger.info(f"Memory available: {mem_free}")
     elapsed_time = end_time - start_time
     if elapsed_time > 2:
         logger.error(f"GC took {elapsed_time} seconds")
@@ -661,26 +668,29 @@ async def periodically_update_ride_times():
             if len(park_list.current_park.rides) > 0:
                 await update_ride_times_wrapper()
 
-        except OSError as error:
+        except OSError as e:
             messages.init()
             messages.add_scroll_message("Unable to contact wait time server.  Will try again in 5 minutes.")
-            logger.error(str(error))
-        except RuntimeError as error:
-            logger.error(str(error))
-            traceback.print_exc()
+            logger.error(e, "OSError: Unable to contact wait time server")
+        except RuntimeError as e:
+            # logger.error(str(e))
+            logger.error(e, "RuntimeError: Unable to contact wait time server")
 
 try:
     # A list of all ~100 supported parks
     logger.debug("Preparing to update the park list from queue-times.com")
     url = "https://queue-times.com/parks.json"
-    response = http_requests.get(url)
-    json_response = response.json()
-    park_list = ThemeParkList(json_response)
-    logger.debug("Finished updating park list from queue-times.com")
-    park_list.load_settings(settings)
+    # response = http_requests.get(url)
+    with http_requests.get(url) as response:
+        park_list = ThemeParkList(response.json())
+        logger.debug("Finished updating park list from queue-times.com")
+        park_list.load_settings(settings)
+
+except adafruit_requests.OutOfRetries as e:
+    logger.error(e, "Caught exception OutOfRetries connecting to queue-times.com")
+    asyncio.run(display.show_scroll_message("Unable to contact queue-times.com. Please verify Wifi network access."))
 except OSError as e:
-    logger.critical(f"Caught exception OSError connecting to queue-times.com: {e}")
-    # messages.init()
+    logger.error(e, "Caught exception OSError connecting to queue-times.com")
     while True:
         asyncio.run(display.show_scroll_message("Unable to contact queue-times.com. Please verify Wifi network access and then restart the LED display."))
 
@@ -688,7 +698,7 @@ except OSError as e:
 try:
     set_system_clock(http_requests)
 except OSError as e:
-    logger.error(f"Caught exception OSError: {e}")
+    logger.error(e, "Unable to contact time server")
     messages.add_scroll_message("Unable to contact time server.")
 
 # Should only work if the user had previously called
@@ -703,6 +713,7 @@ asyncio.run(asyncio.gather(
     run_web_server()
 ))
 
+# Removed because updating ride times was blocking the display from running
 # asyncio.run(asyncio.gather(
 #     run_display(),
 #     run_web_server(),

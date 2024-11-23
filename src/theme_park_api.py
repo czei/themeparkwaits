@@ -12,17 +12,8 @@ from adafruit_datetime import datetime
 from src.color_utils import ColorUtils
 import json
 import time
-
-import adafruit_logging as logging
-
-logger = logging.getLogger('Test')
-logger.setLevel(logging.ERROR)  # Use DEBUG for testing
-#logger.setLevel(logging.DEBUG)  # Use DEBUG for testing
-
-try:
-    logger.addHandler(logging.FileHandler("error_log"))
-except OSError:
-    print("Read-only file system")
+from src.ErrorHandler import ErrorHandler
+logger = ErrorHandler("error_log")
 
 try:
     import rtc
@@ -167,7 +158,7 @@ class ThemeParkList:
 
     def parse(self, str_params):
         params = str_params.split("&")
-        logger.debug(f"Params = {params}")
+        # logger.debug(f"Params = {params}")
         self.skip_meet = False
         self.skip_closed = False
         for param in params:
