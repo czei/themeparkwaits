@@ -5,11 +5,15 @@
 #
 import sys
 
+# from production.ThemeParkAPI.src.themeparkwaits import settings
+
 sys.path.append('/src/lib')
 
 import asyncio
 from adafruit_datetime import datetime
 from src.color_utils import ColorUtils
+from src.shopify_connect import is_subscription_active
+
 import json
 import time
 from src.ErrorHandler import ErrorHandler
@@ -28,6 +32,14 @@ except ModuleNotFoundError:
 
 
 #'Red': '0xcc3333',
+
+def update_subscription_status(sm, http_requests):
+    email = sm.settings["email"]
+    status = is_subscription_active(http_requests, email)
+    if status is True:
+        sm.settings["subscription_status"] = "Subscribed"
+    else:
+        sm.settings["subscription_status"] = "Unsubscribed"
 
 def set_system_clock(http_requests):
     # Set device time from the internet
@@ -53,6 +65,7 @@ def set_system_clock(http_requests):
         -1,
         -1
     )
+
 
     logger.info(f"Setting the time to {datetime_object}")
     rtc.RTC().datetime = datetime_object
@@ -508,6 +521,10 @@ class SettingsManager:
         self.settings = self.load_settings()
         self.scroll_speed = {"Slow": 0.06, "Medium": 0.04, "Fast": 0.02}
 
+        if self.settings.get("subscription_status") is None:
+            self.settings[""] = "Unknown"
+        if self.settings.get("email") is None:
+            self.settings["email"] = ""
         if self.settings.get("domain_name") is None:
             self.settings["domain_name"] = "themeparkwaits"
         if self.settings.get("brightness_scale") is None:

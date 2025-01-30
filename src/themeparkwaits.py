@@ -34,7 +34,7 @@ from adafruit_matrixportal.matrixportal import MatrixPortal
 
 from src import theme_park_api, wifimgr
 from src.color_utils import ColorUtils
-from src.theme_park_api import set_system_clock
+from src.theme_park_api import set_system_clock, update_subscription_status
 from src.theme_park_api import ThemeParkList
 from src.theme_park_api import ThemePark
 from src.theme_park_api import Vacation
@@ -47,6 +47,8 @@ from src.theme_park_api import url_decode
 from src.webgui import generate_header
 from src.theme_park_api import Timer
 from src.ota_updater import OTAUpdater
+from src.theme_park_api import update_subscription_status
+import src.shopify_connect
 
 logger = ErrorHandler("error_log")
 
@@ -287,6 +289,7 @@ mdns_server.advertise_service(service_type="_http", protocol="_tcp", port=80)
 #
 async def update_live_wait_time():
     await try_wifi_until_connected()
+    global http_requests
     if park_list.current_park.id <= 0:
         return
     try:
@@ -307,8 +310,10 @@ async def update_live_wait_time():
             logger.error(f"HTTP GET failed for {park_list.current_park.name}:{park_list.current_park.id}")
 
     except RuntimeError as e:
+        http_requests = adafruit_requests.Session(socket_pool, ssl.create_default_context())
         logger.error(e, "RuntimeError: Unable to update ride times.")
     except OSError as e:
+        http_requests = adafruit_requests.Session(socket_pool, ssl.create_default_context())
         logger.error(e, "OSError: Unable to update ride times.")
 
 
@@ -385,6 +390,16 @@ def generate_main_page():
 
     page += "<p>"
     page += "</p>"
+
+    page += "<h2>Subscription</h2>"
+    page += "<div>"
+    page += "<p>"
+    page += "<label for=\"Name\">Email:</label>"
+    page += f"<input type=\"text\" name=\"email\" style=\"text-align: left;\" value=\"{settings.settings["email"]}\">"
+    page += "</p>"
+    page += "<p>"
+    page += "<label for=\"Status\">Status:</label>"
+    page += f"{settings.settings["subscription_status"]}"
 
     page += "<p>"
     page += "<label for=\"Submit\"></label>"
@@ -532,8 +547,13 @@ def base(request: Request):
         # This # triggers the messages to reload with new info.
         messages.regenerate_flag = True
 
+        # See if the user set the email and update settings
+        src.shopify_connect.parse_form_params(settings, str(request.query_params))
+
+        # Get the subscription status
+        update_subscription_status(settings, http_requests)
+        # Save the settings to disk
         try:
-            # Save the settings to disk
             settings.save_settings()
         except OSError as e:
             logger.error(e, "Unable to save settings, drive is read only.")
@@ -629,7 +649,13 @@ async def update_ride_times_wrapper():
     messages.regenerate_flag = False
     await asyncio.sleep(0)  # let other tasks run
 
-    await messages.add_rides(park_list)
+    sub_status = settings.settings["subscription_status"]
+    if sub_status is "Subscribed":
+        await messages.add_rides(park_list)
+    else:
+        messages.add_scroll_message(f"No subscription for email {settings.settings['email']}.")
+        messages.add_scroll_message("Check subscription at themeparkwaits.com")
+
     await messages.add_vacation(vacation_date)
     messages.add_scroll_message(f"Configure at: http://{settings.settings["domain_name"]}.local")
     await messages.add_splash(2)
@@ -652,6 +678,18 @@ def run_garbage_collector():
         logger.error(f"GC took {elapsed_time} seconds")
     return mem_free
 
+async def periodically_update_subscription_status():
+    while True:
+        try:
+            update_subscription_status(settings, http_requests)
+
+            # Check once a day for subscription status changes
+            await asyncio.sleep(60*60*24)
+        except OSError as e:
+            messages.init()
+            messages.add_scroll_message("Unable to update subscription status.")
+            logger.error(e, "OSError: Unable to contact Shopify GraphQL API")
+
 
 async def periodically_update_ride_times():
     """
@@ -667,6 +705,7 @@ async def periodically_update_ride_times():
 
             if len(park_list.current_park.rides) > 0:
                 await update_ride_times_wrapper()
+
 
         except OSError as e:
             messages.init()
@@ -705,12 +744,16 @@ except OSError as e:
 # ota_updater.check_for_update_to_install_during_next_reboot()
 asyncio.run(asyncio.gather(download_and_install_update_if_available()))
 
+# check to see if the user has paid for a subscription
+update_subscription_status(settings, http_requests)
+
 # Start the web server GUI
 start_web_server(web_server, wifi.radio.ipv4_address)
 
 asyncio.run(asyncio.gather(
     run_display(),
-    run_web_server()
+    run_web_server(),
+    periodically_update_subscription_status()
 ))
 
 # Removed because updating ride times was blocking the display from running

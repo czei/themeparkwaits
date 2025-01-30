@@ -24,14 +24,22 @@ class ErrorHandler:
         for line in st:
             st_str = st_str + line
 
-        with open(self.fileName, 'a') as file:
-            file.write(except_str + "\n")
-            file.write(st_str + "\n")
+        # Write to filesystem when it is write-enabled
+        # Print to screen with read-only
+        try:
+            with open(self.fileName, 'a') as file:
+                file.write(except_str + "\n")
+                file.write(st_str + "\n")
+        except OSError:
+            print(st_str)
+            print("UnicodeEncodeError")
 
     def debug(self, message):
-        print(message)
-        # with open(self.fileName, 'a') as file:
-        #     file.write(message + "\n")
+        try:
+            with open(self.fileName, 'a') as file:
+                file.write(message + "\n")
+        except OSError:
+            print(message)
 
     @staticmethod
     def info(message):
