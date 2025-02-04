@@ -77,13 +77,13 @@ def parse_order_date(json_string):
         order_date = datetime.fromisoformat(order_date_str[:10])
         return order_date
     except (KeyError, ValueError, TypeError) as e:
-        print(f"Error parsing the date: {e}")
+        logger.error(e, f"Error parsing the date: {e}")
         return None
 
 def valid_subscription(subscription_date, current_date):
     grandfathered_date = datetime(2025, 1, 15)
     if subscription_date < grandfathered_date:
-        logger.debug("Subscription is grandfathered")
+        # logger.debug("Subscription is grandfathered")
         return True
 
     num_days = (current_date - subscription_date).days
@@ -99,7 +99,7 @@ def parse_form_params(settings, form_params):
         name_value = param.split("=")
         if name_value[0] == "email":
             settings.settings["email"] = src.theme_park_api.url_decode(name_value[1])
-            print(f"Email = {src.theme_park_api.url_decode(name_value[1])}")
+            # logger.debug(f"Email = {src.theme_park_api.url_decode(name_value[1])}")
 
 def get_customer_query(customer_email):
     get_email_query = "query GetCustomerByEmail {"

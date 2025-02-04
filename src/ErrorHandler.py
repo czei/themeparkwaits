@@ -35,11 +35,12 @@ class ErrorHandler:
             print("UnicodeEncodeError")
 
     def debug(self, message):
-        try:
-            with open(self.fileName, 'a') as file:
-                file.write(message + "\n")
-        except OSError:
-            print(message)
+        print(message)
+        # try:
+        #     with open(self.fileName, 'a') as file:
+        #         file.write(message + "\n")
+        # except OSError:
+        #     print(message)
 
     @staticmethod
     def info(message):

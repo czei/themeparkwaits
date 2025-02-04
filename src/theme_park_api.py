@@ -265,7 +265,7 @@ class ThemePark:
         # and some have both.  We'll # try to parse all 3 kinds.
         lands_list = json_data["lands"]
         for land in lands_list:
-            logger.debug(f"Land = {land}")
+            # logger.debug(f"Land = {land}")
             rides = land["rides"]
             for ride in rides:
                 name = ride["name"]
@@ -482,7 +482,7 @@ class MessageQueue:
         for ride in park.rides:
             await asyncio.sleep(0)
             if "Meet" in ride.name and park_list.skip_meet == True:
-                logger.info(f"Skipping character meet: {ride.name}")
+                logger.debug(f"Skipping character meet: {ride.name}")
                 continue
 
             if ride.is_open() is False and park_list.skip_closed == True:
