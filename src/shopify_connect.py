@@ -57,7 +57,8 @@ def is_subscription_active(requests, customer_email):
             # print(f"Now is: {datetime.now()}")
             return valid_subscription(sub_renewal_date, datetime.now())
         else:
-            logger.debug(f"HTTP Error code connecting to Shopify: {response.status_code}")
+            logger.debug(f"HTTP Error code connecting to Shopify: {response.status_code}\n")
+            logger.debug("{response.text}")
     except Exception as e:
         logger.error(e, "Error connecting to Shopify...")
 

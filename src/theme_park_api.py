@@ -12,7 +12,6 @@ sys.path.append('/src/lib')
 import asyncio
 from adafruit_datetime import datetime
 from src.color_utils import ColorUtils
-from src.shopify_connect import is_subscription_active
 
 import json
 import time
@@ -31,46 +30,63 @@ except ModuleNotFoundError:
                 self.datetime = datetime()
 
 
-#'Red': '0xcc3333',
+async def set_system_clock_ntp(socket_pool, tz_offset=None):
+    """
+    Set device time using NTP (Network Time Protocol)
 
-def update_subscription_status(sm, http_requests):
-    email = sm.settings["email"]
-    status = is_subscription_active(http_requests, email)
-    if status is True:
-        sm.settings["subscription_status"] = "Subscribed"
-    else:
-        sm.settings["subscription_status"] = "Unsubscribed"
+    Args:
+        socket_pool: SocketPool instance to use for NTP requests (must be actual socket pool, not HTTP client)
+        tz_offset: Optional timezone offset in hours (defaults to US Eastern Time)
 
-def set_system_clock(http_requests):
-    # Set device time from the internet
-    response = http_requests.get(
-        'http://worldtimeapi.org/api/timezone/America/New_York')
-    time_data = response.json()
-    date_string = time_data["datetime"]
-    date_elements = date_string.split("T")
-    date = date_elements[0].split("-")
-    the_time = date_elements[1].split(".")
-    the_time = the_time[0].split(":")
+    Returns:
+        True if successful, False otherwise
+    """
+    from src.utils.error_handler import ErrorHandler
+    logger = ErrorHandler("error_log")
 
-    # Pass elements to datetime constructor
-    #            int(float(offset)*1000000)
-    datetime_object = (
-        int(date[0]),
-        int(date[1]),
-        int(date[2]),
-        int(the_time[0]),
-        int(the_time[1]),
-        int(the_time[2]),
-        -1,
-        -1,
-        -1
-    )
+    if not HAS_NTP or not HAS_HARDWARE:
+        logger.info("NTP module not available or hardware not supported")
+        return False
 
+    # Validate socket_pool is a proper socket pool object
+    if socket_pool is None or not hasattr(socket_pool, 'getaddrinfo'):
+        logger.error(None, "Invalid socket pool provided for NTP, socket pool must have getaddrinfo")
+        return False
 
-    logger.info(f"Setting the time to {datetime_object}")
-    rtc.RTC().datetime = datetime_object
-    return datetime_object
+    try:
+        # Timezone offset: default to EST (-5 hours)
+        if tz_offset is None:
+            tz_offset = -5
 
+        # Create NTP client
+        logger.info(f"Creating NTP client with server pool.ntp.org and tz_offset {tz_offset}")
+        ntp = adafruit_ntp.NTP(socket_pool, server="pool.ntp.org", tz_offset=tz_offset)
+
+        # Get the time
+        logger.info("Getting time from NTP server")
+        current_time = ntp.datetime
+
+        # Convert to a tuple for the RTC module
+        datetime_tuple = (
+            current_time.tm_year,    # Year
+            current_time.tm_mon,     # Month
+            current_time.tm_mday,    # Day
+            current_time.tm_hour,    # Hour
+            current_time.tm_min,     # Minute
+            current_time.tm_sec,     # Second
+            current_time.tm_wday,    # Day of week (0-6)
+            -1,                      # Day of year (not necessary)
+            -1                       # DST flag (not necessary)
+        )
+
+        # Update the RTC
+        rtc.RTC().datetime = datetime_tuple
+        logger.info(f"System clock set to {datetime_tuple} via NTP")
+        return True
+
+    except Exception as e:
+        logger.error(e, "Error setting time via NTP")
+        return False
 
 class ThemeParkList:
     '''

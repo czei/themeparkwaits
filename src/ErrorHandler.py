@@ -2,11 +2,20 @@ import os
 import traceback
 
 class ErrorHandler:
+    @staticmethod
+    def filter_non_ascii(text):
+        """Filter out non-ASCII characters from a string"""
+        if text is None:
+            return ""
+        return "".join(c for c in str(text) if ord(c) < 128)
     def __init__(self, file_name):
         self.fileName = file_name
         if self.file_exists(file_name) is False:
-            with open(self.fileName, 'w') as file:
-                file.write('')  # Creates an empty file
+            try:
+                with open(self.fileName, 'w') as file:
+                    file.write('')  # Creates an empty file
+            except OSError as e:
+                pass
 
     @staticmethod
     def file_exists(file_name):
@@ -27,21 +36,34 @@ class ErrorHandler:
         # Write to filesystem when it is write-enabled
         # Print to screen with read-only
         try:
+            # Filter out non-ASCII characters to prevent UnicodeEncodeError
+            filtered_except_str = self.filter_non_ascii(except_str)
+            filtered_st_str = self.filter_non_ascii(st_str)
+            
             with open(self.fileName, 'a') as file:
-                file.write(except_str + "\n")
-                file.write(st_str + "\n")
+                file.write(filtered_except_str + "\n")
+                file.write(filtered_st_str + "\n")
         except OSError:
             print(st_str)
-            print("UnicodeEncodeError")
+            # print("Error writing to log file")
 
     def debug(self, message):
         print(message)
-        # try:
-        #     with open(self.fileName, 'a') as file:
-        #         file.write(message + "\n")
-        # except OSError:
-        #     print(message)
+        self.write_to_file(message)
 
-    @staticmethod
-    def info(message):
+    def write_to_file(self, message):
+        # Write to filesystem when it is write-enabled
+        # Print to screen with read-only
+        try:
+            # Filter out non-ASCII characters to prevent UnicodeEncodeError
+            filtered_message = self.filter_non_ascii(message)
+            
+            with open(self.fileName, 'a') as file:
+                file.write(filtered_message + "\n")
+        except OSError:
+            pass
+            # print("Error writing to log file")
+
+    def info(self, message):
         print(message)
+        self.write_to_file(message)
