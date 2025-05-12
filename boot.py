@@ -32,6 +32,7 @@ button = digitalio.DigitalInOut(board.BUTTON_UP)
 if button.value is False:
     remove_file("secrets.py")
     remove_file("settings.json")
+    remove_file("error_log")
 
 
 

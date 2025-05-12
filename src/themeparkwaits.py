@@ -176,6 +176,7 @@ async def try_wifi_until_connected():
     attempts = 1
     if wifi.radio.connected is True:
         logger.debug(f"Already connected to wifi {ssid}: at {wifi.radio.ipv4_address}")
+        return
     else:
         logger.debug(f"Connecting to wifi {ssid}: at {wifi.radio.ipv4_address}")
 
@@ -730,6 +731,7 @@ async def network_monitor():
     """Periodically checks network connectivity and attempts to fix DNS issues"""
     last_check_time = 0
     check_interval = 60 * 30  # 30 minutes
+    global web_server
 
     while True:
         current_time = time.monotonic()
@@ -753,6 +755,15 @@ async def network_monitor():
                         # Recreate the HTTP session
                         recreate_http_session()
                         logger.info("Network recovery: WiFi reset and HTTP session recreated")
+                        
+                        # Reset the web server
+                        if web_server is not None:
+                            try:
+                                web_server.stop()
+                                web_server = adafruit_httpserver.Server(socket_pool, "/static", debug=False)
+                            except Exception as e:
+                                logger.error(e, "Error stopping web server")
+
                     except Exception as e:
                         logger.error(e, "Error during network recovery")
 
@@ -855,6 +866,10 @@ async def periodically_update_ride_times():
     If the user has selected a park, update the ride values ever so often.
     :return:
     """
+   
+    # See if the network is still working.  If not, reset everything 
+    await network_monitor()
+    
     while True:
         try:
             if park_list.current_park.is_open is True:

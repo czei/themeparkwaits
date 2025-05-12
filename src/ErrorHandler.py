@@ -66,4 +66,4 @@ class ErrorHandler:
 
     def info(self, message):
         print(message)
-        self.write_to_file(message)
+        # self.write_to_file(message)
