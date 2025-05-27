@@ -252,8 +252,8 @@ class HttpClient:
                             last_error = retry_error
                             retry_count += 1
                             import asyncio
-                            # Longer backoff delay for network issues
-                            await asyncio.sleep(5 * retry_count)
+                            # Reduced backoff delay for network issues
+                            await asyncio.sleep(2 * retry_count)  # 2s, 4s instead of 5s, 10s
                             # Try to reset the session if possible
                             try:
                                 # Get a new session from socket pool
@@ -296,7 +296,7 @@ class HttpClient:
 
                 # If execution reaches here, there was an error
                 import asyncio
-                await asyncio.sleep(2 * retry_count)  # Exponential backoff
+                await asyncio.sleep(0.5 + retry_count * 0.5)  # Reduced backoff: 0.5s, 1s instead of 2s, 4s
 
             except Exception as outer_error:
                 # Catch any unexpected exceptions in the retry loop itself
@@ -304,7 +304,7 @@ class HttpClient:
                 last_error = outer_error
                 retry_count += 1
                 import asyncio
-                await asyncio.sleep(2 * retry_count)  # Exponential backoff
+                await asyncio.sleep(0.5 + retry_count * 0.5)  # Reduced backoff: 0.5s, 1s instead of 2s, 4s
 
         # All retries failed - return mock error response
         error_msg = str(last_error) if last_error else "Unknown error"

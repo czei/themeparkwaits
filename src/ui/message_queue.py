@@ -39,6 +39,9 @@ class MessageQueue:
         self.delay_queue = []
         self.index = 0
         self.has_completed_cycle = False
+        # Force any currently running display operation to stop
+        if hasattr(self.display, 'stop_current_operation'):
+            self.display.stop_current_operation()
 
     async def add_scroll_message(self, the_message, delay=2):
         """
@@ -124,7 +127,10 @@ class MessageQueue:
         sort_mode = self.display.settings_manager.get("sort_mode", "alphabetical")
         group_by_park = self.display.settings_manager.get("group_by_park", False)
         
+        logger.debug(f"MessageQueue: sort_mode={sort_mode}, group_by_park={group_by_park} (type: {type(group_by_park)})")
+        
         if group_by_park:
+            logger.debug(f"Group by park is enabled - processing {len(parks_to_display)} parks separately")
             # Process each park separately, maintaining the order they were selected
             for park in parks_to_display:
                 if park.is_open is False:

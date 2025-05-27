@@ -162,7 +162,7 @@ class ThemeParkService:
             
     async def fetch_park_data(self, park_id):
         """
-        Fetch data for a specific park
+        Fetch data for a specific park (optimized for speed)
 
         Args:
             park_id: The ID of the park
@@ -170,7 +170,7 @@ class ThemeParkService:
         Returns:
             Park data as a dictionary, or None if fetch failed
         """
-        max_retries = 3
+        max_retries = 2  # Reduced from 3 to 2
         retry_count = 0
 
         while retry_count < max_retries:
@@ -184,7 +184,8 @@ class ThemeParkService:
                 if not response or not hasattr(response, 'text'):
                     logger.error(None, f"Invalid response when fetching park data (attempt {retry_count + 1})")
                     retry_count += 1
-                    await asyncio.sleep(1)
+                    if retry_count < max_retries:
+                        await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
                     continue
 
                 # Try to parse JSON
@@ -193,7 +194,8 @@ class ThemeParkService:
                     if not data:
                         logger.error(None, f"Empty JSON data from park API (attempt {retry_count + 1})")
                         retry_count += 1
-                        await asyncio.sleep(1)
+                        if retry_count < max_retries:
+                            await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
                         continue
 
                     logger.info(f"Successfully fetched data for park ID {park_id}")
@@ -202,13 +204,15 @@ class ThemeParkService:
                 except json.JSONDecodeError as json_error:
                     logger.error(json_error, f"JSON decode error for park data (attempt {retry_count + 1})")
                     retry_count += 1
-                    await asyncio.sleep(1)
+                    if retry_count < max_retries:
+                        await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
                     continue
 
             except Exception as e:
                 logger.error(e, f"Error fetching park data for park ID {park_id} (attempt {retry_count + 1})")
                 retry_count += 1
-                await asyncio.sleep(1)
+                if retry_count < max_retries:
+                    await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
 
         # All retries failed
         logger.error(None, f"Failed to fetch park data for park ID {park_id} after {max_retries} attempts")
@@ -238,7 +242,7 @@ class ThemeParkService:
             
     async def update_selected_parks(self):
         """
-        Update all selected parks with fresh data (sequential fetching)
+        Update all selected parks with fresh data (parallel fetching for speed)
         
         Returns:
             Number of parks successfully updated
@@ -247,31 +251,48 @@ class ThemeParkService:
             logger.debug("No selected parks to update")
             return 0
             
-        updated_count = 0
         total_parks = len(self.park_list.selected_parks)
         
-        logger.info(f"Starting sequential update of {total_parks} selected parks")
+        logger.info(f"Starting parallel update of {total_parks} selected parks")
         
-        for idx, park in enumerate(self.park_list.selected_parks):
-            try:
-                logger.debug(f"Updating park {idx+1}/{total_parks}: {park.name} (ID: {park.id})")
-                park_data = await self.fetch_park_data(park.id)
-                if park_data:
-                    park.update(park_data)
-                    updated_count += 1
-                    logger.debug(f"Successfully updated park: {park.name}")
-                else:
-                    logger.error(None, f"Failed to fetch data for park: {park.name}")
-                    
-                # Small delay between requests to be respectful of the API
-                if idx < total_parks - 1:  # Don't delay after the last park
-                    await asyncio.sleep(0.5)
-                    
-            except Exception as e:
-                logger.error(e, f"Error updating park: {park.name}")
-                
+        # Create tasks for all parks to fetch in parallel
+        tasks = []
+        for park in self.park_list.selected_parks:
+            task = asyncio.create_task(self._update_single_park(park))
+            tasks.append(task)
+        
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Count successful updates
+        updated_count = sum(1 for result in results if result is True)
+        
         logger.info(f"Updated {updated_count}/{total_parks} selected parks")
         return updated_count
+    
+    async def _update_single_park(self, park):
+        """
+        Update a single park with error handling
+        
+        Args:
+            park: The park to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            logger.debug(f"Updating park: {park.name} (ID: {park.id})")
+            park_data = await self.fetch_park_data(park.id)
+            if park_data:
+                park.update(park_data)
+                logger.debug(f"Successfully updated park: {park.name}")
+                return True
+            else:
+                logger.error(None, f"Failed to fetch data for park: {park.name}")
+                return False
+        except Exception as e:
+            logger.error(e, f"Error updating park: {park.name}")
+            return False
 
     async def get_ride_wait_times(self, park_id=None, ride_name=None):
         """

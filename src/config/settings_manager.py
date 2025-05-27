@@ -113,7 +113,14 @@ class SettingsManager:
         Returns:
             The setting value, or the default if not found
         """
-        return self.settings.get(key, default)
+        value = self.settings.get(key, default)
+        
+        # Special handling for boolean settings that might be stored as strings
+        # This can happen with CircuitPython's JSON parser
+        if key in ["group_by_park", "skip_closed", "skip_meet"] and isinstance(value, str):
+            return value.lower() == "true"
+            
+        return value
         
     def set(self, key, value):
         """

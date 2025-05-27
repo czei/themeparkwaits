@@ -405,9 +405,11 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
         # Process group by park
         prev_group_by_park = app.settings_manager.settings.get("group_by_park", False)
         group_by_park = "group_by_park=on" in query_params
+        logger.debug(f"Group by park processing: old={prev_group_by_park}, new={group_by_park}, in query={('group_by_park=on' in query_params)}")
         app.settings_manager.settings["group_by_park"] = group_by_park
         if group_by_park != prev_group_by_park:
             settings_changed = True
+            logger.debug(f"Group by park changed from {prev_group_by_park} to {group_by_park}, setting settings_changed=True")
         
         # Process color parameters
         self._process_color_params(query_params)
@@ -429,6 +431,13 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
         elif settings_changed and hasattr(app, 'theme_park_service'):
             # Only settings changed (e.g., sort mode) - just rebuild the queue
             app.theme_park_service.queue_rebuild_needed = True
+            
+            # Force immediate queue rebuild if possible
+            if hasattr(app, 'message_queue') and hasattr(app, 'build_messages'):
+                logger.info("Forcing immediate message queue rebuild after settings change")
+                app.message_queue.init()
+                # Note: We can't await here since we're not in an async context
+                # The rebuild will happen on the next display loop iteration
         
         return park_changed or settings_changed
     
@@ -946,7 +955,7 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
                         parts.append("</div>")
                     else:
                         # Already up to date
-                        parts.append("<p style='color: #008000;'>✓ You have the latest version!</p>")
+                        parts.append("<p style='color: #008000;'You have the latest version!</p>")
                 except Exception as e:
                     logger.error(e, "Error comparing versions")
                     parts.append(f"<p>Latest version: <strong>{latest}</strong></p>")

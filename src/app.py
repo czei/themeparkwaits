@@ -334,6 +334,10 @@ class ThemeParkApp:
         # If we only need to rebuild the queue (no data fetch needed)
         if queue_rebuild_only:
             logger.info("Rebuilding message queue after settings change")
+            # Log current settings before rebuild
+            group_by_park = self.settings_manager.get("group_by_park", False)
+            sort_mode = self.settings_manager.get("sort_mode", "alphabetical")
+            logger.debug(f"Settings before queue rebuild: group_by_park={group_by_park}, sort_mode={sort_mode}")
             # Skip the data fetch, jump straight to rebuilding the queue
             self.message_queue.init()
             await self.build_messages()
@@ -377,9 +381,6 @@ class ThemeParkApp:
         await self.build_messages()
 
         # Force garbage collection to free memory
-        gc.collect()
-
-        # For some reason Claude recommended running it twice.
         gc.collect()
 
     async def build_messages(self):

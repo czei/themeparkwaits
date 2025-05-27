@@ -473,17 +473,6 @@ class ThemeParkWebServer:
 
         self._process_color_params(query_params)
 
-        # Save settings after changes
-        try:
-            self.app.settings_manager.save_settings()
-            logger.debug("Settings saved successfully after processing query params")
-
-            if (brightness_changed or scroll_changed) and hasattr(self.app, 'message_queue'):
-                self.app.display.set_colors(self.app.settings_manager)
-                logger.debug("Reset message queue after display settings change")
-        except Exception as e:
-            logger.error(e, "Error saving settings")
-
         # Extract scroll speed
         scroll_match = re.search(r'scroll_speed=([^&]+)', query_params)
         if scroll_match:
@@ -506,10 +495,23 @@ class ThemeParkWebServer:
         # Process group by park
         old_group_by_park = self.app.settings_manager.settings.get("group_by_park", False)
         group_by_park = "group_by_park=on" in query_params
+        logger.debug(f"Group by park processing: old={old_group_by_park}, new={group_by_park}, in query={('group_by_park=on' in query_params)}")
         if group_by_park != old_group_by_park:
             sort_changed = True
+            logger.debug(f"Group by park changed from {old_group_by_park} to {group_by_park}, setting sort_changed=True")
         self.app.settings_manager.settings["group_by_park"] = group_by_park
         logger.debug(f"Updated group by park to {group_by_park}")
+
+        # Save settings after changes
+        try:
+            self.app.settings_manager.save_settings()
+            logger.debug("Settings saved successfully after processing query params")
+
+            if (brightness_changed or scroll_changed) and hasattr(self.app, 'message_queue'):
+                self.app.display.set_colors(self.app.settings_manager)
+                logger.debug("Reset message queue after display settings change")
+        except Exception as e:
+            logger.error(e, "Error saving settings")
 
         # Handle use_prerelease checkbox
         if "use_prerelease=" in query_params:
@@ -549,6 +551,13 @@ class ThemeParkWebServer:
             # Only sort settings changed - just rebuild the queue
             self.app.theme_park_service.queue_rebuild_needed = True
             logger.debug("Set queue_rebuild_needed flag after sort settings change")
+            
+            # Force immediate queue rebuild if possible
+            if hasattr(self.app, 'message_queue') and hasattr(self.app, 'build_messages'):
+                logger.info("Forcing immediate message queue rebuild after sort settings change")
+                self.app.message_queue.init()
+                # Note: We can't await here since we're not in an async context
+                # The rebuild will happen on the next display loop iteration
                 
         if settings_changed and hasattr(self.app, 'message_queue'):
             self.app.display.set_colors(self.app.settings_manager)
@@ -1202,7 +1211,7 @@ class ThemeParkWebServer:
                         parts.append("</div>")
                     else:
                         # Already up to date
-                        parts.append("<p style='color: #008000;'>✓ You have the latest version!</p>")
+                        parts.append("<p style='color: #008000;'You have the latest version!</p>")
                 except Exception as e:
                     logger.error(e, "Error comparing versions")
                     parts.append(f"<p>Latest version: <strong>{latest}</strong></p>")
