@@ -133,7 +133,7 @@ class ThemeParkApp:
 
             # Pass a lambda that calls is_wifi_password_configured instead of calling it directly
             asyncio.run(asyncio.gather(
-                self.wifi_manager.run_web_server(lambda: is_wifi_password_configured()),
+                self.wifi_manager.run_web_server(lambda: self.is_wifi_password_configured()),
                 self.run_configure_wifi_message()
             ))
 
@@ -177,7 +177,7 @@ class ThemeParkApp:
                 await self.display.show_scroll_message("WiFi Failed - Check settings")
 
     async def run_configure_wifi_message(self):
-        while is_wifi_password_configured() is False:
+        while self.is_wifi_password_configured() is False:
             setup_text = f"Connect your phone to Wifi channel {self.wifi_manager.AP_SSID}, password \"{self.wifi_manager.AP_PASSWORD}\". Then load page http://192.168.4.1"
             await self.display.show_scroll_message(setup_text)
     
@@ -198,7 +198,7 @@ class ThemeParkApp:
                 await asyncio.sleep(2)
                 
                 # Since we need network for installation, check if WiFi is configured
-                if is_wifi_password_configured():
+                if self.is_wifi_password_configured():
                     ssid, password = load_credentials()
                     # Note: install_update_if_available_after_boot expects sync code
                     # We'll need to handle this carefully

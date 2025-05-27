@@ -1,3 +1,9 @@
+from src.utils.error_handler import ErrorHandler
+
+# Initialize logger
+logger = ErrorHandler("error_log")
+
+
 def generate_main_page(self):
     """
     Generate the main HTML page optimized for performance
