@@ -1221,16 +1221,16 @@ class ThemeParkWebServer:
                 parts.append("<p>Latest version: <a href='/check-update'>Check for updates</a></p>")
                 
             # Add pre-release toggle for testing
-            if self.app.settings_manager.get("show_dev_options", False):
-                parts.append("<hr>")
-                parts.append("<h3>Developer Options</h3>")
-                use_prerelease = self.app.settings_manager.get("use_prerelease", False)
-                checked = "checked" if use_prerelease else ""
-                parts.append("<form action='/settings' method='get'>")
-                parts.append(f"<input type='checkbox' name='use_prerelease' id='use_prerelease' {checked}>")
-                parts.append("<label for='use_prerelease'>Check for pre-release versions (testing only)</label>")
-                parts.append("<button type='submit'>Update</button>")
-                parts.append("</form>")
+            # Always show developer options on the settings page
+            parts.append("<hr>")
+            parts.append("<h3>Developer Options</h3>")
+            use_prerelease = self.app.settings_manager.get("use_prerelease", False)
+            checked = "checked" if use_prerelease else ""
+            parts.append("<form action='/settings' method='get'>")
+            parts.append(f"<input type='checkbox' name='use_prerelease' id='use_prerelease' {checked}>")
+            parts.append("<label for='use_prerelease'>Check for pre-release versions (testing only)</label>")
+            parts.append("<button type='submit'>Update</button>")
+            parts.append("</form>")
                 
         except Exception as e:
             logger.error(e, "Error checking for updates")
