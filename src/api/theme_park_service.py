@@ -142,7 +142,7 @@ class ThemeParkService:
                     logger.info(f"Successfully fetched {len(self.park_list.park_list)} parks")
                     return self.park_list
                     
-                except json.JSONDecodeError as json_error:
+                except ValueError as json_error:  # CircuitPython uses ValueError instead of JSONDecodeError
                     logger.error(json_error, f"JSON decode error for park list (attempt {retry_count + 1})")
                     retry_count += 1
                     await asyncio.sleep(1)
@@ -201,7 +201,7 @@ class ThemeParkService:
                     logger.info(f"Successfully fetched data for park ID {park_id}")
                     return data
 
-                except json.JSONDecodeError as json_error:
+                except ValueError as json_error:  # CircuitPython uses ValueError instead of JSONDecodeError
                     logger.error(json_error, f"JSON decode error for park data (attempt {retry_count + 1})")
                     retry_count += 1
                     if retry_count < max_retries:
@@ -521,7 +521,7 @@ class ThemeParkService:
                 
                 logger.info(f"Successfully fetched {len(rides)} rides for park ID {park_id}")
                 return rides
-            except json.JSONDecodeError as json_error:
+            except ValueError as json_error:  # CircuitPython uses ValueError instead of JSONDecodeError
                 logger.error(json_error, f"JSON decode error for ride data (park ID {park_id})")
                 return []
                 

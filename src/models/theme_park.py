@@ -44,11 +44,13 @@ class ThemePark:
         Returns:
             A string with only ASCII characters
         """
-        new_str = ""
+        # Optimized: Use list comprehension with join for better performance
+        # on both short and long strings
+        chars = []
         for c in orig_str:
             if ord(c) < 128:
-                new_str += c
-        return new_str
+                chars.append(c)
+        return ''.join(chars)
 
     def get_url(self):
         """
@@ -60,6 +62,28 @@ class ThemePark:
         url1 = "https://queue-times.com/parks/"
         url2 = "/queue_times.json"
         return url1 + str(self.id) + url2
+
+    def _process_ride(self, ride_data):
+        """
+        Process a single ride's data into a ThemeParkRide object
+        
+        Args:
+            ride_data: Dictionary containing ride information
+            
+        Returns:
+            ThemeParkRide object
+        """
+        name = self.remove_non_ascii(ride_data["name"])
+        ride_obj = ThemeParkRide(
+            name,
+            ride_data["id"],
+            ride_data["wait_time"],
+            ride_data["is_open"]
+        )
+        # Direct check instead of method call for performance
+        if ride_data["is_open"]:
+            self.is_open = True
+        return ride_obj
 
     def get_rides_from_json(self, json_data):
         """
@@ -74,41 +98,25 @@ class ThemePark:
         ride_list = []
         self.is_open = False
 
-        # logger.debug(f"Json_data is: {json_data}")
-        if not json_data or len(json_data) <= 0:
+        # Early return for empty data
+        if not json_data:
             return ride_list
 
-        # Some parks consist of Lands, some don't have lands at all,
-        # and some have both. We'll try to parse all 3 kinds.
+        # Optimized: Process all rides regardless of structure
         try:
-            lands_list = json_data["lands"]
-            for land in lands_list:
-                # logger.debug(f"Land = {land}")
-                rides = land["rides"]
-                for ride in rides:
-                    name = self.remove_non_ascii(ride["name"])
-                    logger.debug(f"Ride = {name}")
-                    ride_id = ride["id"]
-                    wait_time = ride["wait_time"]
-                    open_flag = ride["is_open"]
-                    this_ride_object = ThemeParkRide(name, ride_id, wait_time, open_flag)
-                    if this_ride_object.is_open() is True:
-                        self.is_open = True
-                    ride_list.append(this_ride_object)
+            # Process rides in lands (if they exist)
+            lands = json_data.get("lands", [])
+            for land in lands:
+                land_rides = land.get("rides", [])
+                for ride in land_rides:
+                    ride_list.append(self._process_ride(ride))
 
-            # Some parks dont' have lands, but we also want to avoid
-            # double-counting
-            if "rides" in json_data:
-                rides_not_in_a_land = json_data["rides"]
-                for ride in rides_not_in_a_land:
-                    name = self.remove_non_ascii(ride["name"])
-                    ride_id = ride["id"]
-                    wait_time = ride["wait_time"]
-                    open_flag = ride["is_open"]
-                    this_ride_object = ThemeParkRide(name, ride_id, wait_time, open_flag)
-                    if this_ride_object.is_open() is True:
-                        self.is_open = True
-                    ride_list.append(this_ride_object)
+            # Process rides not in lands (if they exist)
+            # This handles parks without land structure
+            direct_rides = json_data.get("rides", [])
+            for ride in direct_rides:
+                ride_list.append(self._process_ride(ride))
+                
         except (KeyError, TypeError) as e:
             logger.error(e, "Error parsing theme park data")
             

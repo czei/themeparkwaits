@@ -43,8 +43,12 @@ class BaseResponse:
                     return self._json_cache
                     
                 self._json_cache = json.loads(text_to_parse)
-            except json.JSONDecodeError as e:
+            except (ValueError, AttributeError) as e:
+                # CircuitPython's json module raises ValueError instead of JSONDecodeError
                 logger.error(e, f"JSON parse error: {str(e)}")
+                # Log the actual content that failed to parse (first 200 chars)
+                if 'text_to_parse' in locals():
+                    logger.error(None, f"Failed to parse JSON. Content: {text_to_parse[:200]}...")
                 raise ValueError(f"syntax error in JSON: {str(e)}")
         return self._json_cache
     

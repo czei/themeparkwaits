@@ -15,7 +15,7 @@ class OTAUpdater:
     def __init__(self, http_client_param, github_repo, github_src_dir='', module='', main_dir='main', new_version_dir='next', secrets_file=None, headers={}, use_prerelease=False):
         self.headers = headers
         self.http_client = http_client_param
-        self.github_repo = github_repo.rstrip('/').replace('https://github.com/', '')
+        self.github_repo = github_repo.rstrip('/')
         self.github_src_dir = '' if len(github_src_dir) < 1 else github_src_dir.rstrip('/') + '/'
         self.module = module.rstrip('/')
         self.main_dir = main_dir
@@ -63,8 +63,9 @@ class OTAUpdater:
             new_version_contents = os.listdir(new_version_path)
             is_available = '.version' in new_version_contents
             return is_available
-        except (OSError, FileNotFoundError):
+        except OSError:
             # Directory doesn't exist or can't be accessed
+            # Note: FileNotFoundError doesn't exist in CircuitPython
             return False
 
     def install_update_if_available_after_boot(self, ssid, password):
@@ -87,8 +88,9 @@ class OTAUpdater:
                     OTAUpdater._using_network(ssid, password)
                     self.install_update_if_available()
                     return True
-        except (OSError, FileNotFoundError):
+        except OSError:
             # Directory doesn't exist or can't be accessed
+            # Note: FileNotFoundError doesn't exist in CircuitPython
             pass
             
         logger.info('No new updates found...')
@@ -145,19 +147,31 @@ class OTAUpdater:
                 with open(directory + '/' + version_file_name) as f:
                     version = f.read().strip()
                     return version
-        except (OSError, FileNotFoundError):
+        except OSError:
             # Directory doesn't exist or can't be accessed
+            # Note: FileNotFoundError doesn't exist in CircuitPython
             pass
         return '0.0'
 
     def get_latest_version(self):
+        # Extract owner/repo from full URL if needed
+        repo_path = self.github_repo.replace('https://github.com/', '')
+        
         if self.use_prerelease:
             # Get all releases including pre-releases for testing
-            url = "https://api.github.com/repos/{}/releases".format(self.github_repo)
+            url = "https://api.github.com/repos/{}/releases".format(repo_path)
             logger.info(f"Checking all releases (including pre-releases) at: {url}")
             
             try:
                 response = self.http_client.get_sync(url, headers=self.headers)
+                
+                # Debug: Log the raw response (only if available)
+                if hasattr(response, 'text') and response.text:
+                    try:
+                        logger.debug(f"Raw response (first 200 chars): {response.text[:200]}")
+                    except:
+                        logger.debug(f"Raw response available but not subscriptable")
+                
                 releases = response.json()
                 response.close()
                 
@@ -175,7 +189,7 @@ class OTAUpdater:
                 raise ValueError(f"Error fetching releases: {e}")
         else:
             # Get only the latest stable release
-            url = "https://api.github.com/repos/{}/releases/latest".format(self.github_repo)
+            url = "https://api.github.com/repos/{}/releases/latest".format(repo_path)
             logger.info(f"Checking latest stable release at: {url}")
             
             try:
@@ -207,8 +221,11 @@ class OTAUpdater:
             self.update_progress_callback("Download complete!")
 
     def _download_all_files(self, version, sub_dir=''):
+        # Extract owner/repo from full URL if needed
+        repo_path = self.github_repo.replace('https://github.com/', '')
+        
         url = 'https://api.github.com/repos/{}/contents{}{}{}?ref=refs/tags/{}'.format(
-            self.github_repo, self.github_src_dir, self.main_dir, sub_dir, version
+            repo_path, self.github_src_dir, self.main_dir, sub_dir, version
         )
         logger.debug(f"Fetching file list from {url}")
         gc.collect()
@@ -255,7 +272,10 @@ class OTAUpdater:
 
     def _download_file(self, version, gitPath, path):
         try:
-            url = 'https://raw.githubusercontent.com/{}/{}/{}'.format(self.github_repo, version, gitPath)
+            # Extract owner/repo from full URL if needed
+            repo_path = self.github_repo.replace('https://github.com/', '')
+            
+            url = 'https://raw.githubusercontent.com/{}/{}/{}'.format(repo_path, version, gitPath)
             response = self.http_client.get_sync(url, headers=self.headers)
             
             # Write file in chunks to manage memory
