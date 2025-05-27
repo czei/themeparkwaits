@@ -3,3 +3,5 @@
 /.idea/.gitignore
 .DS_STORE
 error_log
+__init__.py
+__pycache__

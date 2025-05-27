@@ -35,4 +35,3 @@ if button.value is False:
     remove_file("error_log")
 
 
-
