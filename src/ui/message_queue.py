@@ -55,16 +55,17 @@ class MessageQueue:
         self.param_queue.append(the_message)
         self.delay_queue.append(delay)
 
-    async def add_splash(self, duration=4):
+    async def add_splash(self, duration=4, reveal_style=False):
         """
         Add a splash screen to the queue
         
         Args:
             duration: Duration to show the splash screen (seconds)
+            reveal_style: If True, use reveal animation instead of static display
         """
-        logger.debug("Adding splash message to queue")
+        logger.debug(f"Adding splash message to queue with duration={duration}, reveal_style={reveal_style}")
         self.func_queue.append(self.display.show_splash)
-        self.param_queue.append(duration)
+        self.param_queue.append((duration, reveal_style))
         self.delay_queue.append(0)  # No additional delay since duration is handled in show_splash
 
     async def add_vacation(self, vac):
@@ -250,8 +251,14 @@ class MessageQueue:
         if not self.func_queue:
             return
             
-        await asyncio.create_task(
-            self.func_queue[self.index](self.param_queue[self.index]))
+        # Handle parameters - if it's a tuple, unpack it; otherwise pass as single param
+        params = self.param_queue[self.index]
+        if isinstance(params, tuple):
+            await asyncio.create_task(
+                self.func_queue[self.index](*params))
+        else:
+            await asyncio.create_task(
+                self.func_queue[self.index](params))
         await asyncio.sleep(self.delay_queue[self.index])
         self.index += 1
         if self.index >= len(self.func_queue):

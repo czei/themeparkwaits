@@ -311,7 +311,7 @@ class ThemeParkApp:
             # No park selected - show message to choose a park
             domain_name = self.settings_manager.get("domain_name", "themeparkwaits")
             await self.message_queue.add_scroll_message(f"Choose theme park at http://{domain_name}.local", 1)
-            await self.message_queue.add_splash()
+            await self.message_queue.add_splash(4, True)  # Use reveal animation
             return
 
         # Check for forced update flag in theme_park_service
@@ -388,7 +388,7 @@ class ThemeParkApp:
         """Build the message queue for displaying information"""
 
         # Always add splash screen at front
-        await self.message_queue.add_splash(4)
+        await self.message_queue.add_splash(4, True)  # Use reveal animation
 
         # Get domain name for configuration URL
         domain_name = self.settings_manager.get("domain_name", "themeparkwaits")

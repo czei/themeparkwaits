@@ -47,12 +47,13 @@ class Display:
         """
         pass
 
-    async def show_splash(self, duration=4):
+    async def show_splash(self, duration=4, reveal_style=False):
         """
         Show the splash screen
         
         Args:
             duration: Duration to show splash screen in seconds (default: 4)
+            reveal_style: If True, use reveal animation (ignored in base implementation)
         """
         logger.info(f"Showing splash screen for {duration} seconds")
         await asyncio.sleep(duration)

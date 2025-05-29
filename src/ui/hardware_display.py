@@ -393,9 +393,11 @@ class MatrixDisplay(DisplayInterface):
             duration: Duration to show in seconds
             reveal_style: If True, use reveal animation instead of static display
         """
+        logger.debug(f"HardwareDisplay.show_splash called with duration={duration}, reveal_style={reveal_style}")
         self._hide_all_groups()
         
         if reveal_style:
+            logger.debug("Using reveal animation style")
             await self._show_reveal_splash(duration)
         else:
             logger.debug(f"Showing the splash screen for {duration} seconds")

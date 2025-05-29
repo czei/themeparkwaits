@@ -19,13 +19,19 @@ class ErrorHandler:
     
     # Class-level registry to track instances by filename
     _instances = {}
+    
+    # Class-level mode setting
+    DEVELOPMENT = "development"
+    PRODUCTION = "production"
+    _mode = PRODUCTION  # Default to production mode
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, mode=None):
         """
         Initialize the error handler with read-only filesystem detection
 
         Args:
             file_name: The name of the log file
+            mode: Either 'development' or 'production' (optional, uses class default if not specified)
         """
         # Return existing instance if already initialized for this file
         if file_name in ErrorHandler._instances:
@@ -33,10 +39,13 @@ class ErrorHandler:
             existing = ErrorHandler._instances[file_name]
             self.fileName = existing.fileName
             self.is_readonly = existing.is_readonly
+            self.mode = existing.mode
             return
 
         # Continue with normal initialization for new instance
         self.fileName = file_name
+        # Set instance mode - use parameter if provided, otherwise use class default
+        self.mode = mode if mode else ErrorHandler._mode
         # Start with the assumption that the filesystem is read-only
         # We'll only set it to writable if we can successfully write to it
         self.is_readonly = True
@@ -99,6 +108,29 @@ class ErrorHandler:
 
         # Register this instance
         ErrorHandler._instances[file_name] = self
+
+    @classmethod
+    def set_mode(cls, mode):
+        """
+        Set the global mode for all new ErrorHandler instances
+        
+        Args:
+            mode: Either 'development' or 'production'
+        """
+        if mode in [cls.DEVELOPMENT, cls.PRODUCTION]:
+            cls._mode = mode
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be either '{cls.DEVELOPMENT}' or '{cls.PRODUCTION}'")
+    
+    @classmethod
+    def get_mode(cls):
+        """
+        Get the current global mode
+        
+        Returns:
+            The current mode string
+        """
+        return cls._mode
 
     @staticmethod
     def filter_non_ascii(text):
@@ -186,7 +218,9 @@ class ErrorHandler:
             message: The debug message to log
         """
         print(message)
-        self.write_to_file(message)
+        # Only write debug messages to file in development mode
+        if self.mode == ErrorHandler.DEVELOPMENT:
+            self.write_to_file(message)
 
     def write_to_file(self, message):
         """
