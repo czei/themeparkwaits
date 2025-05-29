@@ -6,6 +6,59 @@ from src.utils.error_handler import ErrorHandler
 # Initialize logger
 logger = ErrorHandler("error_log")
 
+def _normalize_version(version_str):
+    """Normalize a version string for comparison.
+    
+    Removes 'v' prefix and ensures consistent format.
+    Examples: 'v1.9' -> '1.9', '2.0' -> '2.0'
+    """
+    if not version_str:
+        return '0.0'
+    
+    # Remove 'v' prefix if present
+    clean_version = version_str.lstrip('v')
+    return clean_version
+
+def _compare_versions(version1, version2):
+    """Compare two version strings using semantic versioning logic.
+    
+    Returns:
+        1 if version1 > version2
+        0 if version1 == version2
+        -1 if version1 < version2
+    """
+    # Normalize versions
+    v1 = _normalize_version(version1)
+    v2 = _normalize_version(version2)
+    
+    # Split versions into parts
+    v1_parts = v1.split('.')
+    v2_parts = v2.split('.')
+    
+    # Pad with zeros to ensure equal length
+    max_len = max(len(v1_parts), len(v2_parts))
+    v1_parts.extend(['0'] * (max_len - len(v1_parts)))
+    v2_parts.extend(['0'] * (max_len - len(v2_parts)))
+    
+    # Compare each part
+    for i in range(max_len):
+        try:
+            part1 = int(v1_parts[i])
+            part2 = int(v2_parts[i])
+            
+            if part1 > part2:
+                return 1
+            elif part1 < part2:
+                return -1
+        except ValueError:
+            # If parts aren't integers, fall back to string comparison
+            if v1_parts[i] > v2_parts[i]:
+                return 1
+            elif v1_parts[i] < v2_parts[i]:
+                return -1
+    
+    return 0
+
 class OTAUpdater:
     """
     A class to update your MicroController with the latest version from a GitHub tagged release,
@@ -42,7 +95,7 @@ class OTAUpdater:
         """
 
         (current_version, latest_version) = self.check_for_new_version()
-        if latest_version > current_version:
+        if _compare_versions(latest_version, current_version) > 0:
             logger.info('New version available, will download and install on next reboot')
             self._create_new_version_file(latest_version)
             return True
@@ -109,7 +162,7 @@ class OTAUpdater:
         """
 
         (current_version, latest_version) = self.check_for_new_version()
-        if latest_version > current_version:
+        if _compare_versions(latest_version, current_version) > 0:
             self._create_new_version_file(latest_version)
             self._download_new_version(latest_version)
             self._copy_secrets_file()
