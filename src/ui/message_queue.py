@@ -178,15 +178,15 @@ class MessageQueue:
             return sorted(rides_with_parks, key=lambda x: x[0].name.lower())
         elif sort_mode == "max_wait":
             # Sort by wait time descending (longest first)
-            # Closed rides and rides with no data are treated as 0
+            # Only truly closed rides (open_flag=False) are treated as 0
             return sorted(rides_with_parks, 
-                         key=lambda x: x[0].wait_time if x[0].is_open() else 0, 
+                         key=lambda x: x[0].wait_time if x[0].open_flag else 0, 
                          reverse=True)
         elif sort_mode == "min_wait":
             # Sort by wait time ascending (shortest first)
-            # Closed rides and rides with no data are treated as 0
+            # Only truly closed rides (open_flag=False) are treated as 0
             return sorted(rides_with_parks, 
-                         key=lambda x: x[0].wait_time if x[0].is_open() else 0)
+                         key=lambda x: x[0].wait_time if x[0].open_flag else 0)
         else:
             # Default to alphabetical if unknown sort mode
             return sorted(rides_with_parks, key=lambda x: x[0].name.lower())

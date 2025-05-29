@@ -47,7 +47,7 @@ class Display:
         """
         pass
 
-    async def show_splash(self, duration=4, reveal_style=False):
+    async def show_splash(self, duration=8, reveal_style=False):
         """
         Show the splash screen
         
