@@ -83,7 +83,7 @@ class OTAUpdater:
         try:
             if self.new_version_dir in os.listdir(module_path):
                 if '.version' in os.listdir(self.modulepath(self.new_version_dir)):
-                    latest_version = self.get_version(self.modulepath(self.new_version_dir), '../.version')
+                    latest_version = self.get_version(self.modulepath(self.new_version_dir), '.version')
                     logger.info(f'New update found: {latest_version}')
                     OTAUpdater._using_network(ssid, password)
                     self.install_update_if_available()
@@ -165,14 +165,18 @@ class OTAUpdater:
             try:
                 response = self.http_client.get_sync(url, headers=self.headers)
                 
-                # Debug: Log the raw response (only if available)
-                if hasattr(response, 'text') and response.text:
-                    try:
-                        logger.debug(f"Raw response (first 200 chars): {response.text[:200]}")
-                    except:
-                        logger.debug(f"Raw response available but not subscriptable")
+                # Check for HTTP errors first
+                if hasattr(response, 'status_code') and response.status_code >= 400:
+                    if response.status_code in [404, 500]:
+                        logger.info(f"Repository {repo_path} not accessible (HTTP {response.status_code}) - OTA updates disabled")
+                        return "0.0"  # Return current version to skip update
+                    logger.error(None, f"HTTP {response.status_code} error fetching releases")
+                    raise ValueError(f"HTTP {response.status_code} error: Repository may not exist or may be private")
                 
                 releases = response.json()
+                
+                # Debug: Log the raw response after getting JSON
+                logger.debug(f"Raw response (first 200 chars): {str(releases)[:200] if releases else 'No releases'}")
                 response.close()
                 
                 if releases and len(releases) > 0:
@@ -194,6 +198,15 @@ class OTAUpdater:
             
             try:
                 response = self.http_client.get_sync(url, headers=self.headers)
+                
+                # Check for HTTP errors first
+                if hasattr(response, 'status_code') and response.status_code >= 400:
+                    if response.status_code in [404, 500]:
+                        logger.info(f"Repository {repo_path} not accessible (HTTP {response.status_code}) - OTA updates disabled")
+                        return "0.0"  # Return current version to skip update
+                    logger.error(None, f"HTTP {response.status_code} error fetching latest release")
+                    raise ValueError(f"HTTP {response.status_code} error: Repository may not exist or may be private")
+                
                 gh_json = response.json()
                 response.close()
                 

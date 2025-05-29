@@ -87,10 +87,7 @@ class ThemeParkApp:
             self.display.set_colors(self.settings_manager)
 
         # Show splash screen first before any network operations
-        await self.display.show_splash(4)
-        
-        # Check for pending OTA update before starting main app
-        await self._check_and_install_pending_update()
+        await self.display.show_splash(12, True)
 
         # Create a task for network and data initialization (runs in background)
         # TODO: Figure out how to make the initialization process async to talk to an event-drive display to update users.
@@ -101,6 +98,10 @@ class ThemeParkApp:
         logger.info("WiFi password initialized")
         await self._initialize_wifi()
         logger.info("WiFi initialized")
+        
+        # Check for pending OTA update AFTER WiFi is connected
+        await self._check_and_install_pending_update()
+        
         await self._initialize_clock()
         logger.info("Clock initialized")
         await self._initialize_park_list()

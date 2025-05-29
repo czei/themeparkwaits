@@ -32,6 +32,12 @@ class BaseResponse:
         """Parse the response as JSON"""
         if self._json_cache is None:
             try:
+                # Check for HTTP error status codes first
+                if hasattr(self, 'status_code') and self.status_code >= 400:
+                    error_msg = f"HTTP {self.status_code} error"
+                    logger.error(None, f"{error_msg}. Response: {self.text[:200]}...")
+                    raise ValueError(f"HTTP error {self.status_code}: {self.text}")
+                
                 # Strip any BOM or whitespace
                 text_to_parse = self.text.strip()
                 if text_to_parse.startswith('\ufeff'):
