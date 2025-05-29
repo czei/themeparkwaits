@@ -117,7 +117,7 @@ class SettingsManager:
         
         # Special handling for boolean settings that might be stored as strings
         # This can happen with CircuitPython's JSON parser
-        if key in ["group_by_park", "skip_closed", "skip_meet"] and isinstance(value, str):
+        if key in ["group_by_park", "skip_closed", "skip_meet", "use_prerelease"] and isinstance(value, str):
             return value.lower() == "true"
             
         return value

@@ -287,53 +287,65 @@ class OTAUpdater:
             self.update_progress_callback("Download complete!")
 
     def _download_all_files(self, version, sub_dir=''):
-        # Extract owner/repo from full URL if needed
+        # Use iterative approach instead of recursion to avoid stack exhaustion
         repo_path = self.github_repo.replace('https://github.com/', '')
         
-        url = 'https://api.github.com/repos/{}/contents{}{}{}?ref=refs/tags/{}'.format(
-            repo_path, self.github_src_dir, self.main_dir, sub_dir, version
-        )
-        logger.debug(f"Fetching file list from {url}")
-        gc.collect()
+        # Queue of directories to process
+        dir_queue = [sub_dir]
+        total_files_downloaded = 0
         
-        try:
-            response = self.http_client.get_sync(url, headers=self.headers)
-            file_list_json = response.json()
-            response.close()
-        except Exception as e:
-            logger.error(e, f"Error fetching file list from {url}")
-            raise
-        
-        # Count total files for progress
-        file_count = sum(1 for f in file_list_json if f['type'] == 'file')
-        files_downloaded = 0
-        
-        for file in file_list_json:
-            path = self.modulepath(self.new_version_dir + '/' + file['path'].replace(self.main_dir + '/', '').replace(self.github_src_dir, ''))
+        while dir_queue:
+            current_dir = dir_queue.pop(0)
             
-            if file['type'] == 'file':
-                gitPath = file['path']
+            url = 'https://api.github.com/repos/{}/contents{}{}{}?ref=refs/tags/{}'.format(
+                repo_path, self.github_src_dir, self.main_dir, current_dir, version
+            )
+            logger.debug(f"Fetching file list from {url}")
+            
+            # Force garbage collection before each API call
+            gc.collect()
+            
+            try:
+                response = self.http_client.get_sync(url, headers=self.headers)
+                file_list_json = response.json()
+                response.close()
                 
-                # Check if file needs to be downloaded (compare with existing if possible)
-                needs_download = True
-                existing_path = self.modulepath(self.main_dir + '/' + file['path'].replace(self.main_dir + '/', '').replace(self.github_src_dir, ''))
+                # Force garbage collection after closing response
+                gc.collect()
+            except Exception as e:
+                logger.error(e, f"Error fetching file list from {url}")
+                raise
+            
+            for file in file_list_json:
+                # Force garbage collection at start of each file
+                gc.collect()
                 
-                # For now, always download. In future, could compare SHA hashes
-                if needs_download:
+                path = self.modulepath(self.new_version_dir + '/' + file['path'].replace(self.main_dir + '/', '').replace(self.github_src_dir, ''))
+                
+                if file['type'] == 'file':
+                    gitPath = file['path']
                     logger.info(f'Downloading: {gitPath}')
+                    
                     if self.update_progress_callback:
-                        files_downloaded += 1
-                        progress_msg = f"Downloading {files_downloaded}/{file_count}: {os.path.basename(gitPath)}"
+                        total_files_downloaded += 1
+                        # CircuitPython doesn't have os.path, so extract filename manually
+                        filename = gitPath.split('/')[-1]
+                        progress_msg = f"Downloading file {total_files_downloaded}: {filename}"
                         self.update_progress_callback(progress_msg)
                     
                     self._download_file(version, gitPath, path)
                     
-            elif file['type'] == 'dir':
-                logger.debug(f'Creating directory: {path}')
-                self.mkdir(path)
-                self._download_all_files(version, sub_dir + '/' + file['name'])
+                elif file['type'] == 'dir':
+                    logger.debug(f'Creating directory: {path}')
+                    self.mkdir(path)
+                    # Add to queue instead of recursive call
+                    dir_queue.append(current_dir + '/' + file['name'])
                 
-            # Aggressive garbage collection to manage memory
+                # Aggressive garbage collection after each file
+                gc.collect()
+            
+            # Clear the file list to free memory
+            file_list_json = None
             gc.collect()
 
     def _download_file(self, version, gitPath, path):
