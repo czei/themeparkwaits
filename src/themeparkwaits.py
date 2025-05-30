@@ -25,39 +25,19 @@ except ImportError as e:
     print("Running on CircuitPython:", is_circuitpython)
     # Try to continue anyway, as it might be imported elsewhere
 
-# Import and run the main application
-# We need to go up one level to import from the root
-if '..' not in sys.path:
-    sys.path.append('..')
-
+# Import and run the main application from src directory
 try:
-    # Import the main function from theme_park_main
-    from theme_park_main import main
+    # Import the main function from src.main
+    from src.main import main
     
     # Run the main function
     print("Starting Theme Park Waits application...")
     asyncio.run(main())
     
 except ImportError as e:
-    print(f"Error importing theme_park_main: {e}")
+    print(f"Error importing src.main: {e}")
     print("Current path:", sys.path)
-    print("Attempting alternative import...")
     
-    # Try alternative import if the first fails
-    try:
-        # Add the parent directory to path
-        import os
-        current_dir = os.getcwd()
-        print(f"Current directory: {current_dir}")
-        
-        # Try direct import
-        import theme_park_main
-        asyncio.run(theme_park_main.main())
-        
-    except Exception as e2:
-        print(f"Failed to import theme_park_main: {e2}")
-        print("Please ensure theme_park_main.py is in the root directory")
-        
 except KeyboardInterrupt:
     print("Application interrupted by user")
 except Exception as e:

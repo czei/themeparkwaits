@@ -390,9 +390,9 @@ class SimulatedLEDMatrix(DisplayInterface):
     
     # Additional methods required by app.py
     
-    async def show_splash(self, duration=8):
+    async def show_splash(self, duration=8, reveal_style=False):
         """Show splash screen for specified duration"""
-        logger.info(f"Showing splash screen for {duration} seconds")
+        logger.info(f"Showing splash screen for {duration} seconds (reveal_style={reveal_style})")
         try:
             # Clear ride display when showing splash
             self.clear_ride_display()
