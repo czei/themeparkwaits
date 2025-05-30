@@ -416,8 +416,8 @@ class MatrixDisplay(DisplayInterface):
             import random
             import time
             
-            logger.debug("Starting reveal-style splash animation")
-            
+            logger.debug(f"Starting reveal-style splash animation with duration: {duration}")
+
             # Create a bitmap for direct pixel manipulation
             bitmap = displayio.Bitmap(64, 32, 2)
             palette = displayio.Palette(2)

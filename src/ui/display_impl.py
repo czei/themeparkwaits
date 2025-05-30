@@ -234,7 +234,7 @@ class AsyncScrollingDisplay(Display):
             await asyncio.sleep(duration)
             self.splash_group.hidden = True
 
-    async def _show_reveal_splash(self, duration=4):
+    async def _show_reveal_splash(self, duration=8):
         """
         Show the splash screen with reveal animation style
         
@@ -244,7 +244,7 @@ class AsyncScrollingDisplay(Display):
         try:
             import random
             
-            logger.debug("Starting reveal-style splash animation")
+            logger.debug(f"Starting reveal-style splash animation with duration: {duration}")
             
             # Create a bitmap for direct pixel manipulation
             bitmap = displayio.Bitmap(64, 32, 2)
