@@ -343,8 +343,9 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error(e, "Error updating park selection")
         
-        # Handle checkboxes
-        if hasattr(app.theme_park_service, 'park_list'):
+        # Only update checkbox values if we're on the main page (has park-id in params)
+        # Settings page doesn't have these checkboxes, so we shouldn't reset them
+        if "park-id" in query_params and hasattr(app.theme_park_service, 'park_list'):
             # Skip closed rides
             skip_closed = "skip_closed=on" in query_params
             app.theme_park_service.park_list.skip_closed = skip_closed
@@ -416,7 +417,14 @@ class DevThemeParkWebHandler(BaseHTTPRequestHandler):
         
         # Save settings
         try:
+            # First save the app settings
             app.settings_manager.save_settings()
+            logger.debug("Settings saved successfully after processing query params")
+            
+            # Also save theme park service settings to ensure skip values are persisted
+            if hasattr(app.theme_park_service, 'save_settings'):
+                app.theme_park_service.save_settings()
+                logger.debug("Theme park service settings saved")
             
             # Update display colors if needed
             if hasattr(app, 'display') and hasattr(app.display, 'set_colors'):

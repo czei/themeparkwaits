@@ -227,14 +227,14 @@ class AsyncScrollingDisplay(Display):
         if reveal_style:
             logger.debug("Using reveal animation style")
             self.splash_group.hidden = True
-            await self._show_reveal_splash(duration)
+            await self._show_reveal_splash()
         else:
             logger.debug(f"Showing the splash screen for {duration} seconds")
             self.splash_group.hidden = False
             await asyncio.sleep(duration)
             self.splash_group.hidden = True
 
-    async def _show_reveal_splash(self, duration=8):
+    async def _show_reveal_splash(self):
         """
         Show the splash screen with reveal animation style
         
@@ -244,7 +244,7 @@ class AsyncScrollingDisplay(Display):
         try:
             import random
             
-            logger.debug(f"Starting reveal-style splash animation with duration: {duration}")
+            logger.debug(f"Starting reveal-style splash animation")
             
             # Create a bitmap for direct pixel manipulation
             bitmap = displayio.Bitmap(64, 32, 2)
@@ -310,7 +310,7 @@ class AsyncScrollingDisplay(Display):
             last_update = time.monotonic()
             animation_complete = False
             
-            while not animation_complete and (time.monotonic() - start_time) < duration:
+            while not animation_complete:
                 current_time = time.monotonic()
                 
                 # Update every 50ms for fast animation
@@ -348,19 +348,16 @@ class AsyncScrollingDisplay(Display):
                 
                 await asyncio.sleep(0.01)
             
-            # Keep final result visible for remaining duration
-            remaining_time = duration - (time.monotonic() - start_time)
-            if remaining_time > 0:
-                await asyncio.sleep(remaining_time)
-            
             # Clean up - remove reveal group
             self.main_group.remove(reveal_group)
-            
+
+            # Leave it up for 2 seconds after time
+            await asyncio.sleep(2)
+
         except Exception as e:
             logger.error(e, "Error in reveal splash animation")
             # Fallback to regular splash
             self.splash_group.hidden = False
-            await asyncio.sleep(duration)
             self.splash_group.hidden = True
     
     def _get_theme_park_waits_pixels(self):
@@ -583,10 +580,13 @@ class AsyncScrollingDisplay(Display):
         Returns:
             The x position for centering
         """
-        line_width = line.bounding_box[2]
-        padding = int((self.hardware.width - line_width) / 2)
-        if padding < 0: padding = 0
-        return padding
+        bounding_box = line.bounding_box
+        if bounding_box:
+            # Account for scale when calculating width
+            line_width = bounding_box[2] * getattr(line, 'scale', 1)
+            padding = int((self.hardware.width - line_width) / 2)
+            return max(0, padding)
+        return 0
 
     async def show_update(self, on_flag):
         """
@@ -666,8 +666,19 @@ class AsyncScrollingDisplay(Display):
         Args:
             text_label: The label to center
         """
-        label_width = text_label.bounding_box[2]
-        text_label.x = int(self.hardware.width / 2 - (label_width * len(text_label)))
+        # Get the bounding box and account for scale
+        bounding_box = text_label.bounding_box
+        if bounding_box:
+            # The bounding box width needs to be multiplied by scale
+            label_width = bounding_box[2] * text_label.scale
+            
+            # Calculate padding to center the text
+            padding = int((self.hardware.width - label_width) / 2)
+            text_label.x = max(0, padding)
+            
+            # Debug logging for 3-digit wait times
+            if len(text_label.text) >= 3:
+                logger.debug(f"Centering wait time '{text_label.text}': display_width={self.hardware.width}, label_width={label_width}, scale={text_label.scale}, padding={padding}")
 
 
 class SimpleScrollingDisplay(Display):

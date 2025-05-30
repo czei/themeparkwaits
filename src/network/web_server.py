@@ -422,8 +422,9 @@ class ThemeParkWebServer:
         settings_changed = False
         self.app.settings_manager.settings["display_mode"] = "all_rides"
 
-        # Always set checkbox values (they'll be missing from query_params if unchecked)
-        if hasattr(self.app.theme_park_service, 'park_list'):
+        # Only update checkbox values if we're on the main page (has park-id in params)
+        # Settings page doesn't have these checkboxes, so we shouldn't reset them
+        if "park-id" in query_params and hasattr(self.app.theme_park_service, 'park_list'):
             # Handle skip_closed checkbox
             skip_closed = "skip_closed=on" in query_params
             self.app.theme_park_service.park_list.skip_closed = skip_closed
@@ -504,8 +505,14 @@ class ThemeParkWebServer:
 
         # Save settings after changes
         try:
+            # First save the app settings
             self.app.settings_manager.save_settings()
             logger.debug("Settings saved successfully after processing query params")
+            
+            # Also save theme park service settings to ensure skip values are persisted
+            if hasattr(self.app.theme_park_service, 'save_settings'):
+                self.app.theme_park_service.save_settings()
+                logger.debug("Theme park service settings saved")
 
             if (brightness_changed or scroll_changed) and hasattr(self.app, 'message_queue'):
                 self.app.display.set_colors(self.app.settings_manager)
@@ -521,20 +528,8 @@ class ThemeParkWebServer:
             self.app.ota_updater.use_prerelease = use_prerelease
             logger.debug(f"Updated use_prerelease to {use_prerelease}")
         
-        # Save settings
-        try:
-            if hasattr(self.app.theme_park_service, 'save_settings'):
-                self.app.theme_park_service.save_settings()
-                self.last_settings_save = time.monotonic()
-                logger.debug("Settings saved successfully")
-
-                # Reset message queue if display settings changed
-                if (brightness_changed or scroll_changed) and hasattr(self.app, 'message_queue'):
-                    # Schedule message queue rebuild on next display refresh
-                    self.app.display.set_colors(self.app.settings_manager)
-                    logger.debug("Reset message queue after display settings change")
-        except Exception as e:
-            logger.error(e, "Error saving settings")
+        # Track last save time
+        self.last_settings_save = time.monotonic()
 
         # Check if only sort settings changed (no park change)
         sort_only_changed = sort_changed and not park_changed
@@ -953,9 +948,9 @@ class ThemeParkWebServer:
         page_parts.append("</p>")
 
         page_parts.append("<p>")
-        page_parts.append("<label for=\"Date\">Date:</label>")
         page_parts.append("<div class=\"date-selectors\">")
-        
+        page_parts.append("<label for=\"Date\">Date:</label>")
+
         # Year dropdown
         page_parts.append("<select id=\"Year\" name=\"Year\">")
         year_now = datetime.now().year

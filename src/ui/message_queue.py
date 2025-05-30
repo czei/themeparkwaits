@@ -251,16 +251,28 @@ class MessageQueue:
         if not self.func_queue:
             return
             
-        # Handle parameters - if it's a tuple, unpack it; otherwise pass as single param
-        params = self.param_queue[self.index]
-        if isinstance(params, tuple):
-            await asyncio.create_task(
-                self.func_queue[self.index](*params))
-        else:
-            await asyncio.create_task(
-                self.func_queue[self.index](params))
-        await asyncio.sleep(self.delay_queue[self.index])
-        self.index += 1
-        if self.index >= len(self.func_queue):
+        try:
+            # Bounds check to prevent index errors during queue rebuilds
+            if (self.index >= len(self.func_queue) or 
+                self.index >= len(self.param_queue) or 
+                self.index >= len(self.delay_queue)):
+                self.index = 0
+                return
+                
+            # Handle parameters - if it's a tuple, unpack it; otherwise pass as single param
+            params = self.param_queue[self.index]
+            if isinstance(params, tuple):
+                await asyncio.create_task(
+                    self.func_queue[self.index](*params))
+            else:
+                await asyncio.create_task(
+                    self.func_queue[self.index](params))
+            await asyncio.sleep(self.delay_queue[self.index])
+            self.index += 1
+            if self.index >= len(self.func_queue):
+                self.index = 0
+                self.has_completed_cycle = True  # Mark that we've shown all messages at least once
+        except IndexError:
+            # Queue was modified during execution - reset index and return
             self.index = 0
-            self.has_completed_cycle = True  # Mark that we've shown all messages at least once
+            return
