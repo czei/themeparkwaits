@@ -52,7 +52,7 @@ def create_display(config=None):
     if is_dev_mode():
         logger.info("Development mode detected, using simulated display")
         from src.ui.simulator_display import SimulatedLEDMatrix
-        return SimulatedLEDMatrix()
+        return SimulatedLEDMatrix(config)
     
     # Check if running on CircuitPython
     if is_circuitpython():
@@ -76,4 +76,4 @@ def create_display(config=None):
     else:
         logger.info("Desktop platform detected, using simulated display")
     from src.ui.simulator_display import SimulatedLEDMatrix
-    return SimulatedLEDMatrix()
+    return SimulatedLEDMatrix(config)

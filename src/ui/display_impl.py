@@ -213,7 +213,7 @@ class AsyncScrollingDisplay(Display):
         self.centered_group.hidden = True
         self.queue_group.hidden = True
 
-    async def show_splash(self, duration=4, reveal_style=False):
+    async def show_splash(self, duration=10, reveal_style=False):
         """
         Show the splash screen
         

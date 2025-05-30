@@ -414,8 +414,8 @@ class ThemeParkApp:
         # Add attribution message(s)
         if has_selected_parks:
             # Add attribution for each selected park
-            for park in self.theme_park_service.park_list.selected_parks:
-                await self.message_queue.add_required_message(park.name)
+            park_names = ", ".join(park.name for park in self.theme_park_service.park_list.selected_parks)
+            await self.message_queue.add_required_message(park_names)
         else:
             await self.message_queue.add_required_message(
                 self.theme_park_service.park_list.current_park.name)

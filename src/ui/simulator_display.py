@@ -22,11 +22,12 @@ class SimulatedLEDMatrix(DisplayInterface):
     A simulated LED Matrix display for development purposes
     """
     
-    def __init__(self, width=64, height=32, led_size=10, spacing=2, bg_color=(0, 0, 0)):
+    def __init__(self, config=None, width=64, height=32, led_size=10, spacing=2, bg_color=(0, 0, 0)):
         """
         Initialize the simulated display
         
         Args:
+            config: Optional configuration dictionary containing settings_manager
             width: Width of the matrix in LEDs
             height: Height of the matrix in LEDs
             led_size: Size of each LED in pixels
@@ -40,7 +41,7 @@ class SimulatedLEDMatrix(DisplayInterface):
         self.bg_color = bg_color
         self.window_width = width * (led_size + spacing)
         self.window_height = height * (led_size + spacing)
-        self.settings_manager = None  # Will be set by set_colors method
+        self.settings_manager = config.get('settings_manager') if config else None
         
         # Make window larger for better visibility
         self.window_scale = 1.5

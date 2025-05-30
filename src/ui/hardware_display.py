@@ -385,7 +385,7 @@ class MatrixDisplay(DisplayInterface):
     
     # Additional display-specific methods
     
-    async def show_splash(self, duration=4, reveal_style=False):
+    async def show_splash(self, duration=8, reveal_style=False):
         """
         Show the splash screen
         
@@ -405,7 +405,7 @@ class MatrixDisplay(DisplayInterface):
             await asyncio.sleep(duration)
             self.splash_group.hidden = True
     
-    async def _show_reveal_splash(self, duration=4):
+    async def _show_reveal_splash(self, duration=8):
         """
         Show the splash screen with reveal animation style
         
