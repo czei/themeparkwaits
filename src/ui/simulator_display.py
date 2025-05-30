@@ -390,7 +390,7 @@ class SimulatedLEDMatrix(DisplayInterface):
     
     # Additional methods required by app.py
     
-    async def show_splash(self, duration=4):
+    async def show_splash(self, duration=8):
         """Show splash screen for specified duration"""
         logger.info(f"Showing splash screen for {duration} seconds")
         try:

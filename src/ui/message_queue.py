@@ -55,7 +55,7 @@ class MessageQueue:
         self.param_queue.append(the_message)
         self.delay_queue.append(delay)
 
-    async def add_splash(self, duration=4, reveal_style=False):
+    async def add_splash(self, duration=10, reveal_style=False):
         """
         Add a splash screen to the queue
         
