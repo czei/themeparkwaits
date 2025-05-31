@@ -483,24 +483,25 @@ class ThemeParkWebServer:
             # No immediate action needed for scroll speed as it's read on demand when scrolling
 
         # Process sort mode
-        sort_changed = False
+        # The old logic was failing, so just set it for each time
         sort_match = re.search(r'sort_mode=([^&]+)', query_params)
         if sort_match:
             sort_mode = sort_match.group(1)
-            old_sort_mode = self.app.settings_manager.settings.get("sort_mode", "alphabetical")
-            if sort_mode != old_sort_mode:
-                sort_changed = True
             self.app.settings_manager.settings["sort_mode"] = sort_mode
             logger.debug(f"Updated sort mode to {sort_mode}")
-        
+            # Set flag to regenerate queue
+            if hasattr(self.app, 'theme_park_service'):
+                self.app.theme_park_service.queue_rebuild_needed = True
+
         # Process group by park
         old_group_by_park = self.app.settings_manager.settings.get("group_by_park", False)
         group_by_park = "group_by_park=on" in query_params
-        logger.debug(f"Group by park processing: old={old_group_by_park}, new={group_by_park}, in query={('group_by_park=on' in query_params)}")
-        if group_by_park != old_group_by_park:
-            sort_changed = True
-            logger.debug(f"Group by park changed from {old_group_by_park} to {group_by_park}, setting sort_changed=True")
         self.app.settings_manager.settings["group_by_park"] = group_by_park
+        logger.debug(f"Group by park processing: old={old_group_by_park}, new={group_by_park}, in query={('group_by_park=on' in query_params)}")
+        logger.debug(f"Group by park changed from {old_group_by_park} to {group_by_park}, setting sort_changed=True")
+        # Set flag to regenerate queue
+        if hasattr(self.app, 'theme_park_service'):
+            self.app.theme_park_service.queue_rebuild_needed = True
         logger.debug(f"Updated group by park to {group_by_park}")
 
         # Save settings after changes
@@ -531,10 +532,7 @@ class ThemeParkWebServer:
         # Track last save time
         self.last_settings_save = time.monotonic()
 
-        # Check if only sort settings changed (no park change)
-        sort_only_changed = sort_changed and not park_changed
-        
-        # Trigger park update if needed
+        # If parks changed, also trigger data update
         if park_changed:
             self._trigger_park_update()
             # When park changes, we need to ensure the new park's data is fetched
@@ -542,17 +540,6 @@ class ThemeParkWebServer:
             if hasattr(self.app, 'update_timer'):
                 self.app.update_timer.reset(expired=True)
                 logger.info("Forced immediate park data update after park change")
-        elif sort_only_changed and hasattr(self.app, 'theme_park_service'):
-            # Only sort settings changed - just rebuild the queue
-            self.app.theme_park_service.queue_rebuild_needed = True
-            logger.debug("Set queue_rebuild_needed flag after sort settings change")
-            
-            # Force immediate queue rebuild if possible
-            if hasattr(self.app, 'message_queue') and hasattr(self.app, 'build_messages'):
-                logger.info("Forcing immediate message queue rebuild after sort settings change")
-                self.app.message_queue.init()
-                # Note: We can't await here since we're not in an async context
-                # The rebuild will happen on the next display loop iteration
                 
         if settings_changed and hasattr(self.app, 'message_queue'):
             self.app.display.set_colors(self.app.settings_manager)

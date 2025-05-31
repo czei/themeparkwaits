@@ -9,7 +9,6 @@ from src.utils.error_handler import ErrorHandler
 # Initialize logger
 logger = ErrorHandler("error_log")
 
-
 class BaseResponse:
     """Base class for all response types with common functionality"""
     
@@ -121,13 +120,24 @@ class HttpClient:
         self.session = session
         self.use_live_data = True  # Flag to force live data in dev mode
         
+        # Check if we're in dev mode
         try:
-            # Try to import adafruit_requests for CircuitPython
-            import adafruit_requests
-            self.adafruit_requests = adafruit_requests
-            self.using_adafruit = True
+            from src.ui.display_factory import is_dev_mode
+            dev_mode = is_dev_mode()
         except ImportError:
+            dev_mode = False
+        
+        # In dev mode, always use urllib regardless of whether adafruit_requests is available
+        if dev_mode:
             self.using_adafruit = False
+        else:
+            try:
+                # Try to import adafruit_requests for CircuitPython
+                import adafruit_requests
+                self.adafruit_requests = adafruit_requests
+                self.using_adafruit = True
+            except ImportError:
+                self.using_adafruit = False
             
         # Always set up urllib as fallback, even if adafruit is available
         try:

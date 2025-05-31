@@ -32,18 +32,19 @@ class ThemeParkApp:
     Main application class for Theme Park Waits
     """
 
-    def __init__(self, display, http_client):
+    def __init__(self, display, http_client, settings_manager=None):
         """
         Initialize the application
         
         Args:
             display: The display to use
             http_client: The HTTP client for network requests
+            settings_manager: The settings manager to use (optional, creates new if not provided)
         """
         self.display = display
         self.http_client = http_client
         self.socket_pool = None
-        self.settings_manager = SettingsManager("settings.json")
+        self.settings_manager = settings_manager if settings_manager else SettingsManager("settings.json")
         self.theme_park_service = ThemeParkService(self.http_client, self.settings_manager)
         self.message_queue = MessageQueue(display, 4)
         self.update_timer = Timer(300)  # Update every 5 minutes
@@ -70,8 +71,13 @@ class ThemeParkApp:
             try:
                 import socketpool
                 import wifi
-                self.web_server = socketpool.SocketPool(wifi.radio)
-            except ImportError as e:
+                # Check if we have the real CircuitPython socketpool
+                if hasattr(socketpool, 'SocketPool') and hasattr(wifi, 'radio'):
+                    self.web_server = socketpool.SocketPool(wifi.radio)
+                else:
+                    logger.debug("socketpool or wifi.radio not available, skipping web server init")
+                    self.web_server = None
+            except (ImportError, AttributeError) as e:
                 logger.error(e, "Error importing CircuitPython modules")
                 self.web_server = None
 
@@ -162,7 +168,12 @@ class ThemeParkApp:
                 # Only in hardware mode
                 import socketpool
                 import wifi
-                self.socket_pool = socketpool.SocketPool(wifi.radio)
+                # Check if we have the real CircuitPython socketpool
+                if hasattr(socketpool, 'SocketPool') and hasattr(wifi, 'radio'):
+                    self.socket_pool = socketpool.SocketPool(wifi.radio)
+                else:
+                    logger.debug("socketpool or wifi.radio not available, using dev mode")
+                    self.socket_pool = "DEV_SOCKET_POOL"  # Placeholder value
             else:
                 # In dev mode, create a mock socket pool if needed
                 logger.info("Dev mode - using simulated socket pool")
@@ -318,9 +329,8 @@ class ThemeParkApp:
         force_update = False
         if hasattr(self.theme_park_service, 'update_needed'):
             force_update = self.theme_park_service.update_needed
-            # Reset the flag
             self.theme_park_service.update_needed = False
-        
+
         # Check if we just need to rebuild the queue (e.g., after sort settings change)
         queue_rebuild_only = False
         if hasattr(self.theme_park_service, 'queue_rebuild_needed'):
@@ -405,11 +415,11 @@ class ThemeParkApp:
         # Park is selected - show regular configuration message
         await self.message_queue.add_scroll_message(f"Configure at http://{domain_name}.local", 1)
 
-        # Add vacation information if set
-        await self.message_queue.add_vacation(self.theme_park_service.vacation)
-
         # Add park data
         await self.message_queue.add_rides(self.theme_park_service.park_list)
+
+        # Add vacation information if set
+        await self.message_queue.add_vacation(self.theme_park_service.vacation)
 
         # Add attribution message(s)
         if has_selected_parks:

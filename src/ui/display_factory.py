@@ -38,6 +38,20 @@ def is_dev_mode():
     return '--dev' in sys.argv
 
 
+def use_pyledsimulator():
+    """
+    Check if PyLEDSimulator should be used
+    
+    Returns:
+        True if --pyled flag is present or if --dev is used without --simple-sim
+    """
+    if '--pyled' in sys.argv:
+        return True
+    if '--dev' in sys.argv and '--simple-sim' not in sys.argv:
+        return True
+    return False
+
+
 def create_display(config=None):
     """
     Factory function to create the appropriate display
@@ -50,9 +64,19 @@ def create_display(config=None):
     """
     # Force simulator if --dev flag is present
     if is_dev_mode():
-        logger.info("Development mode detected, using simulated display")
-        from src.ui.simulator_display import SimulatedLEDMatrix
-        return SimulatedLEDMatrix(config)
+        if use_pyledsimulator():
+            logger.info("Development mode detected, using PyLEDSimulator display")
+            try:
+                from src.ui.pyledsimulator_display import PyLEDSimulatorDisplay
+                return PyLEDSimulatorDisplay(config)
+            except ImportError as e:
+                logger.error(e, "Error importing PyLEDSimulator, falling back to simple simulator")
+                from src.ui.simulator_display import SimulatedLEDMatrix
+                return SimulatedLEDMatrix(config)
+        else:
+            logger.info("Development mode detected, using simple simulated display (--simple-sim flag)")
+            from src.ui.simulator_display import SimulatedLEDMatrix
+            return SimulatedLEDMatrix(config)
     
     # Check if running on CircuitPython
     if is_circuitpython():
@@ -72,8 +96,15 @@ def create_display(config=None):
     
     # Not on CircuitPython, use simulator
     if not is_circuitpython and 'platform' in sys.modules:
-        logger.info(f"Desktop platform detected ({platform.system()}), using simulated display")
+        logger.info(f"Desktop platform detected ({platform.system()}), using PyLEDSimulator display")
     else:
-        logger.info("Desktop platform detected, using simulated display")
-    from src.ui.simulator_display import SimulatedLEDMatrix
-    return SimulatedLEDMatrix(config)
+        logger.info("Desktop platform detected, using PyLEDSimulator display")
+    
+    # Try PyLEDSimulator first, fall back to simple simulator if not available
+    try:
+        from src.ui.pyledsimulator_display import PyLEDSimulatorDisplay
+        return PyLEDSimulatorDisplay(config)
+    except ImportError as e:
+        logger.info(f"PyLEDSimulator not available: {e}, using simple simulator")
+        from src.ui.simulator_display import SimulatedLEDMatrix
+        return SimulatedLEDMatrix(config)

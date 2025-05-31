@@ -68,11 +68,11 @@ class WiFiManager:
             self.AP_PASSWORD = "password"
             self.AP_AUTHMODES = [self.wifi.AuthMode.WPA2, self.wifi.AuthMode.PSK]
             
-        except ImportError:
+        except (ImportError, AttributeError) as e:
             # Mock for non-CircuitPython environments
             self.wifi = None
             self.HAS_WIFI = False
-            logger.debug("WiFi module not available, using mock implementation")
+            logger.debug(f"WiFi module not available or incomplete: {e}")
 
     async def reset(self):
         """Reset the microcontroller after delay"""

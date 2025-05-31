@@ -125,7 +125,8 @@ class MessageQueue:
             return
 
         # Get sort settings
-        sort_mode = self.display.settings_manager.get("sort_mode", "alphabetical")
+        sort_mode = self.display.settings_manager.get("sort_mode")
+        logger.debug(f"MessageQueue: sort_mode={sort_mode}")
         group_by_park = self.display.settings_manager.get("group_by_park", False)
         
         logger.debug(f"MessageQueue: sort_mode={sort_mode}, group_by_park={group_by_park} (type: {type(group_by_park)})")

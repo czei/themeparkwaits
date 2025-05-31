@@ -104,7 +104,7 @@ async def main():
                 
         # Create app instance
         logger.debug(f"Display implementation type: {type(display)}")
-        app = ThemeParkApp(display, http_client)
+        app = ThemeParkApp(display, http_client, settings_manager)
         
         # Run the app
         await app.run()
