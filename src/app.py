@@ -1,38 +1,41 @@
 """ThemeParkWaits application — built on the refactored ScrollKit library.
 
-Port milestone A (in progress). This is the walking skeleton: a
-``ScrollKitApp`` subclass that boots and renders a splash + placeholder message
-on the simulator (and, on device, the LED matrix). Subsystems (settings, WiFi,
-HTTP, theme-park data, the ride screen, the web config server, OTA) are layered
-in by their respective tasks — see specs/001-this-project-is/tasks.md.
+Port milestone A (in progress). ``ThemeParkApp`` extends ``ScrollKitApp``:
+``setup()`` runs the pre-run sequence (currently: splash → fetch park list;
+WiFi/onboarding/OTA/NTP land in T018/T027), the data process calls
+``update_data()`` every ``update_interval`` to refresh wait times and rebuild the
+content queue, and the display process renders the queue.
 
 Copyright 2024 3DUPFitters LLC
 """
 from __future__ import annotations
 
 from scrollkit.app.base import ScrollKitApp
-from scrollkit.display.content import StaticText, ScrollingText
+from scrollkit.display.content import StaticText
+
+from src.settings_schema import make_settings
+from src.api.theme_park_service import ThemeParkService
+from src.ui.content_builder import build_content_queue
 
 
 class ThemeParkApp(ScrollKitApp):
-    """Theme-park wait-time display application.
+    """Theme-park wait-time display application."""
 
-    The library's ``run()`` calls ``setup()`` once and then spawns the
-    display / data-update / web processes (the latter two are memory-gated).
-    See the "Boot Lifecycle" section of plan.md for how the pre-run state
-    machine in ``setup()`` is being filled in across Milestone A.
-    """
-
-    # Display geometry / color depth for the Matrix Portal S3. bit_depth=4 is the
-    # library's recommended (~3x-faster refresh) setting — keep it (FR-022).
+    # Matrix Portal S3 geometry; bit_depth=4 is the recommended fast refresh (FR-022).
     WIDTH = 64
     HEIGHT = 32
     BIT_DEPTH = 4
 
-    def __init__(self, *, enable_web: bool = False, update_interval: int = 300) -> None:
-        # enable_web defaults False until the config server lands (T023). The
-        # 5-minute (300s) refresh cadence matches the pre-port behavior.
+    def __init__(self, *, enable_web: bool = False, update_interval: int = 300,
+                 http_client=None, settings=None) -> None:
+        # enable_web defaults False until the config server lands (T023).
         super().__init__(enable_web=enable_web, update_interval=update_interval)
+        self.settings = settings or make_settings()
+        if http_client is None:
+            from scrollkit.network.http_client import HttpClient
+            http_client = HttpClient()
+        self.http_client = http_client
+        self.service = ThemeParkService(self.http_client, self.settings)
 
     async def create_display(self):
         """Return the library's unified display (auto-detects sim vs hardware)."""
@@ -40,27 +43,50 @@ class ThemeParkApp(ScrollKitApp):
         return UnifiedDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
 
     async def setup(self) -> None:
-        """Pre-run setup. Skeleton: title the sim window and queue placeholder content.
-
-        Milestone A fills this in as the boot state machine (splash/reveal →
-        WiFi/onboarding → OTA → NTP → fetch → build queue).
-        """
-        # Name the simulator window when running on desktop.
+        """Pre-run sequence (boot state machine — partial; T018/T027 add WiFi/OTA/NTP)."""
         if hasattr(self.display, "create_window"):
             try:
-                await self.display.create_window("ThemeParkWaits (port skeleton)")
+                await self.display.create_window("ThemeParkWaits")
             except Exception:
                 pass
 
-        # Placeholder content so the loop has something to render. The real
-        # splash uses scrollkit.effects.reveal.RevealEffect (T020/T021).
+        # Apply configured brightness.
+        try:
+            await self.display.set_brightness(float(self.settings.get("brightness_scale", "0.5")))
+        except (TypeError, ValueError):
+            pass
+
+        # Splash while the park list loads. (RevealEffect splash polish: T020/T044.)
         self.content_queue.add(StaticText("THEME PARK", x=2, y=4, color=0xFFAA00, duration=2.0))
         self.content_queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
-        self.content_queue.add(
-            ScrollingText("Porting to ScrollKit...", y=12, color=0x00AAFF)
-        )
+
+        # TODO(T018): WiFi connect / first-boot AP onboarding (dev mode auto-connects).
+        # TODO(T027): install pending OTA before fetching.
+        try:
+            await self.service.initialize()  # fetch park list + load park/vacation settings
+        except Exception as e:  # never crash boot (FR-014)
+            print("service.initialize failed:", e)
+
+    async def show_loading(self) -> None:
+        """Pre-flush a static 'updating' frame before the blocking fetch (B2/FR-029)."""
+        if not self.display:
+            return
+        try:
+            await self.display.clear()
+            await self.display.draw_text("Updating...", 2, 12, 0xFFAA00)
+            await self.display.show()
+        except Exception:
+            pass
 
     async def update_data(self) -> None:
-        """Periodic data refresh — wired to ThemeParkService + ContentBuilder in T019/T021/T022."""
-        # No-op until the data path lands.
-        return None
+        """Refresh wait times for the selected park(s) and rebuild the content queue."""
+        pl = self.service.park_list
+        try:
+            if pl is not None:
+                if getattr(pl, "selected_parks", None):
+                    await self.service.update_selected_parks()
+                elif pl.current_park.is_valid():
+                    await self.service.update_current_park()
+            build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
+        except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
+            print("update_data failed:", e)
