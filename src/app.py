@@ -26,9 +26,8 @@ class ThemeParkApp(ScrollKitApp):
     HEIGHT = 32
     BIT_DEPTH = 4
 
-    def __init__(self, *, enable_web: bool = False, update_interval: int = 300,
+    def __init__(self, *, enable_web: bool = True, update_interval: int = 300,
                  http_client=None, settings=None) -> None:
-        # enable_web defaults False until the config server lands (T023).
         super().__init__(enable_web=enable_web, update_interval=update_interval)
         self.settings = settings or make_settings()
         if http_client is None:
@@ -41,6 +40,17 @@ class ThemeParkApp(ScrollKitApp):
         """Return our display (UnifiedDisplay + scaled-text), auto-detects sim/hardware."""
         from src.ui.tpw_display import ThemeParkDisplay
         return ThemeParkDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
+
+    async def create_web_server(self):
+        """Return the config web server (library server + our handler/page)."""
+        try:
+            from scrollkit.web import SLDKWebServer
+            from src.web.config_server import make_handler_class
+            return SLDKWebServer(app=self, handler_class=make_handler_class(self),
+                                 static_dir="src/www")
+        except Exception as e:  # never block boot on web setup
+            print("web server unavailable:", e)
+            return None
 
     async def setup(self) -> None:
         """Pre-run sequence (boot state machine — partial; T018/T027 add WiFi/OTA/NTP)."""
