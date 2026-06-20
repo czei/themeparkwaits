@@ -1,17 +1,10 @@
 """
 Factory for creating the appropriate display implementation.
-Detects the platform and returns the correct display object.
+Uses the unified display that works on both CircuitPython and PyLEDSimulator.
 Copyright 2024 3DUPFitters LLC
 """
 import sys
 import os
-
-# Check if running on CircuitPython
-is_circuitpython = hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython'
-
-# Only import platform if not running on CircuitPython
-if not is_circuitpython:
-    import platform
 from src.utils.error_handler import ErrorHandler
 
 # Initialize logger
@@ -38,18 +31,14 @@ def is_dev_mode():
     return '--dev' in sys.argv
 
 
-def use_pyledsimulator():
+def use_simple_simulator():
     """
-    Check if PyLEDSimulator should be used
+    Check if simple simulator should be used instead of PyLEDSimulator
     
     Returns:
-        True if --pyled flag is present or if --dev is used without --simple-sim
+        True if --simple-sim flag is present
     """
-    if '--pyled' in sys.argv:
-        return True
-    if '--dev' in sys.argv and '--simple-sim' not in sys.argv:
-        return True
-    return False
+    return '--simple-sim' in sys.argv
 
 
 def create_display(config=None):
@@ -62,49 +51,45 @@ def create_display(config=None):
     Returns:
         Display implementation appropriate for the current platform
     """
-    # Force simulator if --dev flag is present
-    if is_dev_mode():
-        if use_pyledsimulator():
-            logger.info("Development mode detected, using PyLEDSimulator display")
-            try:
-                from src.ui.pyledsimulator_display import PyLEDSimulatorDisplay
-                return PyLEDSimulatorDisplay(config)
-            except ImportError as e:
-                logger.error(e, "Error importing PyLEDSimulator, falling back to simple simulator")
-                from src.ui.simulator_display import SimulatedLEDMatrix
-                return SimulatedLEDMatrix(config)
-        else:
-            logger.info("Development mode detected, using simple simulated display (--simple-sim flag)")
+    # Check for simple simulator override
+    if is_dev_mode() and use_simple_simulator():
+        logger.info("Development mode with --simple-sim flag detected, using simple simulator")
+        try:
             from src.ui.simulator_display import SimulatedLEDMatrix
             return SimulatedLEDMatrix(config)
-    
-    # Check if running on CircuitPython
-    if is_circuitpython():
-        logger.info("CircuitPython detected, using hardware display")
-        # Import the real hardware display
-        try:
-            # Import the MatrixDisplay from hardware_display.py instead of Display from display_impl.py
-            from src.ui.hardware_display import MatrixDisplay
-            return MatrixDisplay(config)
         except ImportError as e:
-            logger.error(e, "Error importing hardware display")
-            # On CircuitPython, don't try to fall back to simulator 
-            # since pygame is not available
-            # Instead, provide a minimal display implementation that logs messages
-            from src.ui.display_base import Display
-            return Display(config)
+            logger.error(e, "Error importing simple simulator")
+            # Fall through to unified display
     
-    # Not on CircuitPython, use simulator
-    if not is_circuitpython and 'platform' in sys.modules:
-        logger.info(f"Desktop platform detected ({platform.system()}), using PyLEDSimulator display")
+    # Use unified display for both CircuitPython and PyLEDSimulator
+    if is_circuitpython():
+        logger.info("CircuitPython detected, using unified display with hardware backend")
     else:
-        logger.info("Desktop platform detected, using PyLEDSimulator display")
+        logger.info("Desktop platform detected, using unified display with PyLEDSimulator backend")
     
-    # Try PyLEDSimulator first, fall back to simple simulator if not available
     try:
-        from src.ui.pyledsimulator_display import PyLEDSimulatorDisplay
-        return PyLEDSimulatorDisplay(config)
+        from src.ui.unified_display import UnifiedDisplay
+        return UnifiedDisplay(config)
     except ImportError as e:
-        logger.info(f"PyLEDSimulator not available: {e}, using simple simulator")
-        from src.ui.simulator_display import SimulatedLEDMatrix
-        return SimulatedLEDMatrix(config)
+        logger.error(e, "Error importing unified display")
+        
+        # Fallback to legacy displays as last resort
+        if is_circuitpython():
+            try:
+                from src.ui.hardware_display import MatrixDisplay
+                logger.info("Falling back to legacy hardware display")
+                return MatrixDisplay(config)
+            except ImportError:
+                logger.error("Legacy hardware display also failed")
+                # On CircuitPython, don't try simulator since pygame is not available
+                from src.ui.display_base import Display
+                return Display(config)
+        else:
+            try:
+                from src.ui.pyledsimulator_display import PyLEDSimulatorDisplay
+                logger.info("Falling back to legacy PyLEDSimulator display")
+                return PyLEDSimulatorDisplay(config)
+            except ImportError:
+                logger.info("PyLEDSimulator not available, using simple simulator")
+                from src.ui.simulator_display import SimulatedLEDMatrix
+                return SimulatedLEDMatrix(config)

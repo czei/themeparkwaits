@@ -1,15 +1,24 @@
 """
-Hardware display implementation for CircuitPython on MatrixPortal S3.
+PyLEDSimulator display implementation for Theme Park Waits.
+Uses the PyLEDSimulator library to provide a more accurate simulation
+of the MatrixPortal S3 hardware.
 Copyright 2024 3DUPFitters LLC
 """
 import asyncio
 import time
+import sys
+import os
 
-# Import CircuitPython-specific libraries
-import displayio
-import terminalio
-from adafruit_bitmap_font import bitmap_font
-from adafruit_display_text.label import Label
+# Add PyLEDSimulator to path if needed
+pyledsim_path = os.path.join(os.path.dirname(__file__), '..', '..', 'PyLEDSimulator')
+if os.path.exists(pyledsim_path) and pyledsim_path not in sys.path:
+    sys.path.insert(0, pyledsim_path)
+
+from pyledsimulator.devices.matrixportal_s3 import MatrixPortalS3
+from pyledsimulator import displayio
+from pyledsimulator.adafruit_bitmap_font import bitmap_font
+from pyledsimulator.adafruit_display_text.label import Label
+from pyledsimulator.terminalio import FONT as terminalio_FONT
 
 from src.ui.display_interface import DisplayInterface
 from src.ui.reveal_animation import show_reveal_splash
@@ -20,19 +29,21 @@ from src.utils.error_handler import ErrorHandler
 logger = ErrorHandler("error_log")
 
 
-class MatrixDisplay(DisplayInterface):
+class PyLEDSimulatorDisplay(DisplayInterface):
     """
-    Display implementation for MatrixPortal S3 hardware
+    Display implementation using PyLEDSimulator for development
     """
     
     def __init__(self, config=None):
         """
-        Initialize the display
+        Initialize the PyLEDSimulator display
         
         Args:
             config: Optional configuration dictionary
         """
-        self.hardware = None
+        self.device = None
+        self.matrix = None
+        self.display = None
         self.font = None
         self.settings_manager = config.get('settings_manager') if config else None
         
@@ -69,49 +80,52 @@ class MatrixDisplay(DisplayInterface):
         self.queue_line2 = None
         
     def initialize(self):
-        """Initialize the display hardware"""
+        """Initialize the PyLEDSimulator display"""
         try:
-            # Import here to allow for running on non-CircuitPython platforms
-            from adafruit_matrixportal.matrix import Matrix
+            logger.info("Initializing PyLEDSimulator display")
             
-            # Initialize the Matrix object
-            self.hardware = Matrix()
-            self.font = terminalio.FONT
+            # Create MatrixPortal S3 device
+            self.device = MatrixPortalS3(width=64, height=32)
+            self.device.initialize()
             
-            # Set up display groups
+            # Get references to the display components
+            self.matrix = self.device.matrix
+            self.display = self.device.display
+            self.font = terminalio_FONT
+            
+            # Set up display groups (similar to hardware_display.py)
             self.main_group = displayio.Group()
-            self.hardware.display.root_group = self.main_group
-            self.main_group.hidden = False
-
+            self.display.root_group = self.main_group
+            
             # Configure generic scrolling message
-            self.scrolling_label = Label(terminalio.FONT)
+            self.scrolling_label = Label(terminalio_FONT)
             self.scrolling_label.x = 0
-            self.scrolling_label.y = 15
+            self.scrolling_label.y = 16
             self.scrolling_group = displayio.Group()
             self.scrolling_group.append(self.scrolling_label)
             self.scrolling_group.hidden = True
 
             # Configure Ride Times
-            self.wait_time_name = Label(terminalio.FONT)
+            self.wait_time_name = Label(terminalio_FONT)
             self.wait_time_name.x = 0
-            self.wait_time_name.y = 7
+            self.wait_time_name.y = 2
             self.wait_time_name.scale = 1
             self.wait_time_name_group = displayio.Group()
             self.wait_time_name_group.append(self.wait_time_name)
             self.wait_time_name_group.hidden = True
 
-            self.wait_time = Label(terminalio.FONT)
+            self.wait_time = Label(terminalio_FONT)
             self.wait_time.x = 0
-            self.wait_time.y = 22
-            self.wait_time.scale = (2)
+            self.wait_time.y = 12
+            self.wait_time.scale = 2
             self.wait_time_group = displayio.Group()
             self.wait_time_group.append(self.wait_time)
             self.wait_time_group.hidden = True
 
-            self.closed = Label(terminalio.FONT)
+            self.closed = Label(terminalio_FONT)
             self.closed.x = 14
-            self.closed.y = 22
-            self.closed.scale = (1)
+            self.closed.y = 14
+            self.closed.scale = 1
             self.closed.text = "Closed"
             self.closed_group = displayio.Group()
             self.closed_group.hidden = True
@@ -119,31 +133,33 @@ class MatrixDisplay(DisplayInterface):
 
             # Main Splash Screen
             self.splash_line1 = Label(
-                terminalio.FONT,
-                text="THEME PARK")
+                terminalio_FONT,
+                text="THEME PARK"
+            )
             self.splash_line1.x = 2
             self.splash_line1.y = 7
             self.splash_line2 = Label(
-                terminalio.FONT,
+                terminalio_FONT,
                 text="WAITS",
                 scale=2)
             self.splash_line2.x = 3
-            self.splash_line2.y = 22
+            self.splash_line2.y = 12
             self.splash_group = displayio.Group()
             self.splash_group.hidden = True
             self.splash_group.append(self.splash_line1)
             self.splash_group.append(self.splash_line2)
-            self.splash_line1.color = int(ColorUtils.colors["Yellow"])
-            self.splash_line2.color = int(ColorUtils.colors["Orange"])
+            self.splash_line1.color = int(ColorUtils.colors["Yellow"], 16)
+            self.splash_line2.color = int(ColorUtils.colors["Orange"], 16)
 
             # Message to show when wait times are updating
             self.update_line1 = Label(
-                terminalio.FONT,
-                text="Wait Times")
+                terminalio_FONT,
+                text="Wait Times"
+            )
             self.update_line1.x = 2
             self.update_line1.y = 2
             self.update_line2 = Label(
-                terminalio.FONT,
+                terminalio_FONT,
                 text="Powered By",
                 scale=1)
             self.update_line2.x = 2
@@ -152,34 +168,43 @@ class MatrixDisplay(DisplayInterface):
             self.update_group.hidden = True
             self.update_group.append(self.update_line1)
             self.update_group.append(self.update_line2)
-            self.update_line1.color = int(ColorUtils.colors["Yellow"])
-            self.update_line2.color = int(ColorUtils.colors["Yellow"])
+            self.update_line1.color = int(ColorUtils.colors["Yellow"], 16)
+            self.update_line2.color = int(ColorUtils.colors["Yellow"], 16)
 
-            # Message to show when wait times are updating
+            # Required attribution message
+            try:
+                # Try loading the small font
+                small_font = bitmap_font.load_font("src/fonts/tom-thumb.bdf")
+            except:
+                # Fallback to terminal font if small font not available
+                small_font = terminalio_FONT
+                
             self.required_line1 = Label(
-                bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
-                text="QUEUE-TIMES.COM")
+                small_font,
+                text="QUEUE-TIMES.COM"
+            )
             self.required_line2 = Label(
-                bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
-                text="UPDATING NOW")
+                small_font,
+                text="UPDATING NOW"
+            )
             self.required_line1.x = 3
             self.required_line1.y = 4
             self.required_line2.x = 8
-            self.required_line2.y = 12
+            self.required_line2.y = 10
             self.required_group = displayio.Group()
             self.required_group.hidden = True
             self.required_group.append(self.required_line1)
             self.required_group.append(self.required_line2)
-            self.required_line1.color = int(ColorUtils.colors["Yellow"])
-            self.required_line2.color = int(ColorUtils.colors["Yellow"])
+            self.required_line1.color = int(ColorUtils.colors["Yellow"], 16)
+            self.required_line2.color = int(ColorUtils.colors["Yellow"], 16)
 
             # Centered generic messages
-            self.centered_line1 = Label(terminalio.FONT, text="Test Line1")
-            self.centered_line2 = Label(terminalio.FONT, text="TEST LINE2")
+            self.centered_line1 = Label(terminalio_FONT, text="Test Line1")
+            self.centered_line2 = Label(terminalio_FONT, text="TEST LINE2")
             self.centered_line1.x = 0
             self.centered_line1.y = 1
             self.centered_line2.x = 0
-            self.centered_line2.y = 12
+            self.centered_line2.y = 13
             self.centered_group = displayio.Group()
             self.centered_group.hidden = True
             self.centered_group.append(self.centered_line1)
@@ -187,18 +212,20 @@ class MatrixDisplay(DisplayInterface):
             
             # Queue-times attribution
             self.queue_line1 = Label(
-                terminalio.FONT,
-                text="Powered by")
-            self.queue_line1.color = int(ColorUtils.colors["Yellow"])
+                terminalio_FONT,
+                text="Powered by"
+            )
+            self.queue_line1.color = int(ColorUtils.colors["Yellow"], 16)
             self.queue_line1.x = 0
             self.queue_line1.y = 2
 
             self.queue_line2 = Label(
-                bitmap_font.load_font("src/fonts/tom-thumb.bdf"),
-                text="queue-times.com")
-            self.queue_line2.color = int(ColorUtils.colors["Orange"])
+                small_font,
+                text="queue-times.com"
+            )
+            self.queue_line2.color = int(ColorUtils.colors["Orange"], 16)
             self.queue_line2.x = 1
-            self.queue_line2.y = 17
+            self.queue_line2.y = 15
             self.queue_group = displayio.Group()
             self.queue_group.hidden = True
             self.queue_group.append(self.queue_line1)
@@ -219,11 +246,15 @@ class MatrixDisplay(DisplayInterface):
             if self.settings_manager:
                 self.set_colors(self.settings_manager)
                 
-            logger.info("Hardware display initialized successfully")
+            # Initialize pygame and the matrix surface
+            if hasattr(self.matrix, 'initialize_surface'):
+                self.matrix.initialize_surface()
+                
+            logger.info("PyLEDSimulator display initialized successfully")
             return True
             
         except Exception as e:
-            logger.error(e, "Failed to initialize hardware display")
+            logger.error(e, "Failed to initialize PyLEDSimulator display")
             return False
     
     def set_text(self, text, color=None):
@@ -250,17 +281,97 @@ class MatrixDisplay(DisplayInterface):
             frame_delay: Delay between frames in seconds
         """
         self.scroll_delay = frame_delay
-        # The actual scrolling is handled in hardware auto-scroll
     
     def clear(self):
         """Clear the display"""
         self._hide_all_groups()
     
     def update(self):
-        """Update the display - hardware display updates automatically"""
-        if self.hardware:
-            self.hardware.display.refresh(minimum_frames_per_second=0)
+        """Update the display"""
+        if self.display:
+            # Handle pygame events to keep window responsive
+            import pygame
+            
+            # Check if pygame is initialized
+            if not pygame.get_init():
+                # Skip pygame operations if not initialized
+                self.display.refresh(minimum_frames_per_second=0)
+                return True
+            
+            # Check if display mode has been set (window created)
+            if pygame.display.get_surface() is None:
+                # Window not created yet, just refresh the display
+                self.display.refresh(minimum_frames_per_second=0)
+                return True
+                
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return False
+            
+            # Update the display
+            self.display.refresh(minimum_frames_per_second=0)
+            
+            # Update the pygame display
+            if hasattr(self.matrix, 'render'):
+                self.matrix.render()
+            pygame.display.flip()
+            
         return True
+    
+    async def run_async(self):
+        """Run the display in an async loop"""
+        # Initialize pygame if not already done
+        import pygame
+        if not pygame.get_init():
+            pygame.init()
+            
+        # Create the window
+        screen = pygame.display.set_mode((self.matrix.surface_width, self.matrix.surface_height))
+        pygame.display.set_caption("Theme Park Waits - PyLEDSimulator")
+        
+        # Main display loop
+        clock = pygame.time.Clock()
+        running = True
+        
+        while running:
+            # Handle events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    # Exit the entire application
+                    import sys
+                    pygame.quit()
+                    sys.exit(0)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                        # Exit the entire application
+                        import sys
+                        pygame.quit()
+                        sys.exit(0)
+            
+            # Update the display
+            if self.display and self.display.root_group:
+                self.display.refresh(minimum_frames_per_second=0)
+            
+            # Render to screen
+            if hasattr(self.matrix, 'render'):
+                self.matrix.render()
+                # Get the rendered surface and blit to screen
+                if hasattr(self.matrix, 'surface'):
+                    screen.blit(self.matrix.surface, (0, 0))
+            
+            pygame.display.flip()
+            clock.tick(60)  # 60 FPS
+            
+            # Yield control to allow other async tasks to run
+            await asyncio.sleep(0.001)
+        
+        # Clean up
+        pygame.quit()
     
     def show_image(self, image, x=0, y=0):
         """
@@ -272,16 +383,35 @@ class MatrixDisplay(DisplayInterface):
             y: Y position
         """
         try:
-            # Convert PIL Image to displayio bitmap
+            # PyLEDSimulator supports PIL images directly
             if hasattr(image, 'mode') and image.mode:
-                import displayio
-                from adafruit_imaging.bitmap import displayio_bitmap_from_pil_image
-                
                 # Convert to displayio bitmap
-                bitmap = displayio_bitmap_from_pil_image(image)
+                bitmap = displayio.Bitmap(image.width, image.height, 256)
+                palette = displayio.Palette(256)
                 
-                # Create a TileGrid from the bitmap
-                tile_grid = displayio.TileGrid(bitmap, pixel_shader=displayio.ColorConverter())
+                # Convert image to RGB if needed
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                # Copy pixels
+                for y_pos in range(image.height):
+                    for x_pos in range(image.width):
+                        pixel = image.getpixel((x_pos, y_pos))
+                        color = (pixel[0] << 16) | (pixel[1] << 8) | pixel[2]
+                        # Find or add color to palette
+                        color_index = 0
+                        for i in range(len(palette)):
+                            if palette[i] == color:
+                                color_index = i
+                                break
+                        else:
+                            if len(palette) < 256:
+                                palette[len(palette)] = color
+                                color_index = len(palette) - 1
+                        bitmap[x_pos, y_pos] = color_index
+                
+                # Create TileGrid
+                tile_grid = displayio.TileGrid(bitmap, pixel_shader=palette)
                 
                 # Create a group and add the TileGrid
                 image_group = displayio.Group()
@@ -310,11 +440,10 @@ class MatrixDisplay(DisplayInterface):
         Args:
             brightness: Brightness value (0.0-1.0)
         """
-        if self.hardware:
+        if self.display:
             try:
                 brightness = min(max(brightness, 0.0), 1.0)
-                # MatrixPortal S3 brightness is 0-1.0
-                self.hardware.display.brightness = brightness
+                self.display.brightness = brightness
             except Exception as e:
                 logger.error(e, "Failed to set brightness")
     
@@ -325,7 +454,7 @@ class MatrixDisplay(DisplayInterface):
         Args:
             rotation: Rotation in degrees (0, 90, 180, 270)
         """
-        if self.hardware:
+        if self.display:
             try:
                 # Map rotation degrees to displayio constants
                 rotation_map = {
@@ -335,7 +464,7 @@ class MatrixDisplay(DisplayInterface):
                     270: 3
                 }
                 if rotation in rotation_map:
-                    self.hardware.display.rotation = rotation_map[rotation]
+                    self.display.rotation = rotation_map[rotation]
             except Exception as e:
                 logger.error(e, "Failed to set rotation")
     
@@ -369,18 +498,25 @@ class MatrixDisplay(DisplayInterface):
             
         try:
             scale = float(settings.settings.get("brightness_scale", "0.5"))
-            self.wait_time_name.color = int(ColorUtils.scale_color(settings.settings.get("ride_name_color", ColorUtils.colors["Blue"]), scale))
-            self.wait_time.color = int(ColorUtils.scale_color(settings.settings.get("ride_wait_time_color", ColorUtils.colors["Old Lace"]), scale))
-            self.closed.color = int(ColorUtils.scale_color(settings.settings.get("ride_wait_time_color", ColorUtils.colors["Old Lace"]), scale))
-            self.scrolling_label.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.splash_line1.color = int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
-            self.splash_line2.color = int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
-            self.update_line1.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.update_line2.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.required_line1.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.required_line2.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.centered_line1.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
-            self.centered_line2.color = int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            
+            # Helper function to convert color value to int
+            def color_to_int(color_value):
+                if isinstance(color_value, str):
+                    return int(color_value, 16)
+                return int(color_value)
+            
+            self.wait_time_name.color = color_to_int(ColorUtils.scale_color(settings.settings.get("ride_name_color", ColorUtils.colors["Blue"]), scale))
+            self.wait_time.color = color_to_int(ColorUtils.scale_color(settings.settings.get("ride_wait_time_color", ColorUtils.colors["Old Lace"]), scale))
+            self.closed.color = color_to_int(ColorUtils.scale_color(settings.settings.get("ride_wait_time_color", ColorUtils.colors["Old Lace"]), scale))
+            self.scrolling_label.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.splash_line1.color = color_to_int(ColorUtils.scale_color(ColorUtils.colors["Yellow"], scale))
+            self.splash_line2.color = color_to_int(ColorUtils.scale_color(ColorUtils.colors["Orange"], scale))
+            self.update_line1.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.update_line2.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.required_line1.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.required_line2.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.centered_line1.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
+            self.centered_line2.color = color_to_int(ColorUtils.scale_color(settings.settings.get("default_color", ColorUtils.colors["Yellow"]), scale))
         except Exception as e:
             logger.error(e, "Error setting colors")
     
@@ -392,9 +528,9 @@ class MatrixDisplay(DisplayInterface):
         
         Args:
             duration: Duration to show in seconds
-            reveal_style: If True, use reveal animation instead of static display
+            reveal_style: If True, use reveal animation
         """
-        logger.debug(f"HardwareDisplay.show_splash called with duration={duration}, reveal_style={reveal_style}")
+        logger.debug(f"PyLEDSimulator.show_splash called with duration={duration}, reveal_style={reveal_style}")
         self._hide_all_groups()
         
         if reveal_style:
@@ -406,7 +542,7 @@ class MatrixDisplay(DisplayInterface):
             await asyncio.sleep(duration)
             self.splash_group.hidden = True
     
-        
+    
     async def show_ride_name(self, ride_name):
         """
         Show a ride name
@@ -483,7 +619,7 @@ class MatrixDisplay(DisplayInterface):
         line.x = line.x - 1
         line_width = line.bounding_box[2]
         if line.x < -line_width:
-            line.x = self.hardware.display.width
+            line.x = self.display.width
             return False
         return True
         
@@ -494,7 +630,7 @@ class MatrixDisplay(DisplayInterface):
         Args:
             text_label: The label to center
         """
-        width = self.hardware.display.width
+        width = self.display.width
         
         # Get the bounding box and account for scale
         bounding_box = text_label.bounding_box
