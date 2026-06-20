@@ -13,9 +13,13 @@ from __future__ import annotations
 from scrollkit.app.base import ScrollKitApp
 from scrollkit.display.content import StaticText
 
+from scrollkit.utils.error_handler import ErrorHandler
+
 from src.settings_schema import make_settings
 from src.api.theme_park_service import ThemeParkService
 from src.ui.content_builder import build_content_queue
+
+logger = ErrorHandler("error_log")
 
 
 class ThemeParkApp(ScrollKitApp):
@@ -89,7 +93,7 @@ class ThemeParkApp(ScrollKitApp):
         try:
             await self.service.initialize()  # fetch park list + load park/vacation settings
         except Exception as e:  # never crash boot (FR-014)
-            print("service.initialize failed:", e)
+            logger.error(e, "service.initialize failed")
 
     async def show_loading(self) -> None:
         """Pre-flush a static 'updating' frame before the blocking fetch (B2/FR-029)."""
@@ -113,4 +117,4 @@ class ThemeParkApp(ScrollKitApp):
                     await self.service.update_current_park()
             build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
         except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
-            print("update_data failed:", e)
+            logger.error(e, "update_data failed")
