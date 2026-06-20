@@ -35,6 +35,12 @@ class ThemeParkApp(ScrollKitApp):
             http_client = HttpClient()
         self.http_client = http_client
         self.service = ThemeParkService(self.http_client, self.settings)
+        try:
+            from src.ota_glue import OTAGlue
+            self.ota = OTAGlue()
+        except Exception as e:  # OTA is optional; never block construction
+            print("OTA unavailable:", e)
+            self.ota = None
 
     async def create_display(self):
         """Return our display (UnifiedDisplay + scaled-text), auto-detects sim/hardware."""
@@ -71,7 +77,15 @@ class ThemeParkApp(ScrollKitApp):
         self.content_queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
 
         # TODO(T018): WiFi connect / first-boot AP onboarding (dev mode auto-connects).
-        # TODO(T027): install pending OTA before fetching.
+
+        # Install a pending OTA update before fetching (reboots if one is staged).
+        if self.ota is not None:
+            try:
+                self.ota.attach_display(self.display)
+                await self.ota.install_pending()
+            except Exception as e:
+                print("OTA install_pending failed:", e)
+
         try:
             await self.service.initialize()  # fetch park list + load park/vacation settings
         except Exception as e:  # never crash boot (FR-014)
