@@ -80,7 +80,9 @@ class ThemeParkApp(ScrollKitApp):
         self.content_queue.add(StaticText("THEME PARK", x=2, y=4, color=0xFFAA00, duration=2.0))
         self.content_queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
 
-        # TODO(T018): WiFi connect / first-boot AP onboarding (dev mode auto-connects).
+        # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
+        # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
+        await self._init_network()
 
         # Install a pending OTA update before fetching (reboots if one is staged).
         if self.ota is not None:
@@ -105,6 +107,43 @@ class ThemeParkApp(ScrollKitApp):
             await self.display.show()
         except Exception:
             pass
+
+    async def _init_network(self):
+        """WiFi station connect (+ HTTP session, NTP, mDNS). Dev mode auto-connects.
+
+        Hardware-only paths (session/NTP/mDNS) are guarded so the desktop simulator
+        is unaffected. First-boot AP onboarding (no stored creds) is device-only and
+        still TODO (the library `WiFiManager` provides start_access_point/run_web_server).
+        """
+        try:
+            from scrollkit.network.wifi_manager import WiFiManager, is_dev_mode
+        except Exception as e:
+            logger.error(e, "WiFiManager import failed")
+            return
+        try:
+            self.wifi = WiFiManager(self.settings)
+            connected = await self.wifi.connect()
+            if is_dev_mode():
+                return  # simulator: no real radio / clock / mDNS
+            if connected:
+                try:
+                    session = self.wifi.create_http_session()
+                    if session is not None and hasattr(self.http_client, "session"):
+                        self.http_client.session = session
+                except Exception as e:
+                    logger.error(e, "create_http_session failed")
+                try:
+                    from scrollkit.utils.system_utils import set_system_clock
+                    await set_system_clock(self.http_client)
+                except Exception as e:
+                    logger.error(e, "set_system_clock failed")
+                try:
+                    from src.net.mdns_helper import advertise
+                    advertise(self.settings.get("domain_name", "themeparkwaits"))
+                except Exception as e:
+                    logger.error(e, "mDNS advertise failed")
+        except Exception as e:
+            logger.error(e, "network init failed")
 
     async def update_data(self) -> None:
         """Refresh wait times for the selected park(s) and rebuild the content queue."""
