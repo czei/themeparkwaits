@@ -50,10 +50,15 @@ class RideScreenContent(DisplayContent):
         if self._name_x < -self._name_w:
             self._name_x = display.width
 
-        # --- bottom: centered wait number ---
+        # --- bottom: large centered wait number (2x when the display supports it) ---
         wait_str = str(self.wait_minutes)
-        wx = max(0, (display.width - len(wait_str) * _CHAR_W) // 2)
-        await display.draw_text(wait_str, wx, 20, self.wait_color)
+        if hasattr(display, "draw_text_scaled"):
+            w = len(wait_str) * _CHAR_W * 2
+            wx = max(0, (display.width - w) // 2)
+            await display.draw_text_scaled(wait_str, wx, 14, self.wait_color, scale=2)
+        else:
+            wx = max(0, (display.width - len(wait_str) * _CHAR_W) // 2)
+            await display.draw_text(wait_str, wx, 20, self.wait_color)
 
     def describe(self):
         info = super().describe()

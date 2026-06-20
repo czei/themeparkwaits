@@ -38,9 +38,9 @@ class ThemeParkApp(ScrollKitApp):
         self.service = ThemeParkService(self.http_client, self.settings)
 
     async def create_display(self):
-        """Return the library's unified display (auto-detects sim vs hardware)."""
-        from scrollkit.display.unified import UnifiedDisplay
-        return UnifiedDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
+        """Return our display (UnifiedDisplay + scaled-text), auto-detects sim/hardware."""
+        from src.ui.tpw_display import ThemeParkDisplay
+        return ThemeParkDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
 
     async def setup(self) -> None:
         """Pre-run sequence (boot state machine — partial; T018/T027 add WiFi/OTA/NTP)."""
