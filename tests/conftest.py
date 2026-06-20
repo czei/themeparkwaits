@@ -56,25 +56,15 @@ def mock_http_client():
 
 @pytest.fixture
 def settings_factory(tmp_path):
-    """Factory → a scrollkit SettingsManager backed by a temp JSON file.
+    """Factory → the app's SettingsManager (real schema) backed by a temp file.
 
-    Pass overrides as kwargs; defaults mirror src/settings_schema.py.
+    Pass overrides as kwargs.
     """
-    from scrollkit.config.settings_manager import SettingsManager
+    from src.settings_schema import make_settings
 
     def _make(**overrides):
         path = os.path.join(str(tmp_path), "settings.json")
-        sm = SettingsManager(
-            path,
-            defaults={
-                "sort_mode": "alphabetical",
-                "group_by_park": False,
-                "skip_closed": False,
-                "skip_meet": False,
-                "selected_park_ids": [],
-            },
-            bool_keys=["skip_closed", "skip_meet", "group_by_park"],
-        )
+        sm = make_settings(path)
         for k, v in overrides.items():
             sm.set(k, v)
         return sm

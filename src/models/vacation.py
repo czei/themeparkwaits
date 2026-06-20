@@ -2,11 +2,13 @@
 Vacation model to represent a vacation plan.
 Copyright 2024 3DUPFitters LLC
 """
-from adafruit_datetime import datetime
+try:
+    from adafruit_datetime import datetime  # CircuitPython
+except ImportError:
+    from datetime import datetime  # desktop / tests (API-compatible for our use)
 
-from src.utils.error_handler import ErrorHandler
-from src.config.settings_manager import SettingsManager
-from src.utils.url_utils import url_decode
+from scrollkit.utils.error_handler import ErrorHandler
+from scrollkit.utils.url_utils import url_decode
 
 # Initialize logger
 logger = ErrorHandler("error_log")
