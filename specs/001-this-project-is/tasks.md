@@ -54,8 +54,8 @@ This is a **port**, not greenfield: the app's diverged subsystems (`SettingsMana
 ### Subsystem replacements
 - [X] **T015** [P] Settings → `scrollkit.config.SettingsManager`: `src/settings_schema.py` created (`DEFAULTS` + `BOOL_KEYS=[skip_closed,skip_meet,group_by_park]`, `use_prerelease` removed; `ColorUtils.colors` confirmed has Yellow/Blue/Old Lace; creds = `secrets.py` per T003). **`src/config/` deletion DEFERRED** until its orphan consumers (web_server, theme_park_api, etc.) are removed — per the Deletion protocol "don't delete while references remain". *(Verified: settings_factory + tests green.)*
 - [~] **T016** Utils migration: kept domain modules (`models/*`, `api/theme_park_service.py`) repointed to `scrollkit.utils.*` (`ErrorHandler`, `url_utils`); `vacation.py` given a stdlib `datetime` fallback so it's desktop-testable. **Physical DELETE of `src/utils/*` + root dups DEFERRED** until orphan consumers (network/ui/ota) are removed (refs still remain — Deletion protocol). *(Repoint verified: domain imports + tests green.)*
-- [ ] **T017** [P] mDNS helper (creation only): `src/net/__init__.py` + `src/net/mdns_helper.py` — `device.local` advertising via `adafruit_mdns` (library gap, D5/R3). Wiring + coexistence happen in T018/T038.
-- [ ] **T018** Networking wiring: in `setup()` (T013) wire `scrollkit.network.WiFiManager(settings)` (station connect **and** AP/captive-portal onboarding) + `HttpClient` + clock via `scrollkit.utils.system_utils.set_system_clock(...)`; **start the T017 mDNS helper after station connect**, passing `domain_name` and the same socket pool used by `SLDKWebServer` (review TB5/B5). **DELETE** `src/network/wifi_manager.py`, `src/network/wifimgr.py`, `src/network/http_client.py`, `src/network/http_client_original.py`, `src/network/async_http_request.py`, `src/async_http_request.py`. (after T003, T013, T017)
+- [X] **T017** [P] mDNS helper: `src/net/mdns_helper.py` (`advertise(hostname)` via `mdns`/`wifi`; no-op on desktop, library gap D5/R3).
+- [~] **T018** Networking wiring: `app._init_network()` wires `scrollkit.network.WiFiManager` station connect + `HttpClient` session + `set_system_clock` (NTP) + mDNS, all dev-mode-guarded so desktop is unaffected. **Hardware-unverified** (T037/T038). **TODO:** first-boot AP/captive-portal **onboarding** (no creds) is device-only — the library `WiFiManager` has `start_access_point`/`run_web_server`; finish + verify on hardware. **DELETE of legacy `src/network/*` DEFERRED** to cleanup wave.
 - [X] **T019** [P] Domain service rework: `src/api/theme_park_service.py` repointed to `scrollkit.utils` (uses the injected `scrollkit.network.HttpClient`); endpoints/retries/parallel multi-park fetch preserved. *(Verified: `tests/domain/test_service.py` — fetch park list, fetch park data, update_selected_parks all green via the mock HttpClient.)*
 
 ### Display, content, and the data loop
@@ -74,17 +74,17 @@ This is a **port**, not greenfield: the app's diverged subsystems (`SettingsMana
 - [X] **T028** `/update` route: `POST /update` in `config_server.py` → `ota.schedule_update()` (check+download) then reboot; apply runs in next `setup()`. *(Wired; live check needs the public release branch to exist — T005 action.)*
 
 ### Resilience + guard (resilience split per review S1)
-- [ ] **T029** Resilience — data path: wrap `update_data()` + content rebuild (`src/app.py`, `src/api/theme_park_service.py`) in try/except via `scrollkit.utils.ErrorHandler`; preserve prior snapshot; surface an error/status content item (FR-014, S6). (after T022)
-- [ ] **T030** Resilience — web/OTA/settings: wrap web handlers (`src/web/config_server.py`), OTA (`src/ota_glue.py`), and settings parse in try/except + logging; never crash on a bad request/update/parse. (after T024, T027, T028)
-- [ ] **T031** Import guard (scoped to deletions done so far): `tests/contract/test_no_legacy_imports.py` asserting none of the modules deleted through T015–T030 (settings/utils/network/display/web/OTA) are importable or referenced under `src/`. (Final-audit guard re-runs in T046.) (after T016, T018, T021, T024, T027)
+- [X] **T029** Resilience — data path: `update_data()` + `service.initialize` wrapped via `scrollkit.utils.ErrorHandler`; prior snapshot preserved (FR-014).
+- [X] **T030** Resilience — web/OTA/settings: web `_apply`, OTA `schedule_update`/`install_pending`, `create_web_server` all guarded; never crash on bad request/update.
+- [X] **T031** Import guard: `tests/contract/test_no_legacy_imports.py` — static check that the active boot path imports no legacy subsystem. *(Green. Re-runs after final-audit deletions, T046.)*
 
 ---
 
 ## Phase 3.4: Integration & desktop validation
 
-- [ ] **T032** Wire it together: `ThemeParkApp` boots end-to-end on the simulator (`PYTHONPATH="../ScrollKit Library/src:src" python -m src.themeparkwaits --dev`); fix import/wiring gaps. (after T012–T031)
-- [ ] **T033** Suite green: `pytest tests/` — T006–T011 + T031 all pass. (after T032)
-- [ ] **T034** Desktop parity walk: quickstart Acceptance scenarios **1–4 and 7** on the simulator (Scenario 8 is post-optimization → moved to T045); capture `run_headless` screenshots for each **Parity Coverage Matrix** row (plan.md) and eyeball vs. pre-port behavior. (after T033)
+- [X] **T032** Wire it together: `ThemeParkApp` boots end-to-end on the simulator (full app: data + web + ota); user ran `python -m src.themeparkwaits --dev` against **live** queue-times data successfully ("bones good, live values"). Full-app headless smoke: no errors.
+- [X] **T033** Suite green: `pytest tests/` — **26 pass** in ~1.3s, terminating.
+- [~] **T034** Desktop parity walk: scenarios verified via screenshots (splash, ride screen + 2× number, live data, config page renders + applies). **OPEN: P1 text-positioning** (user-confirmed off vs. hardware → fix in T044). Remaining scenarios (closed-park visual, vacation, multi-park grouping on screen) to eyeball.
 
 ---
 
