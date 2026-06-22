@@ -39,6 +39,26 @@ the displayio group (e.g. set_pixel)"*).
 - **Workaround in this app:** the reveal splash draws via a `Bitmap`+`TileGrid` in
   `main_group` (not `set_pixel`).
 
+## 3. OTA release model: `OTAClient` targets a FIXED branch (no branch discovery)
+`OTAClient.for_github(owner, repo, branch=...)` fetches one fixed branch's
+`manifest.json` and compares the manifest's `version` field. It does **not**
+enumerate branches or select the newest `release-*` branch.
+
+- **Impact:** ThemeParkWaits wants a "create a `release-MAJOR.MINOR` branch to
+  publish" workflow (single public repo for dev + releases). That needs branch
+  discovery (GitHub API `GET /repos/{owner}/{repo}/branches`, filter `release-`,
+  pick the highest semver, point the client at it) — currently absent.
+- **Options:** (A) use the library's model — one fixed branch whose `manifest.json`
+  version you bump per release (no code change); (B) add app-side branch discovery,
+  or a library feature (e.g. `OTAClient.for_github_latest_release(owner, repo,
+  prefix="release-")`).
+- **Suggested for the library:** either implement a release-branch-discovery mode,
+  or at minimum document that `for_github` is fixed-branch + version-in-manifest, so
+  the branch-per-release expectation is set correctly.
+- **Doc placement:** the *release-cutting convention* is a per-repo workflow →
+  document in this repo (a `RELEASING.md`), not the library. The library only needs
+  docs if it gains the discovery feature.
+
 ## Not a ScrollKit bug — environment hazard worth noting
 A stray Blinka **`displayio`** PyPI package in desktop site-packages shadows the
 simulator's `displayio` if app code does a bare `import displayio`. Import the
