@@ -85,6 +85,16 @@ never caught this** — found only on a Matrix Portal S3 (2026-06-22).
   that overrides dispatch without `@route`).
 - **Handed to the library agent (2026-06-22):** full fix spec + acceptance criteria
   in `specs/001-this-project-is/handoffs/scrollkit-web-route-circuitpython.md`.
+- **RESOLVED 2026-06-22** on branch `fix/route-circuitpython` (commits 484e368,
+  ba89e16, 5101dcc) — but the web path had **three** stacked CircuitPython traps,
+  each only visible on the board: (1) `func._route_info =`; (2) `func.__name__`
+  (also unavailable on CircuitPython — fixed with a marker-object + namespace-key
+  pattern); (3) the `CircuitPythonAdapter` used obsolete **adafruit_httpserver
+  v1.x** (`HTTPServer`/`HTTPRoute`/`HTTPResponse`) while the board ships **4.4.4**
+  (`Server`/`Route`/`Response`, poll-driven) — ported to 4.x. Plus an app-side
+  wiring fix (inject `socketpool.SocketPool(wifi.radio)`). Config UI now serves
+  HTTP 200 on hardware via IP and `.local`. **Lesson: the CPython simulator cannot
+  catch ANY of these — only device boots can.**
 
 ## 5. First HTTPS request after WiFi connect fails with EINPROGRESS (slow boot)
 On the ESP32-S3 the FIRST socket after WiFi association returns `OSError: [Errno
