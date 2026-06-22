@@ -5,6 +5,27 @@
 
 > **Revised after the tasks-gate PAL review (2026-06-20)** — TB1 (split the boot machine + add the data-loop task), TB2 (extend the T003 block list), TB3 (OTA decisions task + `use_prerelease` resolved = **removed**), TB4 (scoped import guards), TB5 (mDNS wiring) and the should-fix/nit items are all incorporated; tasks renumbered.
 
+## CURRENT STATUS — Milestone A is simulator-complete (keep this updated)
+**Done & verified on the desktop simulator** (26 tests pass; library feasibility ~135 FPS / 1 KB RAM, no warnings):
+- T001–T003 (setup + API gate), T012/T014 (app skeleton + entry points), T015/T016/T019 (settings/utils/service on `scrollkit.*`), T017 + T018(partial) (network/mDNS wiring, dev-safe), T020/T021/T022 (ride screen + 2× number, content builder, data loop), the opening **reveal splash** (port of reveal_animation.py — all LEDs on → wink off → THEME PARK WAITS), T023–T025 (web config UI at :8080), T026–T028 (OTA), T029–T031 (resilience + import guard), T032/T033 (integration + green suite), **T044** (efficiency: bit_depth=4, label reuse, `bitmap.fill` — feasibility green), **T046** (dead-code sweep → `src/` = 22 active modules), **T047** (docs), and **P1 text-positioning RESOLVED** (`draw_text` y = baseline; scroll y=13, ride name y=5, big number y=21).
+
+**Repo / OTA facts (changed mid-session):** repo renamed → **`czei/themeparkwaits`** (local `origin` updated); single PUBLIC repo for dev + releases; OTA channel branch = **`live`** (`src/ota_glue.py` `DEFAULT_BRANCH="live"`); `release-MAJOR.MINOR` branches = immutable archives mirrored onto `live` by CI/script (hybrid "Option C", multi-model consensus — NO on-device branch discovery). `src/.version` = 1.95.
+
+**Remaining:**
+- **Hardware checklist T035–T043 + T045** — device-only (real WiFi, AP onboarding, OTA install/reboot, mDNS, RAM). USER runs on a Matrix Portal S3; can't be done on the simulator.
+- **T013 / T018**: first-boot AP onboarding (no stored creds) is device-only and still TODO; `setup()` reboot-terminating branches not yet formalized.
+- **Publish automation (NOT written):** `RELEASING.md` + a GitHub Action (`on: create` for `release-*` → `make_manifest.py` → publish to `live`) and/or a local `publish.sh`. Outward-facing — confirm before enabling.
+- **ScrollKit library:** a publish-tool prompt was handed to the library agent (add desktop `scrollkit.ota.publish`; explicitly NOT on-device branch discovery). When it lands, retire `scripts/make_manifest.py` and point at it.
+- **Visual parity not yet eyeballed on the sim:** closed-park message, vacation countdown, multi-park grouping.
+
+**User action items:** rotate the old hardcoded GitHub token (it's in git history); `pip uninstall wifi displayio` (stray desktop packages caused two bugs this session); ensure a public **`live`** branch exists for OTA.
+
+**Candidate ScrollKit library issues (separate investigation):** see `SCROLLKIT_NOTES.md` — `is_dev_mode()` misfire, `set_pixel()`/`fill()` no-op in the simulator, OTA fixed-branch model.
+
+**Branch:** `001-this-project-is` — ~19 commits, **NOT pushed** to the remote.
+
+---
+
 ## Context (read before executing)
 This is a **port**, not greenfield: the app's diverged subsystems (`SettingsManager`, `WiFiManager`, `HttpClient`, `UnifiedDisplay`, `utils/*`, OTA, web server) are replaced by `scrollkit.*` imports; only theme-park **domain** code stays. "Tests first" is adapted to the target: automated gates are desktop **domain pytest + API-consumption smoke + headless render**; device-only behaviors (real WiFi, AP onboarding, OTA install/reboot, mDNS, RAM) are verified via the **hardware checklist** (Phase 3.5) — they cannot be unit-tested. Milestones: **A = port to parity → B = optimize → C = final cleanup audit**.
 
@@ -108,7 +129,7 @@ This is a **port**, not greenfield: the app's diverged subsystems (`SettingsMana
 - [ ] **P1 (orig note) — Text vertical positioning.** On the simulator the text y-positions are off vs. the original hardware (user confirmed: live values correct, "bones good," only placement needs tweaking). Likely cause: the `adafruit_display_text` `Label` y-origin / `anchor_point` convention differs between the new library's `Label` (and/or its simulator) and what the old app relied on — the old `unified_display.py` positioned labels at specific y's (ride name y≈7/2, wait y≈22/12) possibly with an `anchor_point` or `y`-as-baseline assumption. Fix in the polish round: calibrate y (and consider setting `label.anchor_point=(0,0)` / `anchored_position`) in `RideScreenContent` + `ThemeParkDisplay.draw_text_scaled` + the splash, screenshot-verifying, and confirm it matches on hardware. Affects `src/ui/ride_screen_content.py`, `src/ui/tpw_display.py`, `src/ui/content_builder.py` splash, `src/app.py` `show_loading`.
 
 ## Phase 3.6: Milestone B — Optimization pass (FR-019–025)
-- [ ] **T044** Apply the library's efficiency rules in `src/ui/ride_screen_content.py`, `src/ui/content_builder.py`, and per-frame paths: reuse `Label`/change `.text` only on value change; move `.x` for scrolling; no per-frame `Label`/`Bitmap`/`Group` alloc; `bitmap.fill`/`bitmaptools.blit` over per-pixel loops; keep `bit_depth=4`; chunk heavy compute + pre-flush loading frame. **Also resolve P1 (text positioning) here.**
+- [X] **T044** Efficiency rules applied during the port (verified ~135 FPS / 1 KB RAM, no feasibility warnings): `bit_depth=4`; label reuse via the library pool (ride screen `bitmap_rebuild` only ~0.3 ms/frame); `RevealSplash` uses `bitmap.fill` (not a per-pixel loop); no per-frame `Label`/`Bitmap`/`Group` alloc; `show_loading()` pre-flush before the sync fetch. P1 (text positioning) resolved. **Remaining:** re-confirm on real hardware (part of T045/the hardware checklist).
 - [ ] **T045** Re-run Phase 3.5 hardware checklist + quickstart **Scenario 8**; record free heap/FPS; confirm **no regression** vs. the Phase-1 port (no numeric gate, FR-024) and that the optimization is a separable, reviewable diff (FR-026).
 
 ---
