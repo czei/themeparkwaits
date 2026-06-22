@@ -28,10 +28,14 @@ DEFAULT_BRANCH = "live"
 
 
 def read_current_version(default="0.0.0"):
-    """Read the shipped version from src/.version."""
-    here = os.path.dirname(os.path.abspath(__file__))
+    """Read the shipped version from src/.version.
+
+    Uses string ops, not ``os.path`` — CircuitPython's ``os`` has no ``path``
+    submodule (this ran on desktop but raised ``AttributeError`` on the device).
+    """
+    here = __file__.rsplit("/", 1)[0] if "/" in __file__ else "."
     try:
-        with open(os.path.join(here, ".version")) as f:
+        with open(here + "/.version") as f:
             return f.read().strip() or default
     except OSError:
         return default
@@ -63,8 +67,15 @@ class OTAGlue:
 
     # ---- staged install flow ----
     def has_pending(self):
-        """True if an update has been downloaded to the staging dir."""
-        return os.path.exists("%s/manifest.json" % self.client.update_dir)
+        """True if an update has been downloaded to the staging dir.
+
+        ``os.stat`` (not ``os.path.exists``) — CircuitPython has no ``os.path``.
+        """
+        try:
+            os.stat("%s/manifest.json" % self.client.update_dir)
+            return True
+        except OSError:
+            return False
 
     def schedule_update(self):
         """Check for + download a newer release. Returns True if one is staged.

@@ -65,6 +65,42 @@ enumerate branches or select the newest `release-*` branch.
 - **Doc placement:** the release-cutting workflow is a per-repo concern → `RELEASING.md`
   in this repo, NOT the library.
 
+## 4. `@route` decorator sets a function attribute → fails on CircuitPython (web UI dead)
+The web `route` decorator (`scrollkit/web/adapters.py`, `server.py`) does
+`func._route_info = {...}`. **CircuitPython functions/methods don't support
+arbitrary attribute assignment** (no `__dict__`) → `AttributeError: can't set
+attribute '_route_info'` when a `@route`-decorated handler class is built on the
+device. The whole config web server fails to start (the app catches it →
+"web server unavailable"). CPython allows function attributes, so the **simulator
+never caught this** — found only on a Matrix Portal S3 (2026-06-22).
+
+- **Impact:** the config UI is completely unavailable on-device (blocks T038/T039).
+- **Repro (device):** build any handler subclass using `@route` → import/construct
+  raises `can't set attribute '_route_info'`.
+- **Suggested fix:** don't attach metadata to the function object. Register routes
+  in a class-level dict/list (decorator appends `(path, methods, func_name)` to a
+  class registry, or `__init_subclass__` scans methods by naming convention) —
+  anything that avoids `func.attr = ...`.
+- **Workaround in this app:** none yet — needs a library change (or an app handler
+  that overrides dispatch without `@route`).
+
+## 5. First HTTPS request after WiFi connect fails with EINPROGRESS (slow boot)
+On the ESP32-S3 the FIRST socket after WiFi association returns `OSError: [Errno
+119] EINPROGRESS` in `adafruit_requests._get_socket`. `HttpClient` retries (3x) but
+all attempts to that host fail, so `set_system_clock`'s HTTP-Date cascade burns
+~30-40s on the first host (`time.cloudflare.com`) before falling back to the next
+(`google.com`), which succeeds. The device **does** boot and run (clock, 141-park
+list, ride data, both loops, 1.8 MB free) — but `setup()` blocks ~30-60s on the
+splash first. Found on hardware 2026-06-22.
+
+- **Impact:** slow, noisy boot; not fatal. Reordering hosts won't help (any first
+  host hits it).
+- **Suggested fix:** make the first request resilient — use
+  `adafruit_connection_manager` (handles EINPROGRESS), add a short settle/retry on
+  the first socket, or a cheap warm-up request. Separately, since synchronous HTTP
+  in `setup()` freezes the boot UI, consider starting the display loop *before* the
+  blocking clock/fetch so the panel isn't frozen during the retry.
+
 ## Not a ScrollKit bug — environment hazard worth noting
 A stray Blinka **`displayio`** PyPI package in desktop site-packages shadows the
 simulator's `displayio` if app code does a bare `import displayio`. Import the
