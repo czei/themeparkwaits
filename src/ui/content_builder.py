@@ -15,7 +15,7 @@ Copyright 2024 3DUPFitters LLC
 """
 from __future__ import annotations
 
-from scrollkit.display.content import ScrollingText, StaticText
+from scrollkit.display.content import ScrollingText
 from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent, _to_int_color
 
 REQUIRED_MESSAGE = "queue-times.com"
@@ -59,9 +59,9 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     wait_color = settings.get("ride_wait_time_color", "0xfdf5e6")
     domain = settings.get("domain_name", "themeparkwaits")
 
-    if include_splash:
-        queue.add(StaticText("THEME PARK", x=2, y=4, color=0xFFAA00, duration=2.0))
-        queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
+    # The opening reveal splash is played once at boot (app.setup → show_reveal_splash),
+    # so it is intentionally not part of the repeating content cycle. include_splash
+    # is kept for API compatibility.
 
     # Which parks to display (multi-park, else legacy single current_park).
     parks = list(getattr(park_list, "selected_parks", None) or [])

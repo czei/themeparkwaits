@@ -11,7 +11,6 @@ Copyright 2024 3DUPFitters LLC
 from __future__ import annotations
 
 from scrollkit.app.base import ScrollKitApp
-from scrollkit.display.content import StaticText
 
 from scrollkit.utils.error_handler import ErrorHandler
 
@@ -76,20 +75,13 @@ class ThemeParkApp(ScrollKitApp):
         except (TypeError, ValueError):
             pass
 
-        # Splash while the park list loads. (RevealEffect splash polish: T020/T044.)
-        self.content_queue.add(StaticText("THEME PARK", x=2, y=4, color=0xFFAA00, duration=2.0))
-        self.content_queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
-
-        # Render one frame now so the simulator window appears immediately, before
-        # the (brief) park-list fetch below — otherwise the window isn't realized
-        # until the display loop starts.
+        # Opening reveal splash (every LED on -> wink off to "THEME PARK WAITS").
+        # This also realizes the window immediately (it refreshes each step).
         try:
-            await self.display.clear()
-            await self.display.draw_text("THEME PARK", 2, 4, 0xFFAA00)
-            await self.display.draw_text("WAITS", 14, 18, 0xFFAA00)
-            await self.display.show()
-        except Exception:
-            pass
+            from src.ui.reveal_splash import show_reveal_splash
+            await show_reveal_splash(self.display)
+        except Exception as e:
+            logger.error(e, "reveal splash failed")
 
         # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
         # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
