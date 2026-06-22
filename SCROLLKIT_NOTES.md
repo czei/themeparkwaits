@@ -83,6 +83,8 @@ never caught this** — found only on a Matrix Portal S3 (2026-06-22).
   anything that avoids `func.attr = ...`.
 - **Workaround in this app:** none yet — needs a library change (or an app handler
   that overrides dispatch without `@route`).
+- **Handed to the library agent (2026-06-22):** full fix spec + acceptance criteria
+  in `specs/001-this-project-is/handoffs/scrollkit-web-route-circuitpython.md`.
 
 ## 5. First HTTPS request after WiFi connect fails with EINPROGRESS (slow boot)
 On the ESP32-S3 the FIRST socket after WiFi association returns `OSError: [Errno
