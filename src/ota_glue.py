@@ -16,8 +16,12 @@ from __future__ import annotations
 import os
 
 # The release repo (made public for the no-token OTA model — T005).
-DEFAULT_OWNER = "Czeiszperger"
-DEFAULT_REPO = "themeparkwaits.release"
+# NOTE: GitHub renamed Czeiszperger/themeparkwaits.release -> czei/themeparkwaits.
+# raw.githubusercontent.com does NOT follow renames, so the OTA URL must use the
+# CURRENT name. Confirm this is the intended release repo and that it is public
+# with a `releases` branch + manifest.json before OTA will work.
+DEFAULT_OWNER = "czei"
+DEFAULT_REPO = "themeparkwaits"
 DEFAULT_BRANCH = "releases"
 
 
