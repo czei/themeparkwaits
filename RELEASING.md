@@ -54,17 +54,21 @@ History and rollback targets live in the `release-*` archive branches.
 | `scrollkit/` (the library)   | **no — not in this repo** | flash-frozen; copied to device `/lib/` at flash time |
 | `secrets.py`, `settings.json`, `error_log`, caches | **never** | device-owned / private |
 
-**Why libraries are flash-frozen:** the Adafruit bundle and `scrollkit` are matched
-to the CircuitPython core on the board. Bumping them generally needs a USB reflash
-anyway, and shipping 80 `.mpy` files (~400 KB) in every OTA bloats the download and
-the on-device backup set (storage-headroom matters on the S3). When you *do* bump a
-bundled library, publish that release with `INCLUDE_LIB=1` **and** plan a reflash for
-the CircuitPython core if it changed.
+**Why libraries are flash-frozen (deliberate — don't "fix" this):** the primary
+reason is the **install window**. A large payload means a long
+"Installing… do not unplug!" period, and impatient users *will* yank power mid-write
+— a half-written filesystem can brick the device. Shipping app source only (~tens of
+KB) keeps that window short and the update safe. Shipping the 80-file Adafruit bundle
+(~400 KB) would multiply it. Secondary reasons: the bundle and `scrollkit` are `.mpy`
+matched to the CircuitPython core (bumping them needs a USB reflash anyway), and a
+smaller payload means a smaller on-device backup set during apply (storage-headroom
+matters on the S3). When you *do* bump a bundled library, do it on a supervised USB
+reflash — not OTA. `INCLUDE_LIB=1` exists only for a rare deliberate full-bundle push.
 
-> ⚠️ **One decision to confirm:** the default ships app source only and treats
-> `src/lib` as flash-frozen. If you'd rather every OTA carry a fully self-consistent
-> app+bundle set (bigger payload, larger backup), make `INCLUDE_LIB=1` the default in
-> `scripts/publish.sh` / the workflow. The publisher supports both today.
+> ⚠️ **Decision (confirmed by the maintainer): keep `INCLUDE_LIB=0`.** OTA ships app
+> source only; `src/lib` and `scrollkit` are flash-frozen. The publisher supports
+> `INCLUDE_LIB=1` for the rare full-bundle release, but the impatient-user / unplug
+> risk above is the reason not to make it the default.
 
 ## Versioning
 
