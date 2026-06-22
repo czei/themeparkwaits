@@ -20,6 +20,10 @@ from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent, _to
 
 REQUIRED_MESSAGE = "queue-times.com"
 
+# draw_text's y is the text BASELINE (top-down origin; y=0 clips the glyph off the
+# top). Mid-teens vertically centers a single line on the 32px panel.
+_SCROLL_Y = 13
+
 
 def _sort_rides(rides, sort_mode):
     """Sort a list of ThemeParkRide by the given mode (closed rides weigh 0)."""
@@ -70,10 +74,10 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
 
     if not parks:
         queue.add(ScrollingText("Choose theme park at http://%s.local" % domain,
-                                color=default_color))
+                                y=_SCROLL_Y, color=default_color))
         return
 
-    queue.add(ScrollingText("Configure at http://%s.local" % domain, color=default_color))
+    queue.add(ScrollingText("Configure at http://%s.local" % domain, y=_SCROLL_Y, color=default_color))
 
     sort_mode = settings.get("sort_mode", "alphabetical")
     group_by_park = settings.get("group_by_park", False)
@@ -83,9 +87,9 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     if group_by_park:
         for park in parks:
             if park.is_open is False:
-                queue.add(ScrollingText(park.name + " is closed", color=default_color))
+                queue.add(ScrollingText(park.name + " is closed", y=_SCROLL_Y, color=default_color))
                 continue
-            queue.add(ScrollingText(park.name + " wait times...", color=default_color))
+            queue.add(ScrollingText(park.name + " wait times...", y=_SCROLL_Y, color=default_color))
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
                 _add_ride(queue, ride, name_color, wait_color)
@@ -102,15 +106,15 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
         days = vacation.get_days_until()
         if days > 1:
             queue.add(ScrollingText("Vacation to %s in: %d days" % (vacation.name, days),
-                                    color=default_color))
+                                    y=_SCROLL_Y, color=default_color))
         elif days == 1:
             queue.add(ScrollingText("Your vacation to %s is tomorrow!!!" % vacation.name,
-                                    color=default_color))
+                                    y=_SCROLL_Y, color=default_color))
         elif days == 0:
             queue.add(ScrollingText("Your vacation to %s is TODAY!!!!!!!!!!!!!" % vacation.name,
-                                    color=default_color))
+                                    y=_SCROLL_Y, color=default_color))
 
     # Attribution (required).
     park_names = ", ".join(p.name for p in parks)
     queue.add(ScrollingText("Wait times for %s provided by %s" % (park_names, REQUIRED_MESSAGE),
-                            color=default_color))
+                            y=_SCROLL_Y, color=default_color))

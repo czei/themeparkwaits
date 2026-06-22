@@ -12,8 +12,13 @@ from __future__ import annotations
 
 from scrollkit.display.content import DisplayContent
 
-# terminalio glyphs are ~6px wide / ~8px tall; used for centering math.
+# terminalio glyphs are ~6px wide / ~8px tall. draw_text's `y` is the text
+# BASELINE (top-down origin, top-left = 0,0; y=0 clips the glyph off the top), so
+# these place the baseline to show each line in its zone (verified by screenshot).
 _CHAR_W = 6
+_NAME_Y = 5           # ride name (top zone)
+_WAIT_Y = 21          # large 2x wait number (bottom zone)
+_CLOSED_Y = 21        # "Closed" (single size, bottom zone)
 
 
 def _to_int_color(color) -> int:
@@ -45,7 +50,7 @@ class RideScreenContent(DisplayContent):
         if self._name_x is None:
             self._name_x = display.width
             self._name_w = len(self.ride_name) * _CHAR_W
-        await display.draw_text(self.ride_name, self._name_x, 4, self.name_color)
+        await display.draw_text(self.ride_name, self._name_x, _NAME_Y, self.name_color)
         self._name_x -= 1
         if self._name_x < -self._name_w:
             self._name_x = display.width
@@ -55,10 +60,10 @@ class RideScreenContent(DisplayContent):
         if hasattr(display, "draw_text_scaled"):
             w = len(wait_str) * _CHAR_W * 2
             wx = max(0, (display.width - w) // 2)
-            await display.draw_text_scaled(wait_str, wx, 14, self.wait_color, scale=2)
+            await display.draw_text_scaled(wait_str, wx, _WAIT_Y, self.wait_color, scale=2)
         else:
             wx = max(0, (display.width - len(wait_str) * _CHAR_W) // 2)
-            await display.draw_text(wait_str, wx, 20, self.wait_color)
+            await display.draw_text(wait_str, wx, _WAIT_Y, self.wait_color)
 
     def describe(self):
         info = super().describe()
@@ -86,14 +91,14 @@ class ClosedRideContent(DisplayContent):
         if self._name_x is None:
             self._name_x = display.width
             self._name_w = len(self.ride_name) * _CHAR_W
-        await display.draw_text(self.ride_name, self._name_x, 4, self.name_color)
+        await display.draw_text(self.ride_name, self._name_x, _NAME_Y, self.name_color)
         self._name_x -= 1
         if self._name_x < -self._name_w:
             self._name_x = display.width
 
         label = "Closed"
         cx = max(0, (display.width - len(label) * _CHAR_W) // 2)
-        await display.draw_text(label, cx, 20, self.closed_color)
+        await display.draw_text(label, cx, _CLOSED_Y, self.closed_color)
 
     def describe(self):
         info = super().describe()
