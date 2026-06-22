@@ -80,6 +80,17 @@ class ThemeParkApp(ScrollKitApp):
         self.content_queue.add(StaticText("THEME PARK", x=2, y=4, color=0xFFAA00, duration=2.0))
         self.content_queue.add(StaticText("WAITS", x=14, y=18, color=0xFFAA00, duration=2.0))
 
+        # Render one frame now so the simulator window appears immediately, before
+        # the (brief) park-list fetch below — otherwise the window isn't realized
+        # until the display loop starts.
+        try:
+            await self.display.clear()
+            await self.display.draw_text("THEME PARK", 2, 4, 0xFFAA00)
+            await self.display.draw_text("WAITS", 14, 18, 0xFFAA00)
+            await self.display.show()
+        except Exception:
+            pass
+
         # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
         # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
         await self._init_network()
@@ -109,22 +120,21 @@ class ThemeParkApp(ScrollKitApp):
             pass
 
     async def _init_network(self):
-        """WiFi station connect (+ HTTP session, NTP, mDNS). Dev mode auto-connects.
+        """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
 
-        Hardware-only paths (session/NTP/mDNS) are guarded so the desktop simulator
-        is unaffected. First-boot AP onboarding (no stored creds) is device-only and
-        still TODO (the library `WiFiManager` provides start_access_point/run_web_server).
+        Gated on the real platform (NOT the library's ``is_dev_mode()``, which can
+        misfire if a stray ``wifi`` package is importable on desktop and would then
+        make ``setup()`` block on failing NTP/network calls before the window ever
+        renders). On desktop the HttpClient uses urllib directly — no WiFi/NTP/mDNS
+        needed. First-boot AP onboarding (no creds) is device-only and still TODO.
         """
+        import sys
+        if not (hasattr(sys, "implementation") and sys.implementation.name == "circuitpython"):
+            return  # desktop / simulator: nothing to bring up
         try:
-            from scrollkit.network.wifi_manager import WiFiManager, is_dev_mode
-        except Exception as e:
-            logger.error(e, "WiFiManager import failed")
-            return
-        try:
+            from scrollkit.network.wifi_manager import WiFiManager
             self.wifi = WiFiManager(self.settings)
             connected = await self.wifi.connect()
-            if is_dev_mode():
-                return  # simulator: no real radio / clock / mDNS
             if connected:
                 try:
                     session = self.wifi.create_http_session()
