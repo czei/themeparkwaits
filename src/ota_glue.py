@@ -1,8 +1,8 @@
 """OTA glue — wires scrollkit.ota.OTAClient to the app (T027).
 
-Public-branch model (T005/research D8): no device-side token. The release lives
-on a public `releases` branch as `manifest.json` + `files/<device-path>` (built
-by scripts/make_manifest.py). Flow:
+Public-branch model (T005/research D8): no device-side token. The device reads a
+fixed public `live` channel branch as `manifest.json` + `files/<device-path>`
+(published by scripts/publish.sh; see RELEASING.md). Flow:
 
   * web `/update` (or a boot check) -> ``schedule_update()`` checks + downloads to
     /updates, then the caller reboots;
