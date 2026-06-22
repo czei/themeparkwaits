@@ -51,12 +51,25 @@ class ThemeParkApp(ScrollKitApp):
         return ThemeParkDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
 
     async def create_web_server(self):
-        """Return the config web server (library server + our handler/page)."""
+        """Return the config web server (library server + our handler/page).
+
+        On CircuitPython the adafruit_httpserver ``Server`` needs a socket pool
+        from the WiFi radio; the library expects the app to inject it (it owns
+        networking). On desktop the dev adapter uses stdlib http.server and
+        ignores it. The ``wifi``/``socketpool`` imports stay behind the platform
+        guard so the simulator never touches them.
+        """
         try:
             from scrollkit.web import SLDKWebServer
             from src.web.config_server import make_handler_class
+            socket_pool = None
+            import sys
+            if hasattr(sys, "implementation") and sys.implementation.name == "circuitpython":
+                import socketpool
+                import wifi
+                socket_pool = socketpool.SocketPool(wifi.radio)
             return SLDKWebServer(app=self, handler_class=make_handler_class(self),
-                                 static_dir="src/www")
+                                 static_dir="src/www", socket_pool=socket_pool)
         except Exception as e:  # never block boot on web setup
             print("web server unavailable:", e)
             return None
