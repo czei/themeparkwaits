@@ -48,16 +48,21 @@ enumerate branches or select the newest `release-*` branch.
   publish" workflow (single public repo for dev + releases). That needs branch
   discovery (GitHub API `GET /repos/{owner}/{repo}/branches`, filter `release-`,
   pick the highest semver, point the client at it) — currently absent.
-- **Options:** (A) use the library's model — one fixed branch whose `manifest.json`
-  version you bump per release (no code change); (B) add app-side branch discovery,
-  or a library feature (e.g. `OTAClient.for_github_latest_release(owner, repo,
-  prefix="release-")`).
-- **Suggested for the library:** either implement a release-branch-discovery mode,
-  or at minimum document that `for_github` is fixed-branch + version-in-manifest, so
-  the branch-per-release expectation is set correctly.
-- **Doc placement:** the *release-cutting convention* is a per-repo workflow →
-  document in this repo (a `RELEASING.md`), not the library. The library only needs
-  docs if it gains the discovery feature.
+- **Resolved by multi-model consensus (2026, gpt-5.3-codex/gemini-3.1-pro/qwen3.7-max):
+  DO NOT add on-device branch discovery.** On an ESP32-S3 + CircuitPython it's a trap:
+  unauthenticated GitHub REST API is 60 req/hr per IP (a bootloop → `403` → updates
+  starve), `json.loads` needs contiguous RAM (the `/branches` array grows → `MemoryError`),
+  and the API is slower/un-CDN'd (asyncio stalls). The device must keep using
+  `raw.githubusercontent.com` via a FIXED branch.
+- **Adopted model: hybrid (Option C).** Device stays on `branch="releases"` (no code
+  change). The `release-MAJOR.MINOR` ergonomics + audit/rollback are handled OFF-device
+  by automation (a GitHub Action or local `publish.sh`): on a new `release-*` ref it runs
+  `make_manifest.py` and publishes `manifest.json` + `files/` to the `releases` branch;
+  immutable tags/`release-*` branches remain for rollback.
+- **For the library:** no discovery feature needed; at most **document that `for_github`
+  is fixed-branch + version-in-manifest** so the branch-per-release expectation is set.
+- **Doc placement:** the release-cutting workflow is a per-repo concern → `RELEASING.md`
+  in this repo, NOT the library.
 
 ## Not a ScrollKit bug — environment hazard worth noting
 A stray Blinka **`displayio`** PyPI package in desktop site-packages shadows the
