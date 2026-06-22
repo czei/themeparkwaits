@@ -16,7 +16,7 @@
 - **T013 / T018**: first-boot AP onboarding (no stored creds) is device-only and still TODO; `setup()` reboot-terminating branches not yet formalized.
 - **Publish automation (WRITTEN — drafted, NOT enabled):** `RELEASING.md`, `scripts/publish.sh` (shared core), and `.github/workflows/publish-live.yml` (`on: create` for `release-*` → `publish.sh` → force-push `manifest.json`+`files/` onto `live`). Dry-run verified on the sim tree: 34 device-path files, libs flash-frozen, no private leaks, `src/.version` stamped from the ref name (→ how `current_version` bumps after apply). **Still gated on the user:** (a) the workflow only auto-fires once on `main` (default branch); (b) create the public `live` branch. **Confirmed:** `INCLUDE_LIB=0` (OTA ships app source only; `src/lib`/`scrollkit` flash-frozen) — keeps the "do not unplug" install window short so impatient users don't yank power mid-write. Resolves the ota-release.md open items "current_version bump" + "is scrollkit OTA-managed" (no — flash-frozen).
 - **ScrollKit library:** a publish-tool prompt was handed to the library agent (add desktop `scrollkit.ota.publish`; explicitly NOT on-device branch discovery). When it lands, retire `scripts/make_manifest.py` and point at it.
-- **Visual parity not yet eyeballed on the sim:** closed-park message, vacation countdown, multi-park grouping.
+- **Visual parity on the sim — VERIFIED (2026-06-22):** closed ride ("Closed"), open-ride 2× number (45/75/0), multi-park grouping (per-park headers + ordering + both-park attribution), closed-park message ("Epcot is closed"), and vacation countdown (5 days / tomorrow / TODAY) all built through the real models + `build_content_queue` and screenshot-checked via `tools/parity_shots.py`. Colors/zones/2× scaling/centering all correct.
 
 **User action items:** rotate the old hardcoded GitHub token (it's in git history); `pip uninstall wifi displayio` (stray desktop packages caused two bugs this session); ensure a public **`live`** branch exists for OTA.
 
@@ -105,7 +105,7 @@ This is a **port**, not greenfield: the app's diverged subsystems (`SettingsMana
 
 - [X] **T032** Wire it together: `ThemeParkApp` boots end-to-end on the simulator (full app: data + web + ota); user ran `python -m src.themeparkwaits --dev` against **live** queue-times data successfully ("bones good, live values"). Full-app headless smoke: no errors.
 - [X] **T033** Suite green: `pytest tests/` — **26 pass** in ~1.3s, terminating.
-- [~] **T034** Desktop parity walk: scenarios verified via screenshots (splash, ride screen + 2× number, live data, config page renders + applies). **OPEN: P1 text-positioning** (user-confirmed off vs. hardware → fix in T044). Remaining scenarios (closed-park visual, vacation, multi-park grouping on screen) to eyeball.
+- [X] **T034** Desktop parity walk: scenarios verified via screenshots (splash, ride screen + 2× number, live data, config page renders + applies). P1 text-positioning RESOLVED (T044). **Remaining scenarios now eyeballed (2026-06-22)** via `tools/parity_shots.py`: closed ride, open-with-0-wait, multi-park grouping (headers/ordering/attribution), closed-park message, and vacation countdown (3 variants) — all built through the real models + builder, colors/zones/2× scaling/centering correct.
 
 ---
 
