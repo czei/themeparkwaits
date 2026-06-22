@@ -114,7 +114,7 @@ This is a **port**, not greenfield: the app's diverged subsystems (`SettingsMana
 ---
 
 ## Phase 3.7: Milestone C — Final dead-code audit (FR-026–027)
-- [ ] **T046** Grep sweep for remaining unimported legacy modules (research.md inventory not yet deleted: `src/theme_park_api.py`, `src/theme_park_display.py`, `src/ui/roller_coaster_animation.py`, `src/ui/roller_coaster_animation_cp.py`, `src/webgui.py`, `src/shopify_connect.py`, `src/pixeldust.py`); confirm unreferenced, delete, then **re-run the import guard (T031) + `pytest tests/` + simulator boot**.
+- [X] **T046** Dead-code sweep DONE: reachability-probed the active path (22 modules), then deleted **all** legacy subsystems + the deferred ones from T016/T018/T021 (`src/config`, `src/utils`, `src/network`, `src/ota`, old `src/ui/*` display stack, root dups, stale assets). `src/` now holds only the active path; everything else is on `scrollkit.*`. Re-verified: import guard + 26 tests pass + sim boots (display+data+web). The earlier "DELETE deferred" notes on T015/T016/T018/T019/T021/T022/T027 are now all resolved here.
 - [ ] **T047** [P] Docs sync: update `CLAUDE.md` + `quickstart.md` to the final module layout, bundling steps, and the manifest/release process. (after T046, so docs reflect final deletions)
 
 ---
