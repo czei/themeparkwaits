@@ -15,14 +15,16 @@ from __future__ import annotations
 
 import os
 
-# The release repo (made public for the no-token OTA model — T005).
+# The release repo (public, single repo for dev + releases — T005).
 # NOTE: GitHub renamed Czeiszperger/themeparkwaits.release -> czei/themeparkwaits.
-# raw.githubusercontent.com does NOT follow renames, so the OTA URL must use the
-# CURRENT name. Confirm this is the intended release repo and that it is public
-# with a `releases` branch + manifest.json before OTA will work.
+# raw.githubusercontent.com does NOT follow renames, so this must be the CURRENT name.
+# The device reads a FIXED channel branch `live` (the hybrid OTA model): publish a
+# release by creating a `release-MAJOR.MINOR` branch, then CI/script mirrors its
+# manifest.json + files/ onto `live` (kept distinct from the `release-*` archives
+# to avoid the releases/release-2.1 name clash). `live` must exist + be public.
 DEFAULT_OWNER = "czei"
 DEFAULT_REPO = "themeparkwaits"
-DEFAULT_BRANCH = "releases"
+DEFAULT_BRANCH = "live"
 
 
 def read_current_version(default="0.0.0"):

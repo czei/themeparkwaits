@@ -54,11 +54,12 @@ enumerate branches or select the newest `release-*` branch.
   starve), `json.loads` needs contiguous RAM (the `/branches` array grows → `MemoryError`),
   and the API is slower/un-CDN'd (asyncio stalls). The device must keep using
   `raw.githubusercontent.com` via a FIXED branch.
-- **Adopted model: hybrid (Option C).** Device stays on `branch="releases"` (no code
+- **Adopted model: hybrid (Option C).** Device stays on a fixed `branch="live"` (no code
   change). The `release-MAJOR.MINOR` ergonomics + audit/rollback are handled OFF-device
   by automation (a GitHub Action or local `publish.sh`): on a new `release-*` ref it runs
-  `make_manifest.py` and publishes `manifest.json` + `files/` to the `releases` branch;
-  immutable tags/`release-*` branches remain for rollback.
+  `make_manifest.py` and publishes `manifest.json` + `files/` to the `live` channel branch;
+  the `release-*` branches/tags remain as immutable archives for rollback. (`live` is named
+  distinctly from `release-*` to avoid a `releases`/`release-2.1` clash.)
 - **For the library:** no discovery feature needed; at most **document that `for_github`
   is fixed-branch + version-in-manifest** so the branch-per-release expectation is set.
 - **Doc placement:** the release-cutting workflow is a per-repo concern → `RELEASING.md`

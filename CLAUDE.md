@@ -40,7 +40,7 @@ tools/sim_shot.py          # headless screenshot helper for layout iteration
 Reuse a `Label`, change `.text` only on value change; move `.x` for scrolling; never allocate `Label`/`Bitmap`/`Group` per frame; use `bitmap.fill`/`bitmaptools.blit` over per-pixel loops; keep `bit_depth=4`; chunk heavy work + paint a loading frame before the synchronous HTTP fetch. No numeric perf budget (no history of issues) — just don't regress.
 
 ## OTA (resolved 2026-06-20)
-Use `scrollkit.ota.OTAClient.for_github(owner, repo, branch="releases", current_version=...)` against a **public `releases` branch + `manifest.json`** — no device-side token. Reproduce the "Installing… do not unplug" UX via `set_callbacks` + `reboot_device`. The only app-side delta is the release pipeline emitting `manifest.json` (version + per-file checksums). The old private-repo + GitHub-Releases-API + `next/`/`.version` flow is retired.
+Device reads a **fixed public `live` channel branch**: `scrollkit.ota.OTAClient.for_github("czei", "themeparkwaits", branch="live", current_version=...)` → `manifest.json` + `files/` over raw.githubusercontent (no device token). Reproduce "Installing… do not unplug" via `set_callbacks` + `reboot_device`. Release model (hybrid, Option C): cut a release by creating a `release-MAJOR.MINOR` archive branch; CI/script mirrors its `manifest.json` + `files/` onto `live` (the one branch the device reads). The old private-repo + GitHub-Releases-API + `next/`/`.version` flow is retired.
 
 ## Dev commands
 - Simulator: `PYTHONPATH="../ScrollKit Library/src:src" python -m src.themeparkwaits --dev`

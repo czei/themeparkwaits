@@ -1,9 +1,9 @@
 # Contract: OTA release & update flow
 
-Created from plan-gate review **B3** (and S8/S4). The OTA *direction* is settled (public `releases` branch + `manifest.json` via `scrollkit.ota.OTAClient.for_github`, no device-side auth — research D8); this contract makes it **taskable and safe** before `/update` and the device OTA code are built. It changes the release-publishing process and the product's security posture, so the items below need explicit sign-off, not just implementation.
+Created from plan-gate review **B3** (and S8/S4). The OTA *direction* is settled: the device reads a **fixed public `live` channel branch** + `manifest.json` via `scrollkit.ota.OTAClient.for_github(branch="live")`, no device-side auth (research D8). `live` is the one branch the device reads; `release-MAJOR.MINOR` branches/tags are immutable archives that CI/script mirrors onto `live` (named distinctly to avoid a `releases`/`release-2.1` clash). This contract makes it **taskable and safe** before `/update` and the device OTA code are built. It changes the release-publishing process and the product's security posture, so the items below need explicit sign-off, not just implementation.
 
 ## Security / access posture (must be accepted explicitly)
-- The `releases` branch becomes **world-readable**. Confirm nothing private ships in release content.
+- The `live` channel branch (and the repo) is **world-readable**. Confirm nothing private ships in release content.
 - SHA-256 in the manifest verifies **file integrity**, not **publisher authenticity** — anyone who can write the public branch can publish an update. Access control now rests entirely on **who can push to the branch**. Document that this is acceptable, or add signing (out of current scope).
 
 ## Manifest (`manifest.json`)
@@ -18,7 +18,7 @@ Created from plan-gate review **B3** (and S8/S4). The OTA *direction* is settled
 - Define how the device's **`current_version`** is read and **bumped** after a successful apply.
 
 ## Device update flow
-- **Check**: `OTAClient.for_github(owner, repo, branch="releases", current_version=...)` → `check_for_updates()` (in `setup()` and/or via `/update`).
+- **Check**: `OTAClient.for_github(owner, repo, branch="live", current_version=...)` → `check_for_updates()` (in `setup()` and/or via `/update`).
 - **`/update` route semantics**: the POST **schedules + downloads**, then **reboots**; `apply_update()` runs in the next `setup()` (NOT inline in the request handler — avoids applying/rebooting mid-request). Mirrors the old `next/`→reboot→install intent on the library's backup/restore machinery.
 - **Apply**: `apply_update()` backs up current files, installs, runs post scripts; on failure it **restores from backup**. Verify the device has enough free storage for the backup set (**storage headroom** check is a task).
 - **UX**: "Installing… do not unplug" + progress via `OTAClient.set_callbacks(on_available, on_progress, on_complete, on_error)`; `reboot_device()` to finish.

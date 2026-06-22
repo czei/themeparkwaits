@@ -1,8 +1,8 @@
 """Generate an OTA release manifest + payload for ThemeParkWaits (T026).
 
 The device's `scrollkit.ota.OTAClient.for_github` fetches `manifest.json` from a
-public `releases` branch and each file from `{base}/files/{device-path}` (verified
-API). This produces that layout from a source tree:
+fixed public `live` channel branch and each file from `{base}/files/{device-path}`
+(verified API). This produces that layout from a source tree (publish it to `live`):
 
     out/
       manifest.json            # {version, files:{ "/src/app.py": {size, checksum}, ...}}

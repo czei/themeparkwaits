@@ -29,7 +29,7 @@ PYTHONPATH="../ScrollKit Library/src:src" python -m src.themeparkwaits --dev
 3. **Closed (Scenario 3)** — a closed ride shows "Closed"; a closed park shows "<Park> is closed".
 4. **Config (Scenario 4)** — open `http://<domain_name>.local/`, change park/brightness/sort/group/skip/scroll/colors/vacation → saved, reflected next cycle.
 5. **Onboarding (Scenario 5)** — wipe credentials → device starts AP + captive portal; entering WiFi connects and reboots.
-6. **OTA (Scenario 6)** — publish a newer release to the public `releases` branch with a `manifest.json` → `OTAClient.for_github` downloads & installs on reboot with "Installing… do not unplug".
+6. **OTA (Scenario 6)** — publish a newer release to the public `live` channel branch with a `manifest.json` → `OTAClient.for_github(branch="live")` downloads & installs on reboot with "Installing… do not unplug".
 7. **Library-only imports (Scenario 7)** — `grep -rn "from scrollkit" src/` shows subsystems on the library; `grep -rn "import" src/` shows no references to deleted app subsystems or removed legacy library symbols. App imports run on both targets.
 8. **Efficiency (Scenario 8)** — after Phase 2, display loop reuses labels, no per-frame allocation, `bit_depth=4`; smoothness/free-RAM ≥ Phase-1 port (no numeric gate, FR-024).
 
