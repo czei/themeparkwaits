@@ -6,6 +6,11 @@ bottom, or "Closed") is a custom ``DisplayContent``. Per the verified API
 (research.md): ``render()`` is async and the framework owns the per-frame
 ``clear()``/``show()`` — so ``render()`` only draws via ``display.draw_text``.
 
+Advancing: each ride stays until its NAME has scrolled fully across once (so long
+names are never cut off mid-scroll), with ``duration`` kept as a *minimum* on-screen
+time so short names don't flash past. The scroll-complete check is frame-based, so a
+slower device still shows the whole name — it just takes longer in wall-clock.
+
 Copyright 2024 3DUPFitters LLC
 """
 from __future__ import annotations
@@ -28,33 +33,63 @@ def _to_int_color(color) -> int:
     return int(color)
 
 
-class RideScreenContent(DisplayContent):
-    """One ride: scrolling name (top) + large centered wait number (bottom)."""
+class _ScrollingNameContent(DisplayContent):
+    """Base for a ride screen: a name that scrolls across the top exactly once.
 
-    def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
-                 wait_color=0xFDF5E6, duration=4.0):
-        super().__init__(duration=duration, priority=2)
+    Completion is keyed on the name finishing one full pass (right edge → off the
+    left), so a long name is never cut off. ``duration`` is the minimum time the
+    screen stays up (keeps short names from flashing by). Subclasses draw the lower
+    zone (the wait number or "Closed") in ``render()`` after calling ``_render_name``.
+    """
+
+    def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0):
+        # We own completion (see is_complete), so the base never times us out
+        # mid-scroll; duration becomes the minimum on-screen time.
+        super().__init__(duration=None, priority=2)
+        self._min_duration = duration
         self.ride_name = ride_name
-        self.wait_minutes = wait_minutes
         self.name_color = _to_int_color(name_color)
-        self.wait_color = _to_int_color(wait_color)
-        self._name_x = None       # set on first render (start from right edge)
+        self._name_x = None        # set on first render (start from right edge)
         self._name_w = None
+        self._scrolled_off = False
 
     async def start(self):
         await super().start()
-        self._name_x = None       # restart the name scroll each time shown
+        self._name_x = None        # restart the name scroll each time shown
+        self._scrolled_off = False
 
-    async def render(self, display):
-        # --- top: scrolling ride name ---
+    async def _render_name(self, display):
+        """Draw + advance the scrolling name; mark complete after one full pass."""
         if self._name_x is None:
             self._name_x = display.width
             self._name_w = len(self.ride_name) * _CHAR_W
         await display.draw_text(self.ride_name, self._name_x, _NAME_Y, self.name_color)
         self._name_x -= 1
-        if self._name_x < -self._name_w:
-            self._name_x = display.width
+        if self._name_x <= -self._name_w:
+            # One full pass done: park it off-screen (don't loop) and let
+            # is_complete advance to the next ride.
+            self._scrolled_off = True
+            self._name_x = -self._name_w
 
+    @property
+    def is_complete(self):
+        if self._is_complete:
+            return True
+        # Advance once the name has scrolled fully across, never before the minimum.
+        return self._scrolled_off and self.elapsed >= self._min_duration
+
+
+class RideScreenContent(_ScrollingNameContent):
+    """One ride: scrolling name (top) + large centered wait number (bottom)."""
+
+    def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
+                 wait_color=0xFDF5E6, duration=4.0):
+        super().__init__(ride_name, name_color=name_color, duration=duration)
+        self.wait_minutes = wait_minutes
+        self.wait_color = _to_int_color(wait_color)
+
+    async def render(self, display):
+        await self._render_name(display)
         # --- bottom: large centered wait number (2x when the display supports it) ---
         wait_str = str(self.wait_minutes)
         if hasattr(display, "draw_text_scaled"):
@@ -71,31 +106,16 @@ class RideScreenContent(DisplayContent):
         return info
 
 
-class ClosedRideContent(DisplayContent):
+class ClosedRideContent(_ScrollingNameContent):
     """A closed ride: scrolling name (top) + centered 'Closed' (bottom)."""
 
     def __init__(self, ride_name, *, name_color=0x0000FF, closed_color=0xFDF5E6,
                  duration=4.0):
-        super().__init__(duration=duration, priority=2)
-        self.ride_name = ride_name
-        self.name_color = _to_int_color(name_color)
+        super().__init__(ride_name, name_color=name_color, duration=duration)
         self.closed_color = _to_int_color(closed_color)
-        self._name_x = None
-        self._name_w = None
-
-    async def start(self):
-        await super().start()
-        self._name_x = None
 
     async def render(self, display):
-        if self._name_x is None:
-            self._name_x = display.width
-            self._name_w = len(self.ride_name) * _CHAR_W
-        await display.draw_text(self.ride_name, self._name_x, _NAME_Y, self.name_color)
-        self._name_x -= 1
-        if self._name_x < -self._name_w:
-            self._name_x = display.width
-
+        await self._render_name(display)
         label = "Closed"
         cx = max(0, (display.width - len(label) * _CHAR_W) // 2)
         await display.draw_text(label, cx, _CLOSED_Y, self.closed_color)
