@@ -154,7 +154,11 @@ class ThemeParkApp(ScrollKitApp):
                     logger.error(e, "set_system_clock failed")
                 try:
                     from src.net.mdns_helper import advertise
-                    advertise(self.settings.get("domain_name", "themeparkwaits"))
+                    # Retain the mdns.Server for the app's lifetime: if it is garbage
+                    # collected, the responder stops answering and <domain>.local
+                    # resolution dies after the first query (intermittent .local).
+                    self.mdns_server = advertise(
+                        self.settings.get("domain_name", "themeparkwaits"))
                 except Exception as e:
                     logger.error(e, "mDNS advertise failed")
         except Exception as e:
