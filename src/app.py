@@ -51,25 +51,24 @@ class ThemeParkApp(ScrollKitApp):
         return ThemeParkDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
 
     async def create_web_server(self):
-        """Return the config web server (library server + our handler/page).
+        """Return the config web server (native ``adafruit_httpserver``).
 
-        On CircuitPython the adafruit_httpserver ``Server`` needs a socket pool
-        from the WiFi radio; the library expects the app to inject it (it owns
-        networking). On desktop the dev adapter uses stdlib http.server and
-        ignores it. The ``wifi``/``socketpool`` imports stay behind the platform
-        guard so the simulator never touches them.
+        The SAME server runs on desktop and device; only the socket pool differs.
+        On CircuitPython the ``Server`` needs a pool from the WiFi radio; on
+        desktop the stdlib ``socket`` module IS a valid pool (the server falls
+        back to it when ``socket_pool`` is None). The ``wifi``/``socketpool``
+        imports stay behind the platform guard so the simulator never touches
+        them. (The old library web abstraction is gone — see config_server.py.)
         """
         try:
-            from scrollkit.web import SLDKWebServer
-            from src.web.config_server import make_handler_class
+            from src.web.config_server import ThemeParkConfigServer
             socket_pool = None
             import sys
             if hasattr(sys, "implementation") and sys.implementation.name == "circuitpython":
                 import socketpool
                 import wifi
                 socket_pool = socketpool.SocketPool(wifi.radio)
-            return SLDKWebServer(app=self, handler_class=make_handler_class(self),
-                                 static_dir="src/www", socket_pool=socket_pool)
+            return ThemeParkConfigServer(self, static_dir="src/www", socket_pool=socket_pool)
         except Exception as e:  # never block boot on web setup
             print("web server unavailable:", e)
             return None
