@@ -101,6 +101,20 @@ never caught this** — found only on a Matrix Portal S3 (2026-06-22).
   dynamic page (HTTP 200, 29.5 KB) on hardware via IP and `.local`. **Lesson: the
   CPython simulator cannot catch ANY of these — only device boots can. The agent's
   CPython tests passed at every step; each trap surfaced only on the Matrix Portal.**
+- **SUPERSEDED IN THE APP (2026-06-23):** ThemeParkWaits' config UI was rewritten to
+  run **directly on `adafruit_httpserver`** (no library web layer) — `Server` +
+  `@server.route` + `Response`/`Redirect`, the same server object on desktop and
+  device (only the socket pool differs: stdlib `socket` module vs
+  `socketpool.SocketPool(wifi.radio)`). Rationale: `adafruit_httpserver` is itself
+  cross-platform, so the `SLDKWebServer`/adapter/`@route`-registry abstraction was
+  redundant **and it was the thing that introduced all four traps above** (and hid
+  the v1→v4 API drift instead of guarding against it). With the abstraction gone the
+  whole failure class disappears. Device-verified on hardware: GET `/` 200, POST
+  `/settings` → clean 303 in 0.17 s, no freeze. **Implication for the library:** for
+  the adafruit_httpserver path the cross-platform adapter adds little — consider a
+  thin shim over the native API (or dropping it), since the native server already
+  runs on both platforms. The app no longer depends on `scrollkit.web` for config;
+  branch `fix/route-circuitpython` is unused by it.
 
 ## 5. First HTTPS request after WiFi connect fails with EINPROGRESS (slow boot)
 On the ESP32-S3 the FIRST socket after WiFi association returns `OSError: [Errno
