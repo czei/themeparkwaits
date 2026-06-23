@@ -46,12 +46,32 @@ def _filter_rides(rides, skip_meet, skip_closed):
     return out
 
 
-def _add_ride(queue, ride, name_color, wait_color):
+def _scroll_step(settings):
+    """Ride-name scroll speed in pixels/frame from the Scroll Speed setting.
+
+    The library maps Slow/Medium/Fast to a per-step DELAY in seconds
+    ({Slow:0.06, Medium:0.04, Fast:0.02}); convert to px/frame against the display
+    loop's ~20 FPS so the setting actually changes on-screen speed (Slow≈0.83,
+    Medium≈1.25, Fast≈2.5 px/frame). Falls back to 1.0 if unavailable.
+    """
+    try:
+        from scrollkit.display.content import LOOP_FPS
+        delay = settings.get_scroll_speed()
+        if delay and delay > 0:
+            return (1.0 / LOOP_FPS) / delay
+    except Exception:
+        pass
+    return 1.0
+
+
+def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0):
     if ride.open_flag is True:
         queue.add(RideScreenContent(ride.name, ride.wait_time,
-                                    name_color=name_color, wait_color=wait_color))
+                                    name_color=name_color, wait_color=wait_color,
+                                    scroll_step=scroll_step))
     else:
-        queue.add(ClosedRideContent(ride.name, name_color=name_color))
+        queue.add(ClosedRideContent(ride.name, name_color=name_color,
+                                    scroll_step=scroll_step))
 
 
 def build_content_queue(queue, park_list, settings, vacation, *, include_splash=True):
@@ -83,6 +103,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     group_by_park = settings.get("group_by_park", False)
     skip_meet = settings.get("skip_meet", False)
     skip_closed = settings.get("skip_closed", False)
+    step = _scroll_step(settings)   # ride-name scroll px/frame from Scroll Speed
 
     if group_by_park:
         for park in parks:
@@ -92,7 +113,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
             queue.add(ScrollingText(park.name + " wait times...", y=_SCROLL_Y, color=default_color))
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
-                _add_ride(queue, ride, name_color, wait_color)
+                _add_ride(queue, ride, name_color, wait_color, step)
     else:
         combined = []
         for park in parks:

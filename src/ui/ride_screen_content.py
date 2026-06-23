@@ -42,11 +42,15 @@ class _ScrollingNameContent(DisplayContent):
     zone (the wait number or "Closed") in ``render()`` after calling ``_render_name``.
     """
 
-    def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0):
+    def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0, scroll_step=1.0):
         # We own completion (see is_complete), so the base never times us out
         # mid-scroll; duration becomes the minimum on-screen time.
         super().__init__(duration=None, priority=2)
         self._min_duration = duration
+        # Pixels the name moves per displayed frame: >1 faster, <1 slower. The
+        # Scroll Speed setting maps to this (see content_builder). Position is kept
+        # as a float so sub-1px/frame ("Slow") scrolls genuinely slower.
+        self._scroll_step = scroll_step if scroll_step and scroll_step > 0 else 1.0
         self.ride_name = ride_name
         self.name_color = _to_int_color(name_color)
         self._name_x = None        # set on first render (start from right edge)
@@ -63,8 +67,8 @@ class _ScrollingNameContent(DisplayContent):
         if self._name_x is None:
             self._name_x = display.width
             self._name_w = len(self.ride_name) * _CHAR_W
-        await display.draw_text(self.ride_name, self._name_x, _NAME_Y, self.name_color)
-        self._name_x -= 1
+        await display.draw_text(self.ride_name, int(self._name_x), _NAME_Y, self.name_color)
+        self._name_x -= self._scroll_step
         if self._name_x <= -self._name_w:
             # One full pass done: park it off-screen (don't loop) and let
             # is_complete advance to the next ride.
@@ -83,8 +87,9 @@ class RideScreenContent(_ScrollingNameContent):
     """One ride: scrolling name (top) + large centered wait number (bottom)."""
 
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
-                 wait_color=0xFDF5E6, duration=4.0):
-        super().__init__(ride_name, name_color=name_color, duration=duration)
+                 wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0):
+        super().__init__(ride_name, name_color=name_color, duration=duration,
+                         scroll_step=scroll_step)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
 
@@ -110,8 +115,9 @@ class ClosedRideContent(_ScrollingNameContent):
     """A closed ride: scrolling name (top) + centered 'Closed' (bottom)."""
 
     def __init__(self, ride_name, *, name_color=0x0000FF, closed_color=0xFDF5E6,
-                 duration=4.0):
-        super().__init__(ride_name, name_color=name_color, duration=duration)
+                 duration=4.0, scroll_step=1.0):
+        super().__init__(ride_name, name_color=name_color, duration=duration,
+                         scroll_step=scroll_step)
         self.closed_color = _to_int_color(closed_color)
 
     async def render(self, display):
