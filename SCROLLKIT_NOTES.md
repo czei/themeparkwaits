@@ -86,15 +86,21 @@ never caught this** — found only on a Matrix Portal S3 (2026-06-22).
 - **Handed to the library agent (2026-06-22):** full fix spec + acceptance criteria
   in `specs/001-this-project-is/handoffs/scrollkit-web-route-circuitpython.md`.
 - **RESOLVED 2026-06-22** on branch `fix/route-circuitpython` (commits 484e368,
-  ba89e16, 5101dcc) — but the web path had **three** stacked CircuitPython traps,
-  each only visible on the board: (1) `func._route_info =`; (2) `func.__name__`
+  ba89e16, 5101dcc, **09f7e23**) — the web path had **FOUR** stacked CircuitPython
+  traps, each only visible on the board: (1) `func._route_info =`; (2) `func.__name__`
   (also unavailable on CircuitPython — fixed with a marker-object + namespace-key
   pattern); (3) the `CircuitPythonAdapter` used obsolete **adafruit_httpserver
   v1.x** (`HTTPServer`/`HTTPRoute`/`HTTPResponse`) while the board ships **4.4.4**
-  (`Server`/`Route`/`Response`, poll-driven) — ported to 4.x. Plus an app-side
-  wiring fix (inject `socketpool.SocketPool(wifi.radio)`). Config UI now serves
-  HTTP 200 on hardware via IP and `.local`. **Lesson: the CPython simulator cannot
-  catch ANY of these — only device boots can.**
+  (`Server`/`Route`/`Response`, poll-driven) — ported to 4.x; (4) **CircuitPython
+  never invokes `__init_subclass__`**, so `RouteRegistryMixin._routes` stayed empty
+  and NO dynamic routes registered — the server served only static files, so the
+  config UI fell through to a stale static `index.html` stub (`/`→stub, `/settings`
+  →404). Fixed: `_iter_routes` now discovers routes from the live `@route` markers
+  when `_routes` is empty (markers survive because the `__init_subclass__` swap
+  never ran). Plus an app-side socket-pool injection. Config UI now serves the
+  dynamic page (HTTP 200, 29.5 KB) on hardware via IP and `.local`. **Lesson: the
+  CPython simulator cannot catch ANY of these — only device boots can. The agent's
+  CPython tests passed at every step; each trap surfaced only on the Matrix Portal.**
 
 ## 5. First HTTPS request after WiFi connect fails with EINPROGRESS (slow boot)
 On the ESP32-S3 the FIRST socket after WiFi association returns `OSError: [Errno
