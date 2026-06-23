@@ -93,9 +93,10 @@ async def show_reveal_splash(display, color=0xFFFF00, off_per_frame=14):
         palette[0] = 0x000000
         palette[1] = color
         tile_grid = displayio.TileGrid(bitmap, pixel_shader=palette)
-        # Append the TileGrid directly to main_group (matches how the library's
-        # draw_text adds Labels). Removed on completion below.
-        display.main_group.append(tile_grid)
+        # Composite the splash as a persistent overlay above content via the
+        # library's layer API (it lives in _layer_group, untouched by the per-frame
+        # label reset). Removed on completion below.
+        display.add_layer(tile_grid)
 
         target_set = set(get_theme_park_waits_pixels())
 
@@ -125,6 +126,6 @@ async def show_reveal_splash(display, color=0xFFFF00, off_per_frame=14):
 
         await display.show()
         await asyncio.sleep(2)
-        display.main_group.remove(tile_grid)
+        display.remove_layer(tile_grid)
     except Exception as e:
         logger.error(e, "Error in reveal splash animation")

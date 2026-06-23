@@ -60,5 +60,7 @@ class ThemeParkDisplay(UnifiedDisplay):
             lbl.x = x
             lbl.y = y
             self._scaled_pool.append(lbl)
-            self.main_group.append(lbl)
+            # Library convention: content labels live in _content_group (below the
+            # effect/layer group), matching where the base draw_text appends.
+            self._content_group.append(lbl)
         self._scaled_idx += 1

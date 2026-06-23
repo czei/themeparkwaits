@@ -26,11 +26,37 @@ _WAIT_Y = 21          # large 2x wait number (bottom zone)
 _CLOSED_Y = 21        # "Closed" (single size, bottom zone)
 
 
-def _to_int_color(color) -> int:
-    """Accept an int or a hex string ('0x00AAFF'/'00AAFF') and return an int."""
-    if isinstance(color, str):
-        return int(color, 16)
-    return int(color)
+def _to_int_color(color, default=0xFFFFFF) -> int:
+    """Coerce a color to a 24-bit int.
+
+    Tolerates '0x00AAFF', '00AAFF', '#00AAFF' and a stray URL-encoded '%23'
+    prefix (an undecoded '#'). Falls back to ``default`` on anything unparseable
+    so one malformed setting can't raise out of ``build_content_queue`` — which
+    clears the queue first, so a crash there blanks the display (frozen screen).
+    """
+    if not isinstance(color, str):
+        try:
+            return int(color)
+        except (TypeError, ValueError):
+            return default
+    s = color.strip()
+    if s.startswith("%23"):      # URL-encoded '#'
+        s = s[3:]
+    elif s.startswith("#"):
+        s = s[1:]
+    try:
+        return int(s, 16)
+    except ValueError:
+        return default
+
+
+def _text_width(display, text, scale=1):
+    """Rendered width via the library's measure_text (real glyph advances),
+    falling back to the fixed-cell estimate if the display lacks it."""
+    measure = getattr(display, "measure_text", None)
+    if measure is not None:
+        return measure(text) * scale
+    return len(text) * _CHAR_W * scale
 
 
 class _ScrollingNameContent(DisplayContent):
@@ -66,7 +92,7 @@ class _ScrollingNameContent(DisplayContent):
         """Draw + advance the scrolling name; mark complete after one full pass."""
         if self._name_x is None:
             self._name_x = display.width
-            self._name_w = len(self.ride_name) * _CHAR_W
+            self._name_w = _text_width(display, self.ride_name)
         await display.draw_text(self.ride_name, int(self._name_x), _NAME_Y, self.name_color)
         self._name_x -= self._scroll_step
         if self._name_x <= -self._name_w:
@@ -92,18 +118,22 @@ class RideScreenContent(_ScrollingNameContent):
                          scroll_step=scroll_step)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
+        self._wait_str = str(wait_minutes)
+        self._wait_x = None          # centered x; measured once on first render
 
     async def render(self, display):
         await self._render_name(display)
         # --- bottom: large centered wait number (2x when the display supports it) ---
-        wait_str = str(self.wait_minutes)
-        if hasattr(display, "draw_text_scaled"):
-            w = len(wait_str) * _CHAR_W * 2
-            wx = max(0, (display.width - w) // 2)
-            await display.draw_text_scaled(wait_str, wx, _WAIT_Y, self.wait_color, scale=2)
+        # The number is fixed for this screen, so measure/center it once and cache.
+        scaled = hasattr(display, "draw_text_scaled")
+        if self._wait_x is None:
+            w = _text_width(display, self._wait_str, scale=2 if scaled else 1)
+            self._wait_x = max(0, (display.width - w) // 2)
+        if scaled:
+            await display.draw_text_scaled(self._wait_str, self._wait_x, _WAIT_Y,
+                                           self.wait_color, scale=2)
         else:
-            wx = max(0, (display.width - len(wait_str) * _CHAR_W) // 2)
-            await display.draw_text(wait_str, wx, _WAIT_Y, self.wait_color)
+            await display.draw_text(self._wait_str, self._wait_x, _WAIT_Y, self.wait_color)
 
     def describe(self):
         info = super().describe()
@@ -119,12 +149,14 @@ class ClosedRideContent(_ScrollingNameContent):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step)
         self.closed_color = _to_int_color(closed_color)
+        self._closed_x = None        # centered x; measured once on first render
 
     async def render(self, display):
         await self._render_name(display)
         label = "Closed"
-        cx = max(0, (display.width - len(label) * _CHAR_W) // 2)
-        await display.draw_text(label, cx, _CLOSED_Y, self.closed_color)
+        if self._closed_x is None:
+            self._closed_x = max(0, (display.width - _text_width(display, label)) // 2)
+        await display.draw_text(label, self._closed_x, _CLOSED_Y, self.closed_color)
 
     def describe(self):
         info = super().describe()

@@ -64,6 +64,22 @@ def _scroll_step(settings):
     return 1.0
 
 
+def _scroll_speed(settings):
+    """Info-message scroll speed in px/sec from the Scroll Speed setting.
+
+    ScrollingText now honors ``speed`` (px/sec); ``1/delay`` matches the ride-name
+    pace (``_scroll_step`` px/frame * LOOP_FPS), so all scrolling moves together.
+    Falls back to the library default (30) if the setting is unavailable.
+    """
+    try:
+        delay = settings.get_scroll_speed()
+        if delay and delay > 0:
+            return max(1, int(round(1.0 / delay)))
+    except Exception:
+        pass
+    return 30
+
+
 def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0):
     if ride.open_flag is True:
         queue.add(RideScreenContent(ride.name, ride.wait_time,
@@ -82,6 +98,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     name_color = settings.get("ride_name_color", "0x0000ff")
     wait_color = settings.get("ride_wait_time_color", "0xfdf5e6")
     domain = settings.get("domain_name", "themeparkwaits")
+    msg_speed = _scroll_speed(settings)   # info-message scroll px/sec (Scroll Speed)
 
     # The opening reveal splash is played once at boot (app.setup → show_reveal_splash),
     # so it is intentionally not part of the repeating content cycle. include_splash
@@ -94,10 +111,11 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
 
     if not parks:
         queue.add(ScrollingText("Choose theme park at http://%s.local" % domain,
-                                y=_SCROLL_Y, color=default_color))
+                                y=_SCROLL_Y, color=default_color, speed=msg_speed))
         return
 
-    queue.add(ScrollingText("Configure at http://%s.local" % domain, y=_SCROLL_Y, color=default_color))
+    queue.add(ScrollingText("Configure at http://%s.local" % domain,
+                            y=_SCROLL_Y, color=default_color, speed=msg_speed))
 
     sort_mode = settings.get("sort_mode", "alphabetical")
     group_by_park = settings.get("group_by_park", False)
@@ -108,9 +126,11 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     if group_by_park:
         for park in parks:
             if park.is_open is False:
-                queue.add(ScrollingText(park.name + " is closed", y=_SCROLL_Y, color=default_color))
+                queue.add(ScrollingText(park.name + " is closed",
+                                        y=_SCROLL_Y, color=default_color, speed=msg_speed))
                 continue
-            queue.add(ScrollingText(park.name + " wait times...", y=_SCROLL_Y, color=default_color))
+            queue.add(ScrollingText(park.name + " wait times...",
+                                    y=_SCROLL_Y, color=default_color, speed=msg_speed))
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
                 _add_ride(queue, ride, name_color, wait_color, step)
@@ -127,15 +147,15 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
         days = vacation.get_days_until()
         if days > 1:
             queue.add(ScrollingText("Vacation to %s in: %d days" % (vacation.name, days),
-                                    y=_SCROLL_Y, color=default_color))
+                                    y=_SCROLL_Y, color=default_color, speed=msg_speed))
         elif days == 1:
             queue.add(ScrollingText("Your vacation to %s is tomorrow!!!" % vacation.name,
-                                    y=_SCROLL_Y, color=default_color))
+                                    y=_SCROLL_Y, color=default_color, speed=msg_speed))
         elif days == 0:
             queue.add(ScrollingText("Your vacation to %s is TODAY!!!!!!!!!!!!!" % vacation.name,
-                                    y=_SCROLL_Y, color=default_color))
+                                    y=_SCROLL_Y, color=default_color, speed=msg_speed))
 
     # Attribution (required).
     park_names = ", ".join(p.name for p in parks)
     queue.add(ScrollingText("Wait times for %s provided by %s" % (park_names, REQUIRED_MESSAGE),
-                            y=_SCROLL_Y, color=default_color))
+                            y=_SCROLL_Y, color=default_color, speed=msg_speed))

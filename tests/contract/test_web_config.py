@@ -161,11 +161,61 @@ async def test_post_settings_redirects_and_applies(mock_http_client, settings_fa
     assert sm.get("selected_park_ids") == [6]
 
 
+async def test_post_url_encoded_color_is_decoded(mock_http_client, settings_factory):
+    """A browser submits the color '#ffffff' as '%23ffffff' in the form body. The
+    server must URL-decode it so it's stored as '0xffffff'. An undecoded
+    '%23ffffff' later raises int(color, 16) in build_content_queue, which clears
+    the queue first — blanking the display (the frozen-screen bug). This test
+    posts over real HTTP (the direct apply_settings tests bypass the form parser).
+    """
+    app = await _app(mock_http_client, settings_factory)
+    with _RunningServer(app, _PORT + 6) as srv:
+        code, _ = _post(
+            srv.base, "/settings",
+            "park_1=6&default_color=%23ffffff&ride_name_color=%2300aaff", follow=False)
+        assert code == 303
+    sm = app.settings
+    assert sm.get("default_color") == "0xffffff"   # %23ffffff -> #ffffff -> 0xffffff
+    assert sm.get("ride_name_color") == "0x00aaff"
+    # Queue rebuilt without raising (the bug left it empty -> frozen screen).
+    assert app.content_queue.get_content_count() > 0
+
+
 async def test_post_update_is_handled(mock_http_client, settings_factory):
     app = await _app(mock_http_client, settings_factory)
     with _RunningServer(app, _PORT + 3) as srv:
         code, location = _post(srv.base, "/update", "", follow=False)
         assert code == 303 and location == "/"
+
+
+async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):
+    """Full browser save cycle: POST /settings → follow 303 → GET / returns 200.
+
+    The existing POST test uses follow=False and only verifies the 303 itself.
+    This test follows the redirect the way a real browser does, exercising the
+    second TCP connection (GET /) that the server must handle after apply_settings
+    runs.  It would have caught the old hang: if apply_settings crashes the server
+    or poll() never handles the follow-up GET, urllib times out and the assert
+    fails.
+    """
+    app = await _app(mock_http_client, settings_factory)
+    with _RunningServer(app, _PORT + 5) as srv:
+        # follow=True (default): urllib follows 303 → opens second connection → GET /
+        final_code, final_url = _post(
+            srv.base, "/settings",
+            "park_1=6&scroll_speed=Fast&sort_mode=max_wait",
+        )
+        assert final_code == 200, "redirect target returned %d (server may have crashed)" % final_code
+        assert final_url.rstrip("/").endswith(str(_PORT + 5)), "landed on unexpected URL: %s" % final_url
+        # Server is still answering fresh requests after the save
+        status, body = _get(srv.base, "/")
+        assert status == 200
+        assert "ThemeParkWaits" in body
+    # Settings were persisted
+    sm = app.settings
+    assert sm.get("scroll_speed") == "Fast"
+    assert sm.get("sort_mode") == "max_wait"
+    assert sm.get("selected_park_ids") == [6]
 
 
 # --------------------------------------------------------------------------- #

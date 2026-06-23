@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import sys
 
+from scrollkit.utils.url_utils import url_decode
 from src.ui.content_builder import build_content_queue
 
 SORT_MODES = ("alphabetical", "max_wait", "min_wait")
@@ -101,7 +102,16 @@ def _params(request) -> dict:
             v = source.get(k)
             if isinstance(v, bytes):
                 v = v.decode("utf-8", "replace")
-            out[k] = "" if v is None else v
+            if v is None:
+                v = ""
+            elif isinstance(v, str):
+                # adafruit_httpserver does NOT URL-decode form bodies, so a color
+                # '#ffffff' arrives as '%23ffffff' and 'My Trip' as 'My+Trip'.
+                # Decode here (idempotent for plain values) so apply_settings sees
+                # real values — otherwise '%23ffffff' is stored and later crashes
+                # int(color, 16) in build_content_queue, blanking the display.
+                v = url_decode(v)
+            out[k] = v
     return out
 
 
