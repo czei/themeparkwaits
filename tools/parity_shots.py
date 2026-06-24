@@ -26,7 +26,7 @@ from src.models.vacation import Vacation                                    # no
 from src.settings_schema import make_settings                              # noqa: E402
 from src.ui.content_builder import build_content_queue                      # noqa: E402
 from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent # noqa: E402
-from src.ui.tpw_display import ThemeParkDisplay                             # noqa: E402
+from scrollkit.display.unified import UnifiedDisplay                        # noqa: E402
 from tools.sim_shot import save_matrix_png                                  # noqa: E402
 
 # --- canned data (WDW: Magic Kingdom id 6, Epcot id 5) ----------------------
@@ -113,7 +113,7 @@ async def main():
     outdir = sys.argv[1] if len(sys.argv) > 1 else "/tmp/tpw_parity"
     os.makedirs(outdir, exist_ok=True)
 
-    display = ThemeParkDisplay(64, 32, 4)
+    display = UnifiedDisplay(64, 32, 4)
     await display.initialize()
     try:
         await display.set_brightness(1.0)   # full brightness so glyphs read clearly in the shot

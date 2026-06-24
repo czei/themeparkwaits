@@ -13,7 +13,7 @@ _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 ACTIVE = [
     "src/app.py", "src/main.py", "src/themeparkwaits.py", "src/settings_schema.py",
     "src/ota_glue.py", "src/api/theme_park_service.py",
-    "src/ui/content_builder.py", "src/ui/ride_screen_content.py", "src/ui/tpw_display.py",
+    "src/ui/content_builder.py", "src/ui/ride_screen_content.py",
     "src/web/config_server.py", "src/web/__init__.py",
     "src/models/theme_park.py", "src/models/theme_park_ride.py",
     "src/models/theme_park_list.py", "src/models/vacation.py",

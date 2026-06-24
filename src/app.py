@@ -50,9 +50,13 @@ class ThemeParkApp(ScrollKitApp):
         self._initial_refresh_done = False
 
     async def create_display(self):
-        """Return our display (UnifiedDisplay + scaled-text), auto-detects sim/hardware."""
-        from src.ui.tpw_display import ThemeParkDisplay
-        return ThemeParkDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
+        """Return the ScrollKit display (auto-detects sim/hardware).
+
+        Scaled text (``draw_text_scaled``) now lives in the library's
+        ``UnifiedDisplay``, so the old ``ThemeParkDisplay`` subclass is gone.
+        """
+        from scrollkit.display.unified import UnifiedDisplay
+        return UnifiedDisplay(width=self.WIDTH, height=self.HEIGHT, bit_depth=self.BIT_DEPTH)
 
     async def create_web_server(self):
         """Return the config web server (native ``adafruit_httpserver``).

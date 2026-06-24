@@ -16,6 +16,8 @@ Copyright 2024 3DUPFitters LLC
 from __future__ import annotations
 
 from scrollkit.display.content import DisplayContent
+from scrollkit.effects.drip_splash import DripReveal
+from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 
 # terminalio glyphs are ~6px wide / ~8px tall. draw_text's `y` is the text
 # BASELINE (top-down origin, top-left = 0,0; y=0 clips the glyph off the top), so
@@ -24,6 +26,13 @@ _CHAR_W = 6
 _NAME_Y = 5           # ride name (top zone)
 _WAIT_Y = 21          # large 2x wait number (bottom zone)
 _CLOSED_Y = 21        # "Closed" (single size, bottom zone)
+
+# The wait number drips into a band below the name. We compose it at scale 2 from
+# the SAME font/pixels that stay on screen, so the dripped image IS the live image
+# (no font/position mismatch, no snap when the drip finishes). The lit pixels are
+# vertically centered in [_WAIT_BAND_TOP .. display height].
+_WAIT_SCALE = 2
+_WAIT_BAND_TOP = 11
 
 
 def _to_int_color(color, default=0xFFFFFF) -> int:
@@ -110,7 +119,14 @@ class _ScrollingNameContent(DisplayContent):
 
 
 class RideScreenContent(_ScrollingNameContent):
-    """One ride: scrolling name (top) + large centered wait number (bottom)."""
+    """One ride: scrolling name (top) + large wait number that drips into place.
+
+    The wait number is dripped in (each digit's pixels fall from the top of their
+    column into position) the first time the screen is shown, then the assembled
+    overlay stays up as the live number while the name finishes scrolling. The
+    drip and the live number are the same composed pixels — there is no separate
+    "draw the number" step and so no visible change when the drip lands.
+    """
 
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
                  wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0):
@@ -119,21 +135,63 @@ class RideScreenContent(_ScrollingNameContent):
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
-        self._wait_x = None          # centered x; measured once on first render
+        self._drip = None            # DripReveal for the number (built on 1st render)
+        self._need_drip = True       # (re)build the drip on (re)show
+
+    async def start(self):
+        await super().start()
+        # Replay the drip each time the screen is shown. The old overlay (if any)
+        # is detached on the previous stop(); here we just flag a rebuild.
+        self._need_drip = True
+
+    def _number_pixels(self, display):
+        """Composed wait-number pixels, centered and dropped into the wait band."""
+        font = getattr(display, "font", None)
+        if font is None:
+            return None
+        w = font_text_width(font, self._wait_str, scale=_WAIT_SCALE)
+        x = max(0, (display.width - w) // 2)
+        raw = pixels_from_font_text(font, self._wait_str, x=x, y=0, scale=_WAIT_SCALE)
+        if not raw:
+            return None
+        min_y = min(p[1] for p in raw)
+        max_y = max(p[1] for p in raw)
+        ink_h = max_y - min_y + 1
+        # Vertically center the inked rows in the band below the name.
+        center = (_WAIT_BAND_TOP + display.height) // 2
+        top = center - ink_h // 2
+        if top < _WAIT_BAND_TOP:
+            top = _WAIT_BAND_TOP
+        if top + ink_h > display.height:
+            top = display.height - ink_h
+        dy = top - min_y
+        return [(px, py + dy) for (px, py) in raw]
 
     async def render(self, display):
         await self._render_name(display)
-        # --- bottom: large centered wait number (2x when the display supports it) ---
-        # The number is fixed for this screen, so measure/center it once and cache.
-        scaled = hasattr(display, "draw_text_scaled")
-        if self._wait_x is None:
-            w = _text_width(display, self._wait_str, scale=2 if scaled else 1)
-            self._wait_x = max(0, (display.width - w) // 2)
-        if scaled:
-            await display.draw_text_scaled(self._wait_str, self._wait_x, _WAIT_Y,
-                                           self.wait_color, scale=2)
-        else:
-            await display.draw_text(self._wait_str, self._wait_x, _WAIT_Y, self.wait_color)
+        # --- bottom: large wait number, dripped into place then held ---
+        if self._need_drip:
+            if self._drip is not None:
+                self._drip.detach()
+                self._drip = None
+            try:
+                pixels = self._number_pixels(display)
+                if pixels:
+                    self._drip = DripReveal(pixels, color=self.wait_color,
+                                            fall_speed=2, stagger=1)
+                    self._drip.start(display)
+            except Exception:
+                self._drip = None        # never let the number blank the screen
+            self._need_drip = False
+        if self._drip is not None and not self._drip.is_complete:
+            self._drip.step()            # advance one frame; overlay persists when done
+
+    async def stop(self):
+        await super().stop()
+        if self._drip is not None:
+            self._drip.detach()
+            self._drip = None
+        self._need_drip = True
 
     def describe(self):
         info = super().describe()
