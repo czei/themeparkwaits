@@ -80,11 +80,11 @@ def _scroll_speed(settings):
     return 30
 
 
-def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0):
+def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0, wait_effect="Rain"):
     if ride.open_flag is True:
         queue.add(RideScreenContent(ride.name, ride.wait_time,
                                     name_color=name_color, wait_color=wait_color,
-                                    scroll_step=scroll_step))
+                                    scroll_step=scroll_step, effect=wait_effect))
     else:
         queue.add(ClosedRideContent(ride.name, name_color=name_color,
                                     scroll_step=scroll_step))
@@ -122,6 +122,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     skip_meet = settings.get("skip_meet", False)
     skip_closed = settings.get("skip_closed", False)
     step = _scroll_step(settings)   # ride-name scroll px/frame from Scroll Speed
+    wait_effect = settings.get("wait_time_effect", "Rain")  # wait-number reveal style
 
     if group_by_park:
         for park in parks:
@@ -133,14 +134,14 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
                                     y=_SCROLL_Y, color=default_color, speed=msg_speed))
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
-                _add_ride(queue, ride, name_color, wait_color, step)
+                _add_ride(queue, ride, name_color, wait_color, step, wait_effect)
     else:
         combined = []
         for park in parks:
             if park.is_open:
                 combined.extend(_filter_rides(park.rides, skip_meet, skip_closed))
         for ride in _sort_rides(combined, sort_mode):
-            _add_ride(queue, ride, name_color, wait_color)
+            _add_ride(queue, ride, name_color, wait_color, step, wait_effect)
 
     # Vacation countdown.
     if vacation is not None and vacation.is_set():

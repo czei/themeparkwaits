@@ -66,6 +66,21 @@ def test_sort_modes(settings_factory):
     assert ride_order("min_wait")[-1] == "Space Mountain"
 
 
+def test_wait_time_effect_threads_to_rides(settings_factory):
+    """The wait_time_effect setting reaches every open ride; default is Rain."""
+    def effects(**overrides):
+        sm = settings_factory(selected_park_ids=[6], **overrides)
+        q = ContentQueue()
+        build_content_queue(q, _park_list_with_rides(sm), sm, Vacation())
+        return {c.effect for c in _items(q) if isinstance(c, RideScreenContent)}
+
+    assert effects() == {"Rain"}                       # default
+    assert effects(wait_time_effect="Swarm") == {"Swarm"}
+    assert effects(wait_time_effect="None") == {"None"}
+    # grouped mode threads it too
+    assert effects(wait_time_effect="Swarm", group_by_park=True) == {"Swarm"}
+
+
 def test_group_by_park_adds_header(settings_factory):
     sm = settings_factory(selected_park_ids=[6], group_by_park=True)
     q = ContentQueue()

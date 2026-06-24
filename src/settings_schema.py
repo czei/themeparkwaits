@@ -25,6 +25,7 @@ DEFAULTS = {
     "ride_name_color": ColorUtils.colors["Blue"],
     "ride_wait_time_color": ColorUtils.colors["Old Lace"],
     "scroll_speed": "Medium",
+    "wait_time_effect": "Rain",
     "display_mode": "all_rides",
     "sort_mode": "alphabetical",
     "group_by_park": False,

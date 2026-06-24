@@ -123,16 +123,28 @@ async def test_render_page_uses_color_dropdown(mock_http_client, settings_factor
     assert '<option value="0xff0000" selected>Red</option>' in html
 
 
+async def test_render_page_has_wait_effect_dropdown(mock_http_client, settings_factory):
+    """The wait-number reveal effect is a dropdown, pre-selected to the saved value."""
+    app = await _app(mock_http_client, settings_factory)
+    app.settings.set("wait_time_effect", "Swarm")
+    html = render_page(app)
+    assert 'name="wait_time_effect"' in html
+    assert "<option>Rain</option>" in html              # all choices present
+    assert "<option selected>Swarm</option>" in html    # saved value preselected
+
+
 async def test_apply_settings_persists_and_rebuilds(mock_http_client, settings_factory):
     app = await _app(mock_http_client, settings_factory)
     apply_settings(app, {
         "park_1": "6", "sort_mode": "min_wait", "scroll_speed": "Fast",
+        "wait_time_effect": "None",
         "brightness_scale": "0.6", "skip_meet": "on",
         "default_color": "#112233", "domain_name": "mybox",
     })
     sm = app.settings
     assert sm.get("sort_mode") == "min_wait"
     assert sm.get("scroll_speed") == "Fast"
+    assert sm.get("wait_time_effect") == "None"
     assert sm.get("skip_meet") is True       # checkbox present
     assert sm.get("group_by_park") is False  # checkbox absent -> False
     assert sm.get("selected_park_ids") == [6]

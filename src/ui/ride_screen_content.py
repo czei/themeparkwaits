@@ -19,6 +19,12 @@ from scrollkit.display.content import DisplayContent
 from scrollkit.effects.drip_splash import DripReveal
 from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 
+# Wait-number reveal styles the user can pick (settings: wait_time_effect). The
+# value stored is one of these labels; "Rain" is the default and the fallback for
+# any unrecognized value. "Swarm" is lazily imported (heavier boids code +
+# ``random``) so a board using the default never loads it.
+WAIT_EFFECTS = ("Rain", "Swarm", "None")
+
 # terminalio glyphs are ~6px wide / ~8px tall. draw_text's `y` is the text
 # BASELINE (top-down origin, top-left = 0,0; y=0 clips the glyph off the top), so
 # these place the baseline to show each line in its zone (verified by screenshot).
@@ -119,30 +125,36 @@ class _ScrollingNameContent(DisplayContent):
 
 
 class RideScreenContent(_ScrollingNameContent):
-    """One ride: scrolling name (top) + large wait number that drips into place.
+    """One ride: scrolling name (top) + large wait number revealed into place.
 
-    The wait number is dripped in (each digit's pixels fall from the top of their
-    column into position) the first time the screen is shown, then the assembled
-    overlay stays up as the live number while the name finishes scrolling. The
-    drip and the live number are the same composed pixels — there is no separate
-    "draw the number" step and so no visible change when the drip lands.
+    The wait number is revealed (animated into its target pixels) the first time
+    the screen is shown, then the assembled overlay stays up as the live number
+    while the name finishes scrolling. The reveal and the live number are the same
+    composed pixels — there is no separate "draw the number" step and so no
+    visible change when the reveal lands.
+
+    The reveal style is the ``effect`` argument (see ``WAIT_EFFECTS``):
+    ``"Rain"`` drips each column down (default), ``"Swarm"`` flies a flock in to
+    assemble it, ``"None"`` shows it instantly. All three land the SAME pixels in
+    the SAME place — only the animation differs.
     """
 
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
-                 wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0):
+                 wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0, effect="Rain"):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
-        self._drip = None            # DripReveal for the number (built on 1st render)
-        self._need_drip = True       # (re)build the drip on (re)show
+        self.effect = effect if effect in WAIT_EFFECTS else "Rain"
+        self._reveal = None          # the reveal effect (built on 1st render)
+        self._need_reveal = True     # (re)build the reveal on (re)show
 
     async def start(self):
         await super().start()
-        # Replay the drip each time the screen is shown. The old overlay (if any)
+        # Replay the reveal each time the screen is shown. The old overlay (if any)
         # is detached on the previous stop(); here we just flag a rebuild.
-        self._need_drip = True
+        self._need_reveal = True
 
     def _number_pixels(self, display):
         """Composed wait-number pixels, centered and dropped into the wait band."""
@@ -167,35 +179,59 @@ class RideScreenContent(_ScrollingNameContent):
         dy = top - min_y
         return [(px, py + dy) for (px, py) in raw]
 
+    def _build_reveal(self, pixels):
+        """The reveal effect for ``self.effect``, holding ``pixels`` as its target.
+
+        "Swarm" is imported lazily so the default ("Rain") board never loads the
+        heavier flocking code. "None" reuses the drip object but is fast-forwarded
+        to its settled frame in render() (so the number just appears). Any
+        unrecognized value already fell back to "Rain" in __init__.
+        """
+        if self.effect == "Swarm":
+            from scrollkit.effects.swarm_reveal import SwarmReveal
+            # Swarm is built for the boot splash; for a per-ride number we push the
+            # flock to the on-device ceiling (num_birds<=~20, ~34 ms/frame — under
+            # the 50 ms budget, and only during the ~2-4 s assembly) so the number
+            # forms before the screen advances. The digits are readable once
+            # captured, before the brief disperse tail finishes.
+            return SwarmReveal(pixels, text_color=self.wait_color,
+                               bird_color=self.wait_color, num_birds=20,
+                               bird_speed=4.0)
+        return DripReveal(pixels, color=self.wait_color, fall_speed=2, stagger=1)
+
     async def render(self, display):
         await self._render_name(display)
-        # --- bottom: large wait number, dripped into place then held ---
-        if self._need_drip:
-            if self._drip is not None:
-                self._drip.detach()
-                self._drip = None
+        # --- bottom: large wait number, revealed into place then held ---
+        if self._need_reveal:
+            if self._reveal is not None:
+                self._reveal.detach()
+                self._reveal = None
             try:
                 pixels = self._number_pixels(display)
                 if pixels:
-                    self._drip = DripReveal(pixels, color=self.wait_color,
-                                            fall_speed=2, stagger=1)
-                    self._drip.start(display)
+                    self._reveal = self._build_reveal(pixels)
+                    self._reveal.start(display)
+                    if self.effect == "None":
+                        # No animation: paint straight to the assembled number.
+                        while not self._reveal.step():
+                            pass
             except Exception:
-                self._drip = None        # never let the number blank the screen
-            self._need_drip = False
-        if self._drip is not None and not self._drip.is_complete:
-            self._drip.step()            # advance one frame; overlay persists when done
+                self._reveal = None      # never let the number blank the screen
+            self._need_reveal = False
+        if self._reveal is not None and not self._reveal.is_complete:
+            self._reveal.step()          # advance one frame; overlay persists when done
 
     async def stop(self):
         await super().stop()
-        if self._drip is not None:
-            self._drip.detach()
-            self._drip = None
-        self._need_drip = True
+        if self._reveal is not None:
+            self._reveal.detach()
+            self._reveal = None
+        self._need_reveal = True
 
     def describe(self):
         info = super().describe()
-        info.update({"ride": self.ride_name, "wait": self.wait_minutes})
+        info.update({"ride": self.ride_name, "wait": self.wait_minutes,
+                     "effect": self.effect})
         return info
 
 
