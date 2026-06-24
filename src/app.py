@@ -109,35 +109,47 @@ class ThemeParkApp(ScrollKitApp):
 
         # Park-list fetch is the big blocking call (parks.json + retries) — tell
         # the user before the panel would otherwise go black on it.
-        await self._status("Parks...")
+        await self._status("Parks")
         try:
             await self.service.initialize()  # fetch park list + load park/vacation settings
         except Exception as e:  # never crash boot (FR-014)
             logger.error(e, "service.initialize failed")
 
-    async def _status(self, msg, color=0xFFAA00) -> None:
-        """Paint a short status frame before a blocking boot step.
+    async def _status(self, step, color=0xFFAA00) -> None:
+        """Two-row boot status: a constant "Updating" header over the current step
+        ("Wi-Fi" / "Clock" / "Parks"), both horizontally centered.
 
-        Boot makes several blocking network calls (Wi-Fi connect, clock, park-list
-        fetch) between the splash and the first data frame, and the display loop
-        isn't running yet — so without a frame in between the panel sits black for
-        what can be minutes on the device and the user assumes it hung. Drawing a
-        one-word label first means the screen always says what it's waiting on (and
-        a label that lingers points straight at the slow step). Defensive — never
-        raises into boot. Keep ``msg`` short: ~10 chars fit at the default font.
+        Boot makes several blocking network calls between the splash and the first
+        data frame while the display loop isn't running yet, so without a frame in
+        between the panel sits black for what can be minutes and the user assumes it
+        hung. The header says what's happening; the step row says which one (a step
+        that lingers points straight at the slow call). Defensive — never raises
+        into boot. Keep ``step`` short: ~10 chars fit at the default font.
         """
-        if not self.display:
+        disp = self.display
+        if not disp:
             return
         try:
-            await self.display.clear()
-            await self.display.draw_text(msg, 2, 12, color)
-            await self.display.show()
+            await disp.clear()
+            await self._draw_centered(disp, "Updating", 11, color)
+            if step:
+                await self._draw_centered(disp, step, 27, color)
+            await disp.show()
         except Exception:
             pass
 
+    async def _draw_centered(self, disp, text, y, color) -> None:
+        """draw_text ``text`` horizontally centered on ``disp`` at baseline ``y``."""
+        measure = getattr(disp, "measure_text", None)
+        w = measure(text) if measure is not None else len(text) * 6
+        await disp.draw_text(text, max(0, (disp.width - w) // 2), y, color)
+
     async def show_loading(self) -> None:
-        """Pre-flush a static 'updating' frame before the blocking fetch (B2/FR-029)."""
-        await self._status("Updating...")
+        """No-op. The two-row boot frames ("Updating" + step) cover the long
+        blocking calls, so the old standalone "Updating..." frame is gone. Kept as
+        the hook the data loop calls before each refresh (override to re-add a
+        periodic indicator if wanted)."""
+        return
 
     async def _init_network(self):
         """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
@@ -154,9 +166,9 @@ class ThemeParkApp(ScrollKitApp):
         try:
             from scrollkit.network.wifi_manager import WiFiManager
             self.wifi = WiFiManager(self.settings)
-            await self._status("WiFi...")
-            # connect() reports per-attempt status ("Attempt n/3") through this
-            # callback, so a slow/retrying join shows on the panel instead of black.
+            await self._status("Wi-Fi")
+            # connect() reports per-attempt status ("Attempt n/3") on the step row
+            # via this callback, so a slow/retrying join shows instead of black.
             connected = await self.wifi.connect(display_callback=self._status)
             if connected:
                 try:
@@ -167,7 +179,7 @@ class ThemeParkApp(ScrollKitApp):
                     logger.error(e, "create_http_session failed")
                 try:
                     from scrollkit.utils.system_utils import set_system_clock
-                    await self._status("Clock...")
+                    await self._status("Clock")
                     await set_system_clock(self.http_client)
                 except Exception as e:
                     logger.error(e, "set_system_clock failed")
