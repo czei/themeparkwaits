@@ -107,21 +107,37 @@ class ThemeParkApp(ScrollKitApp):
             except Exception as e:
                 print("OTA install_pending failed:", e)
 
+        # Park-list fetch is the big blocking call (parks.json + retries) — tell
+        # the user before the panel would otherwise go black on it.
+        await self._status("Parks...")
         try:
             await self.service.initialize()  # fetch park list + load park/vacation settings
         except Exception as e:  # never crash boot (FR-014)
             logger.error(e, "service.initialize failed")
 
-    async def show_loading(self) -> None:
-        """Pre-flush a static 'updating' frame before the blocking fetch (B2/FR-029)."""
+    async def _status(self, msg, color=0xFFAA00) -> None:
+        """Paint a short status frame before a blocking boot step.
+
+        Boot makes several blocking network calls (Wi-Fi connect, clock, park-list
+        fetch) between the splash and the first data frame, and the display loop
+        isn't running yet — so without a frame in between the panel sits black for
+        what can be minutes on the device and the user assumes it hung. Drawing a
+        one-word label first means the screen always says what it's waiting on (and
+        a label that lingers points straight at the slow step). Defensive — never
+        raises into boot. Keep ``msg`` short: ~10 chars fit at the default font.
+        """
         if not self.display:
             return
         try:
             await self.display.clear()
-            await self.display.draw_text("Updating...", 2, 12, 0xFFAA00)
+            await self.display.draw_text(msg, 2, 12, color)
             await self.display.show()
         except Exception:
             pass
+
+    async def show_loading(self) -> None:
+        """Pre-flush a static 'updating' frame before the blocking fetch (B2/FR-029)."""
+        await self._status("Updating...")
 
     async def _init_network(self):
         """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
@@ -138,7 +154,10 @@ class ThemeParkApp(ScrollKitApp):
         try:
             from scrollkit.network.wifi_manager import WiFiManager
             self.wifi = WiFiManager(self.settings)
-            connected = await self.wifi.connect()
+            await self._status("WiFi...")
+            # connect() reports per-attempt status ("Attempt n/3") through this
+            # callback, so a slow/retrying join shows on the panel instead of black.
+            connected = await self.wifi.connect(display_callback=self._status)
             if connected:
                 try:
                     session = self.wifi.create_http_session()
@@ -148,6 +167,7 @@ class ThemeParkApp(ScrollKitApp):
                     logger.error(e, "create_http_session failed")
                 try:
                     from scrollkit.utils.system_utils import set_system_clock
+                    await self._status("Clock...")
                     await set_system_clock(self.http_client)
                 except Exception as e:
                     logger.error(e, "set_system_clock failed")

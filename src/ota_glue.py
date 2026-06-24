@@ -97,25 +97,41 @@ class OTAGlue:
         """If an update is staged, show progress, apply it, and reboot. Returns bool."""
         if not self.has_pending():
             return False
-        await self._show("Installing update... Do not unplug!")
+        await self._show(["Installing", "DO NOT", "UNPLUG!"])
         try:
             ok, err = self.client.apply_update()
         except Exception as e:
             print("OTA apply failed:", e)
             return False
         if ok:
-            await self._show("Update complete! Rebooting...")
+            await self._show(["Updated!", "Reboot..."])
             self.client.reboot_device()
             return True
         print("OTA apply error:", err)
         return False
 
-    async def _show(self, text):
+    async def _show(self, lines, color=0xFFAA00):
+        """Paint a short multi-line status frame, vertically centered.
+
+        Keep each line <= ~10 chars: the 64px panel fits ~10 at the default font,
+        so the old single-line "Installing update... Do not unplug!" ran off the
+        edge and clipped — exactly the message the user must be able to read. The
+        install is one blocking call (no display loop), so a horizontal scroll
+        couldn't animate; stacked short lines keep it legible. ``lines`` may be a
+        single string. Defensive — never raises into the OTA flow.
+        """
         if not self.display:
             return
+        if isinstance(lines, str):
+            lines = [lines]
         try:
             await self.display.clear()
-            await self.display.draw_text(text, 1, 12, 0xFFAA00)
+            line_h = 9                      # ~8px glyphs + 1px gap
+            height = getattr(self.display, "height", 32)
+            top = max(0, (height - len(lines) * line_h) // 2)
+            for i, line in enumerate(lines):
+                # draw_text y is the BASELINE; sit it near the bottom of each band.
+                await self.display.draw_text(line, 1, top + i * line_h + 7, color)
             await self.display.show()
         except Exception:
             pass
