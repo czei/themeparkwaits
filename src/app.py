@@ -44,6 +44,10 @@ class ThemeParkApp(ScrollKitApp):
         except Exception as e:  # OTA is optional; never block construction
             print("OTA unavailable:", e)
             self.ota = None
+        # The first data refresh happens at boot while setup()'s "Updating / Parks"
+        # frame is still up; later refreshes paint their own indicator (see
+        # update_data) since they hit the internet with no boot context on screen.
+        self._initial_refresh_done = False
 
     async def create_display(self):
         """Return our display (UnifiedDisplay + scaled-text), auto-detects sim/hardware."""
@@ -146,9 +150,8 @@ class ThemeParkApp(ScrollKitApp):
 
     async def show_loading(self) -> None:
         """No-op. The two-row boot frames ("Updating" + step) cover the long
-        blocking calls, so the old standalone "Updating..." frame is gone. Kept as
-        the hook the data loop calls before each refresh (override to re-add a
-        periodic indicator if wanted)."""
+        blocking boot calls, and update_data() paints "Updating / Times" before each
+        later refresh — so this base hook has nothing to add."""
         return
 
     async def _init_network(self):
@@ -210,6 +213,15 @@ class ThemeParkApp(ScrollKitApp):
 
     async def update_data(self) -> None:
         """Refresh wait times for the selected park(s) and rebuild the content queue."""
+        # Every refresh hits the internet (queue-times), and the synchronous fetch
+        # freezes the display while it runs — so paint a frame first, or a hang/delay
+        # looks like a dead screen. Skip only the first (boot) refresh, where
+        # setup()'s "Updating / Parks" frame is already up; every later refresh
+        # (the 5-min cycle, or a settings-change refresh) shows "Updating / Times".
+        if self._initial_refresh_done:
+            await self._status("Times")
+        else:
+            self._initial_refresh_done = True
         pl = self.service.park_list
         try:
             if pl is not None:
