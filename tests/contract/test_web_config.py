@@ -109,6 +109,19 @@ async def test_render_page_lists_parks(mock_http_client, settings_factory):
     assert "Magic Kingdom" in html and "Epcot" in html  # park dropdowns
 
 
+async def test_render_page_uses_color_dropdown(mock_http_client, settings_factory):
+    """Color fields are a curated dropdown matched to the panel gamut, not a free
+    24-bit <input type=color>; a legacy free-picked value pre-selects the nearest."""
+    app = await _app(mock_http_client, settings_factory)
+    app.settings.set("ride_name_color", "0xff2600")   # legacy free-picked red
+    html = render_page(app)
+    assert 'type="color"' not in html                 # no free picker
+    assert 'name="ride_name_color"' in html
+    assert '<option value="0xff0000"' in html          # palette options present
+    # 0xff2600 is nearest to Red in the palette, so Red is preselected
+    assert '<option value="0xff0000" selected>Red</option>' in html
+
+
 async def test_apply_settings_persists_and_rebuilds(mock_http_client, settings_factory):
     app = await _app(mock_http_client, settings_factory)
     apply_settings(app, {

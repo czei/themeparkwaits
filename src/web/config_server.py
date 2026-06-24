@@ -41,6 +41,26 @@ SORT_MODES = ("alphabetical", "max_wait", "min_wait")
 SCROLL_SPEEDS = ("Slow", "Medium", "Fast")
 MAX_PARKS = 4
 
+# Curated colors that stay visually distinct on the bit_depth=4 panel (16 levels
+# per channel -> 4096 colors, not the 16.7M a free <input type=color> implied).
+# A dropdown of these is honest about the gamut: what you pick is what the panel
+# can actually show. Values are the app's canonical 0xRRGGBB strings (stored
+# as-is). Channels stick to 0x00/0x80/0xc0/0xff so they survive 4-bit truncation.
+COLOR_PALETTE = (
+    ("White", "0xffffff"),
+    ("Red", "0xff0000"),
+    ("Orange", "0xff8000"),
+    ("Yellow", "0xffff00"),
+    ("Lime", "0x80ff00"),
+    ("Green", "0x00ff00"),
+    ("Cyan", "0x00ffff"),
+    ("Blue", "0x0000ff"),
+    ("Purple", "0x8000ff"),
+    ("Magenta", "0xff00ff"),
+    ("Pink", "0xff80c0"),
+    ("Gray", "0x808080"),
+)
+
 # adafruit_httpserver wants (code, text) tuples for non-default statuses. 303 makes
 # the browser re-GET "/" with a GET (POST-redirect-GET), so a refresh won't re-POST.
 _SEE_OTHER = (303, "See Other")
@@ -54,13 +74,34 @@ def _is_circuitpython() -> bool:
     return bool(getattr(sys, "implementation", None)) and sys.implementation.name == "circuitpython"
 
 
-def _hex_to_html(color) -> str:
-    """'0x0000ff' / 0x0000ff -> '#0000ff' for an <input type=color>."""
+def _color_to_int(value) -> int:
+    """Coerce '0xRRGGBB'/'#RRGGBB'/'RRGGBB'/int to an int (white on failure)."""
     try:
-        val = int(color, 16) if isinstance(color, str) else int(color)
+        if isinstance(value, str):
+            s = value.strip()
+            if s.startswith("#"):
+                s = s[1:]
+            return int(s, 16)
+        return int(value)
     except (TypeError, ValueError):
-        return "#ffffff"
-    return "#%06x" % (val & 0xFFFFFF)
+        return 0xFFFFFF
+
+
+def _nearest_palette_value(current) -> str:
+    """The COLOR_PALETTE entry closest (RGB distance) to ``current``.
+
+    Lets a legacy free-picked color (e.g. an old '0xff2600') pre-select a sensible
+    dropdown option instead of falling off the list.
+    """
+    cur = _color_to_int(current)
+    cr, cg, cb = (cur >> 16) & 0xFF, (cur >> 8) & 0xFF, cur & 0xFF
+    best, best_d = COLOR_PALETTE[0][1], None
+    for _label, hexv in COLOR_PALETTE:
+        v = int(hexv, 16)
+        d = (((v >> 16) & 0xFF) - cr) ** 2 + (((v >> 8) & 0xFF) - cg) ** 2 + ((v & 0xFF) - cb) ** 2
+        if best_d is None or d < best_d:
+            best, best_d = hexv, d
+    return best
 
 
 def _html_to_hex(value) -> str:
@@ -223,10 +264,17 @@ def render_page(app) -> str:
                 '<input type="checkbox" name="%s"%s> %s</label></div>'
                 % (name, chk, _esc(SettingsLabel(name))))
 
-    def color(name):
+    def color_select(name):
+        # Dropdown of panel-distinct colors (the panel can't show a free 24-bit
+        # pick). Pre-select the palette entry nearest the stored value.
+        current = _nearest_palette_value(sm.get(name, "0xffffff"))
+        opts = []
+        for label, hexv in COLOR_PALETTE:
+            sel = " selected" if hexv == current else ""
+            opts.append('<option value="%s"%s>%s</option>' % (hexv, sel, _esc(label)))
         return ('<div class="form-group"><label>%s</label>'
-                '<input class="form-control" type="color" name="%s" value="%s"></div>'
-                % (_esc(SettingsLabel(name)), name, _hex_to_html(sm.get(name, "0xffffff"))))
+                '<select class="form-control" name="%s">%s</select></div>'
+                % (_esc(SettingsLabel(name)), name, "".join(opts)))
 
     park_html = "".join(park_select(i) for i in range(1, MAX_PARKS + 1))
     try:
@@ -242,9 +290,9 @@ def render_page(app) -> str:
         group=checkbox("group_by_park"),
         skip_closed=checkbox("skip_closed"),
         skip_meet=checkbox("skip_meet"),
-        default_color=color("default_color"),
-        name_color=color("ride_name_color"),
-        wait_color=color("ride_wait_time_color"),
+        default_color=color_select("default_color"),
+        name_color=color_select("ride_name_color"),
+        wait_color=color_select("ride_wait_time_color"),
         domain=_esc(sm.get("domain_name", "themeparkwaits")),
         vac_name=_esc(sm.get("next_visit", "") or ""),
         vac_year=_esc(sm.get("next_visit_year", "") or ""),
