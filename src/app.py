@@ -151,6 +151,24 @@ class ThemeParkApp(ScrollKitApp):
         periodic indicator if wanted)."""
         return
 
+    def _vacation_configured(self) -> bool:
+        """Whether a vacation countdown is set (mirrors Vacation.is_set()).
+
+        Read straight from settings — the Vacation object isn't loaded until
+        service.initialize(), which runs after network bring-up. Lets boot skip
+        the clock sync (the only consumer of the system clock) when it's unused.
+        """
+        s = self.settings
+
+        def _int(key):
+            try:
+                return int(s.get(key, 0) or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        return (bool(s.get("next_visit", "")) and _int("next_visit_year") > 1999
+                and _int("next_visit_month") > 0 and _int("next_visit_day") > 0)
+
     async def _init_network(self):
         """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
 
@@ -177,12 +195,19 @@ class ThemeParkApp(ScrollKitApp):
                         self.http_client.session = session
                 except Exception as e:
                     logger.error(e, "create_http_session failed")
-                try:
-                    from scrollkit.utils.system_utils import set_system_clock
-                    await self._status("Clock")
-                    await set_system_clock(self.http_client)
-                except Exception as e:
-                    logger.error(e, "set_system_clock failed")
+                # The system clock is used ONLY by the vacation countdown
+                # (vacation.get_days_until); wait times don't need it. With no
+                # socket_pool the time sync falls back to reading the HTTP Date
+                # header over several HTTPS hosts, which is ~a minute of TLS
+                # handshakes on the ESP32 — so skip it entirely unless a vacation
+                # is actually configured.
+                if self._vacation_configured():
+                    try:
+                        from scrollkit.utils.system_utils import set_system_clock
+                        await self._status("Clock")
+                        await set_system_clock(self.http_client)
+                    except Exception as e:
+                        logger.error(e, "set_system_clock failed")
                 try:
                     from src.net.mdns_helper import advertise
                     # Retain the mdns.Server for the app's lifetime: if it is garbage
