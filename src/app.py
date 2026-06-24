@@ -196,16 +196,26 @@ class ThemeParkApp(ScrollKitApp):
                 except Exception as e:
                     logger.error(e, "create_http_session failed")
                 # The system clock is used ONLY by the vacation countdown
-                # (vacation.get_days_until); wait times don't need it. With no
-                # socket_pool the time sync falls back to reading the HTTP Date
-                # header over several HTTPS hosts, which is ~a minute of TLS
-                # handshakes on the ESP32 — so skip it entirely unless a vacation
-                # is actually configured.
+                # (vacation.get_days_until); wait times don't need it, so skip the
+                # sync entirely unless a vacation is configured.
                 if self._vacation_configured():
                     try:
                         from scrollkit.utils.system_utils import set_system_clock
                         await self._status("Clock")
-                        await set_system_clock(self.http_client)
+                        # Try NTP FIRST (fast, ~1-2s) — set_system_clock only
+                        # attempts NTP when given a socket pool; with none it
+                        # silently skipped to the slow multi-host HTTP Date-header
+                        # fallback (~a minute of TLS handshakes on the ESP32). NTP
+                        # is the intended primary source; HTTP Date stays as the
+                        # fallback for networks that block UDP/123.
+                        pool = None
+                        try:
+                            import socketpool
+                            import wifi
+                            pool = socketpool.SocketPool(wifi.radio)
+                        except Exception as e:
+                            logger.error(e, "NTP socket pool unavailable")
+                        await set_system_clock(self.http_client, socket_pool=pool)
                     except Exception as e:
                         logger.error(e, "set_system_clock failed")
                 try:
