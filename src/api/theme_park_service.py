@@ -31,8 +31,7 @@ class ThemeParkService:
         self.settings_manager = settings_manager
         self.park_list = None
         self.vacation = Vacation()
-        self.update_needed = False  # Flag to indicate if an update should be forced
-        
+
     async def initialize(self):
         """Initialize the service by fetching park list and setting clock"""
         # Track initialization steps for better error reporting

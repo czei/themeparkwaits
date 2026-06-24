@@ -204,17 +204,41 @@ def apply_settings(app, params) -> None:
 
     sm.save_settings()
 
-    # Reflect changes immediately (no network fetch — FR-004).
+    # Reflect changes immediately (no network fetch — FR-004). A newly-selected
+    # park has no ride data yet, so this rebuild shows no wait times; the POST
+    # handler schedules a prompt async refresh (_schedule_refresh) to fetch them.
     try:
         if svc and svc.park_list is not None:
             svc.park_list.load_settings(sm)
-            svc.update_needed = True  # next update_data() fetches new park rides
         if svc:
             svc.vacation.load_settings(sm)
         build_content_queue(app.content_queue, svc.park_list if svc else None,
                             sm, svc.vacation if svc else None)
     except Exception as e:
         print("apply settings rebuild failed:", e)
+
+
+def _schedule_refresh(app) -> None:
+    """Fire-and-forget a data refresh on the running event loop.
+
+    A settings change (notably a new park, which has no ride data yet) rebuilds
+    the queue immediately but with no wait times; without this the times only
+    appear on the next ``update_data()`` tick — up to ``update_interval`` seconds
+    later. Scheduling ``update_data()`` here fetches the new park and rebuilds
+    within a second or two. It does NOT block the POST handler's redirect
+    (FR-004), and it is a no-op when no event loop is running (unit tests calling
+    ``apply_settings`` directly, or the threaded test server).
+    """
+    update = getattr(app, "update_data", None)
+    if update is None:
+        return
+    try:
+        import asyncio
+        asyncio.get_running_loop().create_task(update())
+    except RuntimeError:
+        pass  # no running event loop in this context
+    except Exception as e:
+        print("schedule refresh failed:", e)
 
 
 def schedule_update(app) -> bool:
@@ -347,6 +371,9 @@ class ThemeParkConfigServer:
                     apply_settings(app, _params(request))
                 except Exception as e:  # never 500 the form on a bad apply
                     print("apply_settings failed:", e)
+                # Fetch a newly-selected park now (async, non-blocking) so its wait
+                # times show within seconds instead of at the next update tick.
+                _schedule_refresh(app)
                 return Redirect(request, "/", status=_SEE_OTHER)
             return Response(request, render_page(app), content_type="text/html")
 

@@ -20,6 +20,7 @@ from src.web.config_server import (
     ThemeParkConfigServer,
     apply_settings,
     render_page,
+    _schedule_refresh,
 )
 
 # Each test gets its own loopback port (avoids TIME_WAIT rebind races between
@@ -229,6 +230,25 @@ async def test_save_settings_server_survives_and_redirects(mock_http_client, set
     assert sm.get("scroll_speed") == "Fast"
     assert sm.get("sort_mode") == "max_wait"
     assert sm.get("selected_park_ids") == [6]
+
+
+async def test_settings_change_schedules_prompt_refresh(mock_http_client, settings_factory):
+    """A settings change must trigger a prompt data refresh. The old `update_needed`
+    flag was set but never consumed, so a newly-selected park showed no wait times
+    until the next ~5-min update tick. _schedule_refresh runs update_data() on the
+    loop (fire-and-forget), and is a no-op when no loop is running."""
+    import asyncio
+    app = await _app(mock_http_client, settings_factory)
+    ran = []
+
+    async def fake_update():
+        ran.append(True)
+
+    app.update_data = fake_update
+    _schedule_refresh(app)
+    for _ in range(3):
+        await asyncio.sleep(0)   # let the scheduled task run
+    assert ran == [True], "settings change should schedule update_data()"
 
 
 # --------------------------------------------------------------------------- #
