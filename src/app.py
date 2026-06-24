@@ -151,24 +151,6 @@ class ThemeParkApp(ScrollKitApp):
         periodic indicator if wanted)."""
         return
 
-    def _vacation_configured(self) -> bool:
-        """Whether a vacation countdown is set (mirrors Vacation.is_set()).
-
-        Read straight from settings — the Vacation object isn't loaded until
-        service.initialize(), which runs after network bring-up. Lets boot skip
-        the clock sync (the only consumer of the system clock) when it's unused.
-        """
-        s = self.settings
-
-        def _int(key):
-            try:
-                return int(s.get(key, 0) or 0)
-            except (TypeError, ValueError):
-                return 0
-
-        return (bool(s.get("next_visit", "")) and _int("next_visit_year") > 1999
-                and _int("next_visit_month") > 0 and _int("next_visit_day") > 0)
-
     async def _init_network(self):
         """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
 
@@ -195,29 +177,25 @@ class ThemeParkApp(ScrollKitApp):
                         self.http_client.session = session
                 except Exception as e:
                     logger.error(e, "create_http_session failed")
-                # The system clock is used ONLY by the vacation countdown
-                # (vacation.get_days_until); wait times don't need it, so skip the
-                # sync entirely unless a vacation is configured.
-                if self._vacation_configured():
+                # Always sync the clock via NTP (fast, ~1-2s). The vacation
+                # countdown is its only consumer, but setting it unconditionally
+                # means it's already correct if a vacation is ever configured — no
+                # need to turn time on later. NTP needs a socket pool; without one
+                # set_system_clock skips NTP and falls back to the slow multi-host
+                # HTTP Date header (kept as the fallback for networks blocking UDP/123).
+                try:
+                    from scrollkit.utils.system_utils import set_system_clock
+                    await self._status("Clock")
+                    pool = None
                     try:
-                        from scrollkit.utils.system_utils import set_system_clock
-                        await self._status("Clock")
-                        # Try NTP FIRST (fast, ~1-2s) — set_system_clock only
-                        # attempts NTP when given a socket pool; with none it
-                        # silently skipped to the slow multi-host HTTP Date-header
-                        # fallback (~a minute of TLS handshakes on the ESP32). NTP
-                        # is the intended primary source; HTTP Date stays as the
-                        # fallback for networks that block UDP/123.
-                        pool = None
-                        try:
-                            import socketpool
-                            import wifi
-                            pool = socketpool.SocketPool(wifi.radio)
-                        except Exception as e:
-                            logger.error(e, "NTP socket pool unavailable")
-                        await set_system_clock(self.http_client, socket_pool=pool)
+                        import socketpool
+                        import wifi
+                        pool = socketpool.SocketPool(wifi.radio)
                     except Exception as e:
-                        logger.error(e, "set_system_clock failed")
+                        logger.error(e, "NTP socket pool unavailable")
+                    await set_system_clock(self.http_client, socket_pool=pool)
+                except Exception as e:
+                    logger.error(e, "set_system_clock failed")
                 try:
                     from src.net.mdns_helper import advertise
                     # Retain the mdns.Server for the app's lifetime: if it is garbage
