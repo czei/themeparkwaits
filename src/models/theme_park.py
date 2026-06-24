@@ -4,7 +4,7 @@ Copyright 2024 3DUPFitters LLC
 """
 
 from src.models.theme_park_ride import ThemeParkRide
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

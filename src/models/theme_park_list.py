@@ -3,9 +3,8 @@ ThemeParkList model to manage a collection of theme parks.
 Copyright 2024 3DUPFitters LLC
 """
 
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 from src.models.theme_park import ThemePark
-from src.config.settings_manager import SettingsManager
 
 # Initialize logger
 logger = ErrorHandler("error_log")

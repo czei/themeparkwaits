@@ -1,0 +1,73 @@
+# Mirror a release-* archive branch onto the device-read `live` channel.
+#
+# Hybrid OTA model (research D8 / SCROLLKIT_NOTES.md #3): the Matrix Portal S3
+# reads ONE fixed public branch (`live`). Cutting a release = creating a
+# `release-MAJOR.MINOR` branch; this workflow runs scripts/publish.sh to build
+# manifest.json + files/ from that ref and force-push them onto `live`.
+#
+# Activation note: GitHub only runs `create`-triggered workflows from the file on
+# the DEFAULT branch. This stays dormant until it is merged to `main`. Until then
+# you can publish manually with scripts/publish.sh (or the workflow_dispatch path
+# once it's on main).
+name: Publish OTA to live
+
+on:
+  create: {}            # fires on any branch/tag creation; job `if` narrows to release-*
+  workflow_dispatch:    # manual re-publish / rollback to an older release-* ref
+    inputs:
+      ref:
+        description: "Ref to publish (e.g. release-1.96, or a tag for rollback)"
+        required: true
+      version:
+        description: "Override version (default: derived from a release-X.Y ref)"
+        required: false
+      include_lib:
+        description: "Also ship src/lib (Adafruit bundle): 1 or 0"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write       # push to the `live` branch via the default GITHUB_TOKEN
+
+concurrency:
+  group: publish-live   # never let two publishes race the `live` branch
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Only for created release-* branches, or an explicit manual dispatch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release-'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0          # publish.sh runs `git archive <ref>`
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build manifest + publish to live
+        env:
+          PUBLISH_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION: ${{ inputs.version }}
+          INCLUDE_LIB: ${{ inputs.include_lib }}
+        run: |
+          chmod +x scripts/publish.sh
+          scripts/publish.sh "${{ steps.ref.outputs.ref }}"

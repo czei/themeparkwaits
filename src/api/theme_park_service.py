@@ -8,8 +8,7 @@ import json
 from src.models.theme_park import ThemePark
 from src.models.theme_park_list import ThemeParkList
 from src.models.vacation import Vacation
-from src.config.settings_manager import SettingsManager
-from src.utils.error_handler import ErrorHandler
+from scrollkit.utils.error_handler import ErrorHandler
 
 # Initialize logger
 logger = ErrorHandler("error_log")

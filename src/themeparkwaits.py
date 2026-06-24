@@ -1,45 +1,38 @@
-"""
-ThemeParkAPI - Bridge module for release1.9 compatibility
-This module allows the fixed code.py from release1.9 to run the current codebase
+"""ThemeParkWaits bootstrap — sets import paths, then runs the app.
+
+On CircuitPython, the device's vendored libraries live in ``/src/lib`` and
+``/lib`` (the latter also holds the deployed ``scrollkit`` package). On desktop,
+the sibling ``../ScrollKit Library/src`` and this repo are added so
+``python -m src.themeparkwaits --dev`` runs without a manual PYTHONPATH.
+
 Copyright 2024 3DUPFitters LLC
 """
+import os
 import sys
 
-# Check if running on CircuitPython
-is_circuitpython = hasattr(sys, 'implementation') and sys.implementation.name == 'circuitpython'
+is_circuitpython = hasattr(sys, "implementation") and sys.implementation.name == "circuitpython"
 
-# Add src/lib to Python path if running on CircuitPython
 if is_circuitpython:
-    # For MatrixPortal S3, libraries are in src/lib
-    if '/src/lib' not in sys.path:
-        sys.path.append('/src/lib')
-    if '/lib' not in sys.path:
-        sys.path.append('/lib')  # Fallback
+    for _p in ("/src/lib", "/lib"):
+        if _p not in sys.path:
+            sys.path.append(_p)
+else:
+    # Desktop dev: make the sibling ScrollKit library + repo root importable.
+    _here = os.path.dirname(os.path.abspath(__file__))   # .../themeparkwaits/src
+    _repo = os.path.dirname(_here)                        # .../themeparkwaits
+    _workspace = os.path.dirname(_repo)                   # .../ScrollKit
+    for _p in (_repo, os.path.join(_workspace, "ScrollKit Library", "src")):
+        if os.path.isdir(_p) and _p not in sys.path:
+            sys.path.insert(0, _p)
 
-# Import asyncio (required for the main app)
-try:
-    import asyncio
-except ImportError as e:
-    print(f"Error importing asyncio: {e}")
-    print("Path:", sys.path)
-    print("Running on CircuitPython:", is_circuitpython)
-    # Try to continue anyway, as it might be imported elsewhere
+import asyncio
 
-# Import and run the main application from src directory
 try:
-    # Import the main function from src.main
     from src.main import main
-    
-    # Run the main function
-    print("Starting Theme Park Waits application...")
+    print("Starting ThemeParkWaits...")
     asyncio.run(main())
-    
-except ImportError as e:
-    print(f"Error importing src.main: {e}")
-    print("Current path:", sys.path)
-    
 except KeyboardInterrupt:
-    print("Application interrupted by user")
-except Exception as e:
-    print(f"Error running main application: {e}")
-    # The error will be logged in the main module if ErrorHandler is available
+    print("Interrupted by user")
+except Exception as e:  # last-resort: keep a console trace on desktop/device
+    print(f"Fatal error running ThemeParkWaits: {e}")
+    raise
