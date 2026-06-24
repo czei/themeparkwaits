@@ -95,13 +95,17 @@ class ThemeParkApp(ScrollKitApp):
         except (TypeError, ValueError):
             pass
 
-        # Opening reveal splash (every LED on -> wink off to "THEME PARK WAITS").
-        # This also realizes the window immediately (it refreshes each step).
+        # Opening splash: a swarm of "birds" flies in and assembles
+        # "THEME PARK WAITS" (scrollkit.effects.swarm_reveal), then disperses and
+        # holds. ~3.5s to assemble at these params; modeled >100 FPS on-device.
+        # The pixel map stays app-side (reveal_splash.get_theme_park_waits_pixels).
         try:
-            from src.ui.reveal_splash import show_reveal_splash
-            await show_reveal_splash(self.display)
+            from src.ui.reveal_splash import get_theme_park_waits_pixels
+            from scrollkit.effects.swarm_reveal import show_swarm_splash
+            await show_swarm_splash(self.display, get_theme_park_waits_pixels(),
+                                    num_birds=100, bird_speed=5.0, hold_seconds=1.5)
         except Exception as e:
-            logger.error(e, "reveal splash failed")
+            logger.error(e, "swarm splash failed")
 
         # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
         # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
