@@ -14,6 +14,7 @@ Copyright 2024 3DUPFitters LLC
 import asyncio
 import random
 
+from scrollkit.display.content import DisplayContent
 from scrollkit.utils.error_handler import ErrorHandler
 # Use the SAME displayio the display uses (real on CircuitPython, the simulator's
 # on desktop). A bare ``import displayio`` can grab a stray Blinka 'displayio'
@@ -129,3 +130,97 @@ async def show_reveal_splash(display, color=0xFFFF00, off_per_frame=14):
         display.remove_layer(tile_grid)
     except Exception as e:
         logger.error(e, "Error in reveal splash animation")
+
+
+class SplashContent(DisplayContent):
+    """The opening swarm splash as a QUEUE item, so it leads every display cycle.
+
+    A flock flies in and assembles the THEME PARK WAITS glyph (same pixels/look as
+    the boot splash), disperses, the assembled text holds a moment, then the
+    content reports complete so the queue advances to the rides. Because the queue
+    loops back to item 0, adding this first makes the splash recur each cycle —
+    not just once at boot.
+
+    Unlike ``show_swarm_splash`` (a blocking convenience used once in setup()),
+    this is frame-driven: ``render()`` advances the reveal one frame per call so it
+    cooperates with the shared display loop. ``stop()`` detaches the swarm's
+    overlay layers — the queue runs stop() on advance and on rebuild (so a
+    settings change can't strand the flock on screen).
+    """
+
+    def __init__(self, pixels=None, *, text_color=0xFFCC00, bird_color=0xFFE08A,
+                 num_birds=20, bird_speed=5.0, hold_seconds=1.5, priority=2):
+        super().__init__(duration=None, priority=priority)
+        self._pixels = pixels
+        self.text_color = text_color
+        self.bird_color = bird_color
+        self.num_birds = num_birds
+        self.bird_speed = bird_speed
+        # The loop runs ~20 fps; hold the assembled text this many frames after the
+        # flock disperses, then complete.
+        self._hold_frames = max(0, int(hold_seconds * 20))
+        # Safety cap: force completion if assembly runs long, so an unreachable
+        # pixel can never freeze the rotation on the splash forever (mirrors
+        # show_swarm_splash's max_steps guard). ~30 s at 20 fps; normal assembly is
+        # a few seconds.
+        self._max_frames = 600
+        self._reveal = None
+        self._need_reveal = True
+        self._frames = 0
+        self._hold_left = None
+        self._done = False
+
+    async def start(self):
+        await super().start()
+        self._need_reveal = True
+        self._frames = 0
+        self._hold_left = None
+        self._done = False
+
+    async def render(self, display):
+        if self._need_reveal:
+            self._need_reveal = False
+            from scrollkit.effects.swarm_reveal import SwarmReveal
+            pixels = self._pixels if self._pixels is not None else get_theme_park_waits_pixels()
+            try:
+                self._reveal = SwarmReveal(pixels, text_color=self.text_color,
+                                           bird_color=self.bird_color,
+                                           num_birds=self.num_birds,
+                                           bird_speed=self.bird_speed)
+                self._reveal.start(display)
+            except Exception as e:
+                logger.error(e, "splash reveal start failed")
+                self._reveal = None
+                self._done = True       # never wedge the rotation on a bad splash
+        if self._done or self._reveal is None:
+            self._done = True
+            return
+        self._frames += 1
+        if not self._reveal.is_complete and self._frames < self._max_frames:
+            self._reveal.step()
+            return
+        # Flock done (or capped): hold the assembled text, then finish.
+        if self._hold_left is None:
+            self._hold_left = self._hold_frames
+        if self._hold_left > 0:
+            self._hold_left -= 1
+        else:
+            self._done = True
+
+    @property
+    def is_complete(self):
+        return self._is_complete or self._done
+
+    async def stop(self):
+        await super().stop()
+        if self._reveal is not None:
+            self._reveal.detach()
+            self._reveal = None
+        self._need_reveal = True
+        self._hold_left = None
+        self._done = False
+
+    def describe(self):
+        info = super().describe()
+        info.update({"splash": True})
+        return info

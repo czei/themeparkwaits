@@ -112,6 +112,31 @@ def test_group_by_park_adds_header_and_attribution(settings_factory):
     assert not any("queue-times" in t for t in texts)               # never the old source
 
 
+def test_splash_caps_each_cycle(settings_factory):
+    """The swarm splash is the LAST queue item, so it plays after all wait times,
+    then the queue loops back to the start."""
+    from src.ui.reveal_splash import SplashContent
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    q = ContentQueue()
+    build_content_queue(q, _park_list_with_rides(sm), sm, Vacation())
+    items = _items(q)
+    assert isinstance(items[-1], SplashContent)                    # caps the cycle
+    assert sum(isinstance(c, SplashContent) for c in items) == 1   # exactly one per cycle
+    # and it comes after the rides + attribution
+    last_ride = max(i for i, c in enumerate(items) if isinstance(c, RideScreenContent))
+    assert items.index(items[-1]) > last_ride
+
+
+def test_no_splash_when_no_parks(settings_factory):
+    """No splash on the unconfigured 'choose a park' screen."""
+    from src.ui.reveal_splash import SplashContent
+    sm = settings_factory()
+    plist = ThemeParkList(json.loads(DESTINATIONS_JSON))   # nothing selected
+    q = ContentQueue()
+    build_content_queue(q, plist, sm, Vacation())
+    assert not any(isinstance(c, SplashContent) for c in _items(q))
+
+
 def test_no_parks_shows_choose_message(settings_factory):
     sm = settings_factory()
     plist = ThemeParkList(json.loads(DESTINATIONS_JSON))   # nothing selected

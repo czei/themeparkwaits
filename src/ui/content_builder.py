@@ -16,6 +16,7 @@ Copyright 2024 3DUPFitters LLC
 from __future__ import annotations
 
 from scrollkit.display.content import ScrollingText
+from src.ui.reveal_splash import SplashContent
 from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent, _to_int_color
 
 REQUIRED_MESSAGE = "ThemeParks.wiki"
@@ -182,3 +183,8 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     park_names = ", ".join(p.name for p in parks)
     queue.add(ScrollingText("Wait times for %s provided by %s" % (park_names, REQUIRED_MESSAGE),
                             y=_SCROLL_Y, color=default_color, speed=msg_speed))
+
+    # The swarm splash CAPS each full cycle: it plays after all wait times (and the
+    # attribution) have shown, then the queue loops back to the start. Same look as
+    # the boot splash (reveal_splash).
+    queue.add(SplashContent())
