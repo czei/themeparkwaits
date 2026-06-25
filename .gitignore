@@ -3,5 +3,6 @@
 /.idea/.gitignore
 .DS_STORE
 error_log
+customers.csv
 __init__.py
 __pycache__
