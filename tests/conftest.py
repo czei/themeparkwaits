@@ -19,35 +19,43 @@ for _p in (_LIB_SRC, _REPO_ROOT, os.path.join(_REPO_ROOT, "src")):
         sys.path.insert(0, _p)
 
 
-# --- canned queue-times.com payloads ---------------------------------------
-PARKS_JSON = """
-[{"id": 1, "name": "Walt Disney World", "parks": [
-    {"id": 6, "name": "Magic Kingdom", "latitude": "28.4", "longitude": "-81.5"},
-    {"id": 5, "name": "Epcot", "latitude": "28.3", "longitude": "-81.5"}]}]
-"""
+# --- canned themeparks.wiki payloads ---------------------------------------
+# Loaded from tests/fixtures/ (captured/trimmed from the real API). The catalog
+# (/v1/destinations) and live data (/v1/entity/{id}/live) cover every parsing
+# branch: status enum (OPERATING/DOWN/CLOSED/REFURBISHMENT), STANDBY present /
+# absent / null, non-ATTRACTION entities (PARK/SHOW/RESTAURANT), a meet-and-greet,
+# and a duplicate park name ("Disneyland Park") across two destinations.
+_FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
-QUEUE_TIMES_JSON = """
-{"lands": [{"id": 1, "name": "Tomorrowland", "rides": [
-    {"id": 101, "name": "Space Mountain", "is_open": true, "wait_time": 45},
-    {"id": 102, "name": "Astro Orbiter", "is_open": true, "wait_time": 0},
-    {"id": 103, "name": "Buzz Lightyear", "is_open": false, "wait_time": 0}]}],
- "rides": [{"id": 104, "name": "Mickey Meet & Greet", "is_open": true, "wait_time": 15}]}
-"""
+with open(os.path.join(_FIXTURES, "themeparks_destinations.json")) as _f:
+    DESTINATIONS_JSON = _f.read()
+with open(os.path.join(_FIXTURES, "themeparks_mk_live.json")) as _f:
+    LIVE_JSON = _f.read()
+
+# Stable themeparks.wiki park ids used across tests (UUIDs, not integers).
+MAGIC_KINGDOM_ID = "75ea578a-adc8-4116-a54d-dccb60765ef9"
+EPCOT_ID = "47f90d2c-e191-4239-a466-5892ef59a88b"
+DISNEYLAND_PARIS_ID = "ba88a23e-3d68-4d0b-8b5e-1a2b3c4d5e6f"
+DISNEYLAND_ANAHEIM_ID = "7340550b-c14d-4def-80bb-acdb51d49a66"
 
 
 def _canned_provider(url):
-    """mock_provider(url) -> MockResponse for scrollkit.network.HttpClient."""
+    """mock_provider(url) -> MockResponse for scrollkit.network.HttpClient.
+
+    Routes the two themeparks.wiki endpoints the app uses: the catalog
+    (``/v1/destinations``) and per-park live data (``/v1/entity/{id}/live``).
+    """
     from scrollkit.network.http_client import MockResponse
-    if url.endswith("/parks.json"):
-        return MockResponse(status_code=200, text=PARKS_JSON)
-    if "queue_times.json" in url:
-        return MockResponse(status_code=200, text=QUEUE_TIMES_JSON)
+    if url.endswith("/destinations"):
+        return MockResponse(status_code=200, text=DESTINATIONS_JSON)
+    if url.endswith("/live"):
+        return MockResponse(status_code=200, text=LIVE_JSON)
     return MockResponse(status_code=404, text="{}")
 
 
 @pytest.fixture
 def mock_http_client():
-    """An HttpClient wired to canned queue-times responses (no network)."""
+    """An HttpClient wired to canned themeparks.wiki responses (no network)."""
     from scrollkit.network.http_client import HttpClient
     client = HttpClient(session=None, mock_provider=_canned_provider)
     client.set_use_live_data(False)

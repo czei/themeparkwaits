@@ -165,20 +165,18 @@ def apply_settings(app, params) -> None:
     sm = app.settings
     svc = getattr(app, "service", None)
 
-    # Park selection (park_1..park_4 -> selected_park_ids).
-    ids = []
-    for i in range(1, MAX_PARKS + 1):
-        raw = params.get("park_%d" % i, "").strip()
-        if raw:
-            try:
-                pid = int(raw)
-            except ValueError:
-                continue
-            if pid > 0 and pid not in ids:
-                ids.append(pid)
-    if ids:
+    # Park selection (park_1..park_4 -> selected_park_ids). themeparks.wiki ids are
+    # UUID strings, so store them verbatim (no int() cast). Only touch the selection
+    # when the form actually submitted park fields, but then honor an empty choice so
+    # the user CAN clear all parks (every "(none)" dropdown -> selected_park_ids=[]).
+    if any(("park_%d" % i) in params for i in range(1, MAX_PARKS + 1)):
+        ids = []
+        for i in range(1, MAX_PARKS + 1):
+            raw = params.get("park_%d" % i, "").strip()
+            if raw and raw not in ids:
+                ids.append(raw)
         sm.set("selected_park_ids", ids)
-        sm.set("current_park_id", ids[0])
+        sm.set("current_park_id", ids[0] if ids else "")
 
     # Scalars.
     for key in ("sort_mode", "scroll_speed", "wait_time_effect", "domain_name"):
@@ -264,12 +262,23 @@ def render_page(app) -> str:
                    key=lambda p: p.name)
     selected = list(sm.get("selected_park_ids", []) or [])
 
+    # Names that appear on more than one park are disambiguated by appending the
+    # destination/resort (FR-005a) — e.g. the two "Disneyland Park" entries.
+    name_counts = {}
+    for p in parks:
+        name_counts[p.name] = name_counts.get(p.name, 0) + 1
+
+    def park_label(p):
+        if name_counts.get(p.name, 0) > 1 and getattr(p, "destination_name", ""):
+            return "%s - %s" % (p.name, p.destination_name)
+        return p.name
+
     def park_select(i):
         cur = selected[i - 1] if i - 1 < len(selected) else None
         opts = ['<option value="">(none)</option>']
         for p in parks:
             sel = " selected" if cur == p.id else ""
-            opts.append('<option value="%d"%s>%s</option>' % (p.id, sel, _esc(p.name)))
+            opts.append('<option value="%s"%s>%s</option>' % (_esc(p.id), sel, _esc(park_label(p))))
         return ('<div class="form-group"><label>Park %d</label>'
                 '<select class="form-control" name="park_%d">%s</select></div>'
                 % (i, i, "".join(opts)))

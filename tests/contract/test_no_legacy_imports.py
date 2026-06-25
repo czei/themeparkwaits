@@ -39,3 +39,25 @@ def test_active_modules_do_not_import_legacy():
             if ("from %s" % bad) in text or ("import %s" % bad) in text:
                 offenders.append("%s imports %s" % (rel, bad))
     assert not offenders, offenders
+
+
+def test_no_queue_times_references_in_shipped_code():
+    """FR-003 / SC-001 / SC-005: the data source is themeparks.wiki only — the
+    string 'queue-times' / 'queue_times' / 'parks.json' must appear nowhere in the
+    shipped app under src/ (URLs, attribution, comments, or runtime output)."""
+    import re
+    src_root = os.path.join(_REPO, "src")
+    pattern = re.compile(r"queue-?times|queue_times|parks\.json", re.IGNORECASE)
+    offenders = []
+    for dirpath, _dirs, files in os.walk(src_root):
+        if "__pycache__" in dirpath or os.sep + "lib" in dirpath:
+            continue  # skip caches and the vendored adafruit/scrollkit bundle
+        for fn in files:
+            if not fn.endswith(".py"):
+                continue
+            path = os.path.join(dirpath, fn)
+            with open(path, encoding="utf-8", errors="replace") as f:
+                for i, line in enumerate(f, 1):
+                    if pattern.search(line):
+                        offenders.append("%s:%d: %s" % (os.path.relpath(path, _REPO), i, line.strip()))
+    assert not offenders, "queue-times references remain:\n" + "\n".join(offenders)

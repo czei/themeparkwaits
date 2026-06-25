@@ -22,6 +22,7 @@ from src.web.config_server import (
     render_page,
     _schedule_refresh,
 )
+from tests.conftest import MAGIC_KINGDOM_ID
 
 # Each test gets its own loopback port (avoids TIME_WAIT rebind races between
 # sequentially-started servers). The client always targets the server's own port.
@@ -107,7 +108,17 @@ async def test_render_page_lists_parks(mock_http_client, settings_factory):
     app = await _app(mock_http_client, settings_factory)
     html = render_page(app)
     assert "ThemeParkWaits" in html
-    assert "Magic Kingdom" in html and "Epcot" in html  # park dropdowns
+    assert "Magic Kingdom Park" in html and "EPCOT" in html  # park dropdowns
+    assert '<option value="%s"' % MAGIC_KINGDOM_ID in html   # UUID option value
+
+
+async def test_render_page_disambiguates_duplicate_park_names(mock_http_client, settings_factory):
+    """Two parks named 'Disneyland Park' must be distinguishable in the dropdown
+    by their destination (FR-005a)."""
+    app = await _app(mock_http_client, settings_factory)
+    html = render_page(app)
+    assert "Disneyland Park - Disneyland Paris" in html
+    assert "Disneyland Park - Disneyland Resort" in html
 
 
 async def test_render_page_uses_color_dropdown(mock_http_client, settings_factory):
@@ -136,7 +147,7 @@ async def test_render_page_has_wait_effect_dropdown(mock_http_client, settings_f
 async def test_apply_settings_persists_and_rebuilds(mock_http_client, settings_factory):
     app = await _app(mock_http_client, settings_factory)
     apply_settings(app, {
-        "park_1": "6", "sort_mode": "min_wait", "scroll_speed": "Fast",
+        "park_1": MAGIC_KINGDOM_ID, "sort_mode": "min_wait", "scroll_speed": "Fast",
         "wait_time_effect": "None",
         "brightness_scale": "0.6", "skip_meet": "on",
         "default_color": "#112233", "domain_name": "mybox",
@@ -147,11 +158,23 @@ async def test_apply_settings_persists_and_rebuilds(mock_http_client, settings_f
     assert sm.get("wait_time_effect") == "None"
     assert sm.get("skip_meet") is True       # checkbox present
     assert sm.get("group_by_park") is False  # checkbox absent -> False
-    assert sm.get("selected_park_ids") == [6]
+    assert sm.get("selected_park_ids") == [MAGIC_KINGDOM_ID]   # UUID string stored
     assert sm.get("default_color") == "0x112233"  # #rrggbb -> 0xrrggbb
     assert sm.get("domain_name") == "mybox"
-    assert app.service.park_list.selected_parks[0].id == 6
+    assert app.service.park_list.selected_parks[0].id == MAGIC_KINGDOM_ID
     assert app.content_queue.get_content_count() > 0
+
+
+async def test_apply_settings_can_clear_all_parks(mock_http_client, settings_factory):
+    """Submitting the form with every park dropdown set to '(none)' clears the
+    selection — the user must be able to deselect all parks."""
+    app = await _app(mock_http_client, settings_factory)
+    apply_settings(app, {"park_1": MAGIC_KINGDOM_ID})
+    assert app.settings.get("selected_park_ids") == [MAGIC_KINGDOM_ID]
+    # Now all four dropdowns submitted empty.
+    apply_settings(app, {"park_1": "", "park_2": "", "park_3": "", "park_4": ""})
+    assert app.settings.get("selected_park_ids") == []
+    assert app.settings.get("current_park_id") == ""
 
 
 # --------------------------------------------------------------------------- #
@@ -162,7 +185,7 @@ async def test_get_index_over_http(mock_http_client, settings_factory):
     with _RunningServer(app, _PORT) as srv:
         status, body = _get(srv.base, "/")
         assert status == 200
-        assert "ThemeParkWaits" in body and "Magic Kingdom" in body
+        assert "ThemeParkWaits" in body and "Magic Kingdom Park" in body
 
 
 async def test_get_static_css_over_http(mock_http_client, settings_factory):
@@ -178,13 +201,14 @@ async def test_post_settings_redirects_and_applies(mock_http_client, settings_fa
     with _RunningServer(app, _PORT + 2) as srv:
         # Don't follow the redirect: assert it's a clean 303 -> "/".
         code, location = _post(
-            srv.base, "/settings", "park_1=6&scroll_speed=Fast&sort_mode=max_wait", follow=False)
+            srv.base, "/settings",
+            "park_1=%s&scroll_speed=Fast&sort_mode=max_wait" % MAGIC_KINGDOM_ID, follow=False)
         assert code == 303
         assert location == "/"
     sm = app.settings
     assert sm.get("scroll_speed") == "Fast"
     assert sm.get("sort_mode") == "max_wait"
-    assert sm.get("selected_park_ids") == [6]
+    assert sm.get("selected_park_ids") == [MAGIC_KINGDOM_ID]
 
 
 async def test_post_url_encoded_color_is_decoded(mock_http_client, settings_factory):
@@ -198,7 +222,8 @@ async def test_post_url_encoded_color_is_decoded(mock_http_client, settings_fact
     with _RunningServer(app, _PORT + 6) as srv:
         code, _ = _post(
             srv.base, "/settings",
-            "park_1=6&default_color=%23ffffff&ride_name_color=%2300aaff", follow=False)
+            "park_1=%s&default_color=%%23ffffff&ride_name_color=%%2300aaff" % MAGIC_KINGDOM_ID,
+            follow=False)
         assert code == 303
     sm = app.settings
     assert sm.get("default_color") == "0xffffff"   # %23ffffff -> #ffffff -> 0xffffff
@@ -229,7 +254,7 @@ async def test_save_settings_server_survives_and_redirects(mock_http_client, set
         # follow=True (default): urllib follows 303 → opens second connection → GET /
         final_code, final_url = _post(
             srv.base, "/settings",
-            "park_1=6&scroll_speed=Fast&sort_mode=max_wait",
+            "park_1=%s&scroll_speed=Fast&sort_mode=max_wait" % MAGIC_KINGDOM_ID,
         )
         assert final_code == 200, "redirect target returned %d (server may have crashed)" % final_code
         assert final_url.rstrip("/").endswith(str(_PORT + 5)), "landed on unexpected URL: %s" % final_url
@@ -241,7 +266,7 @@ async def test_save_settings_server_survives_and_redirects(mock_http_client, set
     sm = app.settings
     assert sm.get("scroll_speed") == "Fast"
     assert sm.get("sort_mode") == "max_wait"
-    assert sm.get("selected_park_ids") == [6]
+    assert sm.get("selected_park_ids") == [MAGIC_KINGDOM_ID]
 
 
 async def test_settings_change_schedules_prompt_refresh(mock_http_client, settings_factory):

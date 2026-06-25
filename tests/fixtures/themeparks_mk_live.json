@@ -1,0 +1,85 @@
+{
+  "id": "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "name": "Magic Kingdom Park",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "liveData": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000pk",
+      "name": "Magic Kingdom Park",
+      "entityType": "PARK",
+      "status": "OPERATING",
+      "queue": null
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111101",
+      "name": "Space Mountain",
+      "entityType": "ATTRACTION",
+      "status": "OPERATING",
+      "queue": { "STANDBY": { "waitTime": 45 } }
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111102",
+      "name": "Astro Orbiter",
+      "entityType": "ATTRACTION",
+      "status": "OPERATING",
+      "queue": { "STANDBY": { "waitTime": 0 } }
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111103",
+      "name": "Buzz Lightyear",
+      "entityType": "ATTRACTION",
+      "status": "CLOSED",
+      "queue": null
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111104",
+      "name": "TRON Lightcycle / Run",
+      "entityType": "ATTRACTION",
+      "status": "OPERATING",
+      "queue": { "RETURN_TIME": { "state": "AVAILABLE", "returnStart": null, "returnEnd": null } }
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111105",
+      "name": "Casey Jr. Splash 'N' Soak Station",
+      "entityType": "ATTRACTION",
+      "status": "OPERATING",
+      "queue": { "STANDBY": { "waitTime": null } }
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111106",
+      "name": "Walt Disney World Railroad",
+      "entityType": "ATTRACTION",
+      "status": "DOWN",
+      "queue": { "STANDBY": { "waitTime": null } }
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111107",
+      "name": "Tom Sawyer Island",
+      "entityType": "ATTRACTION",
+      "status": "REFURBISHMENT",
+      "queue": null
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111108",
+      "name": "Mickey Meet & Greet",
+      "entityType": "ATTRACTION",
+      "status": "OPERATING",
+      "queue": { "STANDBY": { "waitTime": 15 } }
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222201",
+      "name": "Festival of Fantasy Parade",
+      "entityType": "SHOW",
+      "status": "OPERATING",
+      "queue": null
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333301",
+      "name": "Be Our Guest Restaurant",
+      "entityType": "RESTAURANT",
+      "status": "OPERATING",
+      "queue": null
+    }
+  ]
+}

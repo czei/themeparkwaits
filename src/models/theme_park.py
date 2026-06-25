@@ -13,23 +13,20 @@ logger = ErrorHandler("error_log")
 class ThemePark:
     """Represents a theme park with rides and wait times"""
     
-    def __init__(self, json_data=(), name="", id=-1, latitude=0.0, longitude=0.0):
+    def __init__(self, json_data=(), name="", id=-1):
         """
         Initialize a theme park
-        
+
         Args:
-            json_data: Python JSON objects from a single park
+            json_data: Parsed /entity/{id}/live response for a single park
             name: The name of the park
-            id: The ID of the park
-            latitude: The latitude coordinate of the park
-            longitude: The longitude coordinate of the park
+            id: The themeparks.wiki id (UUID string) of the park
         """
         self.is_open = False
         self.counter = 0
         self.name = name
         self.id = id
-        self.latitude = latitude
-        self.longitude = longitude
+        self.destination_name = ""  # resort/destination, for FR-005a disambiguation
         self.rides = self.get_rides_from_json(json_data)
 
     @staticmethod
@@ -52,46 +49,50 @@ class ThemePark:
                 chars.append(c)
         return ''.join(chars)
 
-    def get_url(self):
-        """
-        Get the URL for fetching this park's wait times
-        
-        Returns:
-            URL string for the park's wait times data
-        """
-        url1 = "https://queue-times.com/parks/"
-        url2 = "/queue_times.json"
-        return url1 + str(self.id) + url2
+    @staticmethod
+    def _standby_wait(item):
+        """Standby wait minutes from a live entity, 0 if none.
 
-    def _process_ride(self, ride_data):
+        ``queue``/``STANDBY``/``waitTime`` may be absent OR present-but-null (the
+        API marks several queue waits nullable), so this is a null-safe coercion,
+        not a key-presence check.
         """
-        Process a single ride's data into a ThemeParkRide object
-        
+        queue = item.get("queue")
+        standby = queue.get("STANDBY") if isinstance(queue, dict) else None
+        w = standby.get("waitTime") if isinstance(standby, dict) else None
+        try:
+            return int(w) if w is not None else 0
+        except (TypeError, ValueError):
+            return 0
+
+    def _process_ride(self, item):
+        """
+        Process a single live ATTRACTION entity into a ThemeParkRide object
+
         Args:
-            ride_data: Dictionary containing ride information
-            
+            item: A ``liveData`` entity dict from /entity/{id}/live
+
         Returns:
             ThemeParkRide object
         """
-        name = self.remove_non_ascii(ride_data["name"])
-        ride_obj = ThemeParkRide(
-            name,
-            ride_data["id"],
-            ride_data["wait_time"],
-            ride_data["is_open"]
-        )
-        # Direct check instead of method call for performance
-        if ride_data["is_open"]:
+        name = self.remove_non_ascii(item.get("name", ""))
+        open_flag = item.get("status") == "OPERATING"
+        ride_obj = ThemeParkRide(name, item.get("id"), self._standby_wait(item), open_flag)
+        if open_flag:
             self.is_open = True
         return ride_obj
 
     def get_rides_from_json(self, json_data):
         """
-        Returns a list of rides at a particular park contained in the JSON
-        
+        Returns the list of attraction rides from a themeparks.wiki live payload.
+
+        Reads ``liveData`` and keeps only ``entityType == "ATTRACTION"`` entities
+        (shows, restaurants, hotels, and the PARK entity are skipped). Maps
+        ``status == "OPERATING"`` to open and ``queue.STANDBY.waitTime`` to the wait.
+
         Args:
-            json_data: A JSON file containing data for a particular park
-            
+            json_data: Parsed /entity/{id}/live response for a single park
+
         Returns:
             List of ThemeParkRide objects
         """
@@ -102,34 +103,28 @@ class ThemePark:
         if not json_data:
             return ride_list
 
-        # Optimized: Process all rides regardless of structure
         try:
-            # Process rides in lands (if they exist)
-            lands = json_data.get("lands", [])
-            for land in lands:
-                land_rides = land.get("rides", [])
-                for ride in land_rides:
-                    ride_list.append(self._process_ride(ride))
-
-            # Process rides not in lands (if they exist)
-            # This handles parks without land structure
-            direct_rides = json_data.get("rides", [])
-            for ride in direct_rides:
-                ride_list.append(self._process_ride(ride))
-                
-        except (KeyError, TypeError) as e:
+            for item in json_data.get("liveData", []):
+                if not isinstance(item, dict):
+                    continue
+                if item.get("entityType") != "ATTRACTION":
+                    continue
+                ride_list.append(self._process_ride(item))
+        except (KeyError, TypeError, AttributeError) as e:
+            # AttributeError guards against a malformed payload where liveData (or a
+            # nested queue) is a non-dict — never crash on bad data (FR-016).
             logger.error(e, "Error parsing theme park data")
-            
+
         return ride_list
 
     def is_valid(self):
         """
         Check if this is a valid theme park object
-        
+
         Returns:
-            True if the theme park is valid, False otherwise
+            True if the theme park has a (non-empty, non-sentinel) id
         """
-        return self.id > 0
+        return bool(self.id) and self.id != -1
 
     def set_rides(self, ride_json):
         """
