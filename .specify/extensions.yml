@@ -1,0 +1,57 @@
+hooks:
+  after_specify:
+  - name: ocr-spec-review
+    command: ocr-review-spec
+    description: Review specification with OCR
+    optional: false
+    condition: ''
+  - extension: pal
+    command: speckit.pal.review
+    enabled: true
+    optional: false
+    prompt: Run PAL review of the spec?
+    description: PAL multi-model review after specification
+    condition: null
+  after_plan:
+  - name: ocr-plan-review
+    command: ocr-review-plan
+    description: Review plan with OCR
+    optional: false
+    condition: ''
+  - extension: pal
+    command: speckit.pal.review
+    enabled: true
+    optional: false
+    prompt: Run PAL review of the plan?
+    description: PAL multi-model review after planning
+    condition: null
+  after_tasks:
+  - name: ocr-task-review
+    command: ocr-review-tasks
+    description: Review tasks with OCR
+    optional: false
+    condition: ''
+  - extension: pal
+    command: speckit.pal.review
+    enabled: true
+    optional: false
+    prompt: Run PAL review of the task list?
+    description: PAL multi-model review after task generation
+    condition: null
+  after_implement:
+  - name: ocr-code-review
+    command: ocr-review-code
+    description: Review implementation with OCR
+    optional: false
+    condition: ''
+  - extension: pal
+    command: speckit.pal.review
+    enabled: true
+    optional: true
+    prompt: Run PAL review of the implementation diff?
+    description: PAL multi-model review after implementation
+    condition: null
+installed:
+- pal
+settings:
+  auto_execute_hooks: true
