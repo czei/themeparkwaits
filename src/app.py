@@ -227,6 +227,7 @@ class ThemeParkApp(ScrollKitApp):
         # setup()'s "Updating / Parks" frame is already up; every later refresh
         # (the 5-min cycle, or a settings-change refresh) shows "Updating / Times".
         if self._initial_refresh_done:
+            await self._teardown_active_content()
             await self._status("Times")
         else:
             self._initial_refresh_done = True
@@ -240,3 +241,29 @@ class ThemeParkApp(ScrollKitApp):
             build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
         except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
             logger.error(e, "update_data failed")
+
+    async def _teardown_active_content(self) -> None:
+        """Release the on-screen content's persistent overlay before a status frame.
+
+        A ride's large wait NUMBER is a display *layer* (RideScreenContent's
+        DripReveal/SwarmReveal), which the per-frame ``display.clear()``
+        deliberately leaves untouched so an effect can span frames — it is only
+        released by the content's ``stop()``. The "Updating / Times" status frame
+        (_status) is drawn from this data task, OUTSIDE the display loop, and is
+        immediately followed by the *blocking* fetch that freezes the loop; so
+        without stopping the current content here, the previous ride's number
+        ghosts on top of "Updating / Times" for the whole fetch (the reported
+        bug). ContentQueue.clear() only DEFERS that stop to the display loop,
+        which is frozen, so run it now and empty the queue so nothing re-renders
+        over the status frame; build_content_queue() repopulates it after the
+        fetch. Defensive — never raises into the refresh."""
+        queue = self.content_queue
+        if queue is None:
+            return
+        try:
+            current = queue.get_current_content()
+            if current is not None:
+                await current.stop()
+            queue.clear()
+        except Exception as e:
+            logger.error(e, "teardown active content failed")
