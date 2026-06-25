@@ -13,9 +13,9 @@ class ThemeParkRide:
         
         Args:
             name: The name of the ride
-            new_id: The ID of the ride
-            wait_time: The current wait time in minutes
-            open_flag: Whether the ride is currently open
+            new_id: The ID of the ride (a themeparks.wiki UUID string)
+            wait_time: The current standby wait time in minutes
+            open_flag: Whether the ride is currently operating
         """
         self.name = name
         self.id = new_id

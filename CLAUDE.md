@@ -3,7 +3,9 @@
 CircuitPython app for a Matrix Portal S3 (64×32 RGB LED matrix) that shows live theme-park ride wait times. Boots `code.py` → `src/themeparkwaits` → `src/main.py`.
 
 ## Active feature
-**001 — Port to the refactored ScrollKit library** (`specs/001-this-project-is/`). Re-platform every subsystem the library provides onto `scrollkit.*`; keep only theme-park domain code. See `plan.md`, `research.md`, `contracts/`, `SCROLLKIT_NOTES.md`.
+**002 — Source wait times from themeparks.wiki** (`specs/002-themeparks-wiki-api/`). Replaced queue-times.com with the themeparks.wiki API (catalog + live data); no queue-times anywhere. Domain-layer change only (`theme_park_service`, `models/*`, `content_builder` attribution, `config_server` park selection). Simulator-validated against the live API (139 parks; Magic Kingdom 35 attractions); hardware free-heap check (R1) pending. See its `plan.md`, `research.md`, `data-model.md`, `contracts/`.
+
+**Prior: 001 — Port to the refactored ScrollKit library** (`specs/001-this-project-is/`). Re-platform every subsystem the library provides onto `scrollkit.*`; keep only theme-park domain code.
 
 **Status (simulator-complete):** Milestone A done on the desktop simulator — boots, fetches live data, reveal splash, ride screens (scrolling name + 2× number), config web UI (:8080), OTA glue, resilience guards. 26 tests pass; dead code removed; hardware feasibility ~135 FPS / 1 KB RAM, no warnings. **Remaining: on-device verification (hardware checklist T035–T043), first-boot AP onboarding (device-only), and the boot-state-machine reboot branches.**
 
@@ -13,7 +15,7 @@ boot.py, code.py, src/themeparkwaits.py, src/main.py   # entry / bootstrap
 src/app.py                 # ThemeParkApp(ScrollKitApp): setup/update_data/show_loading/create_*
 src/settings_schema.py     # DEFAULTS + bool_keys for scrollkit.config.SettingsManager
 src/ota_glue.py            # OTAClient.for_github (public 'releases' branch, no token)
-src/api/theme_park_service.py   # queue-times fetch/parse on scrollkit HttpClient
+src/api/theme_park_service.py   # themeparks.wiki fetch/parse on scrollkit HttpClient
 src/models/*               # ThemePark / Ride / List / Vacation (domain)
 src/ui/ride_screen_content.py   # RideScreenContent + ClosedRideContent (dual-zone)
 src/ui/tpw_display.py      # ThemeParkDisplay(UnifiedDisplay) + draw_text_scaled (2x number)
@@ -29,11 +31,11 @@ tools/sim_shot.py          # headless screenshot helper for layout iteration
 - **CircuitPython** (device) + **CPython 3.11+** (desktop simulation).
 - **ScrollKit library** at `../ScrollKit Library` → `scrollkit.*`: `app` (`ScrollKitApp`), `display` (`UnifiedDisplay`, `ContentQueue`, `ScrollingText`/`StaticText`/`DisplayContent`), `effects` (`RevealEffect`), `network` (`WiFiManager`, `HttpClient`), `config` (`SettingsManager`), `ota` (`OTAClient`), `web` (`SLDKWebServer`, handlers), `utils` (`ErrorHandler`, `Timer`, `ColorUtils`, `set_system_clock`, `url_decode`).
 - Adafruit CircuitPython `.mpy` bundle vendored in `src/lib/`; `scrollkit/` copied to device `/lib/`.
-- Data: queue-times.com JSON (`parks.json`, `parks/{id}/queue_times.json`). Settings in `settings.json`; WiFi creds in `secrets.py`.
+- Data: **themeparks.wiki** API (no auth) — `GET /v1/destinations` (catalog) + `GET /v1/entity/{parkId}/live` (wait times; `queue.STANDBY.waitTime`, status `OPERATING`/`DOWN`/`CLOSED`/`REFURBISHMENT`). Park ids are UUID strings. Per-park `/live` is ~90 KB, so selected parks are fetched **sequentially** with `gc.collect()` between them (one payload in RAM at a time). Settings in `settings.json`; WiFi creds in `secrets.py`.
 
 ## Key migration facts
 - The app's old `settings_manager`/`wifi_manager`/`http_client`/`unified_display`/`utils`/`ota`/`web_server` are **hand-rolled copies that diverged from the old library** — the refactor extracted clean versions into `scrollkit.*`. Port = replace app-local subsystem with the `scrollkit` import.
-- **Stays app code (library gaps)**: queue-times.com client + `src/models/*`; sort/filter/group/multi-park rules; the **dual-zone ride screen** (scrolling name + 2× wait number + "Closed") as a custom `DisplayContent`; the config-page HTML/routes content; mDNS hostname; the OTA *release* glue.
+- **Stays app code (library gaps)**: themeparks.wiki client + `src/models/*`; sort/filter/group/multi-park rules; the **dual-zone ride screen** (scrolling name + 2× wait number + "Closed") as a custom `DisplayContent`; the config-page HTML/routes content; mDNS hostname; the OTA *release* glue.
 - **App framework**: subclass `ScrollKitApp(enable_web=True, update_interval=300)`; `setup()` = boot sequence (splash→wifi→OTA-install→clock→fetch), `update_data()` = 5-min refresh, content via `self.content_queue`.
 
 ## Efficiency rules (Phase 2 — from the library's docs)

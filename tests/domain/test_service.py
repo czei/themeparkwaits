@@ -1,7 +1,8 @@
-"""T019 — ThemeParkService fetch + parse onto scrollkit.network.HttpClient."""
+"""ThemeParkService fetch + parse on themeparks.wiki via scrollkit HttpClient."""
 import pytest
 
 from src.api.theme_park_service import ThemeParkService
+from tests.conftest import DESTINATIONS_JSON, MAGIC_KINGDOM_ID
 
 
 @pytest.mark.asyncio
@@ -9,16 +10,16 @@ async def test_fetch_park_list(mock_http_client, settings_factory):
     svc = ThemeParkService(mock_http_client, settings_factory())
     plist = await svc.fetch_park_list()
     names = {p.name for p in plist.park_list}
-    assert {"Magic Kingdom", "Epcot"} <= names
+    assert {"Magic Kingdom Park", "EPCOT"} <= names
 
 
 @pytest.mark.asyncio
 async def test_fetch_park_data_parses_rides(mock_http_client, settings_factory):
     svc = ThemeParkService(mock_http_client, settings_factory())
-    data = await svc.fetch_park_data(6)
+    data = await svc.fetch_park_data(MAGIC_KINGDOM_ID)
     assert data is not None
     from src.models.theme_park import ThemePark
-    park = ThemePark(data, "Magic Kingdom", 6)
+    park = ThemePark(data, "Magic Kingdom", MAGIC_KINGDOM_ID)
     waits = {r.name: r.wait_time for r in park.rides}
     assert waits["Space Mountain"] == 45
     assert "Mickey Meet & Greet" in waits
@@ -27,11 +28,11 @@ async def test_fetch_park_data_parses_rides(mock_http_client, settings_factory):
 @pytest.mark.asyncio
 async def test_update_selected_parks(mock_http_client, settings_factory):
     import json
-    from tests.conftest import PARKS_JSON
     from src.models.theme_park_list import ThemeParkList
 
-    svc = ThemeParkService(mock_http_client, settings_factory(selected_park_ids=[6]))
-    svc.park_list = ThemeParkList(json.loads(PARKS_JSON))
+    svc = ThemeParkService(mock_http_client,
+                           settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID]))
+    svc.park_list = ThemeParkList(json.loads(DESTINATIONS_JSON))
     svc.park_list.load_settings(svc.settings_manager)
     updated = await svc.update_selected_parks()
     assert updated == 1

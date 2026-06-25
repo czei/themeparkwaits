@@ -18,7 +18,7 @@ from __future__ import annotations
 from scrollkit.display.content import ScrollingText
 from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent, _to_int_color
 
-REQUIRED_MESSAGE = "queue-times.com"
+REQUIRED_MESSAGE = "ThemeParks.wiki"
 
 # draw_text's y is the text BASELINE (top-down origin; y=0 clips the glyph off the
 # top). Mid-teens vertically centers a single line on the 32px panel.

@@ -1,0 +1,32 @@
+{
+  "destinations": [
+    {
+      "id": "e957da41-3552-4cf6-b636-5babc5cbc4e5",
+      "name": "Walt Disney World® Resort",
+      "slug": "waltdisneyworldresort",
+      "externalId": "waltdisneyworldresort",
+      "parks": [
+        { "id": "75ea578a-adc8-4116-a54d-dccb60765ef9", "name": "Magic Kingdom Park" },
+        { "id": "47f90d2c-e191-4239-a466-5892ef59a88b", "name": "EPCOT" }
+      ]
+    },
+    {
+      "id": "dae968d5-630d-4719-8b06-3d107e944401",
+      "name": "Disneyland Paris",
+      "slug": "disneylandparis",
+      "externalId": "disneylandparis",
+      "parks": [
+        { "id": "ba88a23e-3d68-4d0b-8b5e-1a2b3c4d5e6f", "name": "Disneyland Park" }
+      ]
+    },
+    {
+      "id": "bfbf57b1-2f31-46ed-9c1a-3a3f5f1a0c33",
+      "name": "Disneyland Resort",
+      "slug": "disneylandresort",
+      "externalId": "disneylandresort",
+      "parks": [
+        { "id": "7340550b-c14d-4def-80bb-acdb51d49a66", "name": "Disneyland Park" }
+      ]
+    }
+  ]
+}

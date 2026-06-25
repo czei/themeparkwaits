@@ -3,13 +3,14 @@ import os
 
 from src.app import ThemeParkApp
 from src.ui.ride_screen_content import RideScreenContent
+from tests.conftest import MAGIC_KINGDOM_ID
 
 
 async def test_app_boots_and_builds_ride_queue(mock_http_client, settings_factory):
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     from scrollkit.dev.harness import run_headless_async
 
-    sm = settings_factory(selected_park_ids=[6])
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
     app = ThemeParkApp(http_client=mock_http_client, settings=sm)
 
     # warmup_data=True runs setup() (fetch park list) then one update_data() (fetch waits + build).

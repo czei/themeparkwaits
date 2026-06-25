@@ -119,7 +119,7 @@ class ThemeParkApp(ScrollKitApp):
             except Exception as e:
                 print("OTA install_pending failed:", e)
 
-        # Park-list fetch is the big blocking call (parks.json + retries) — tell
+        # Park-list fetch is the big blocking call (/destinations + retries) — tell
         # the user before the panel would otherwise go black on it.
         await self._status("Parks")
         try:
@@ -221,7 +221,7 @@ class ThemeParkApp(ScrollKitApp):
 
     async def update_data(self) -> None:
         """Refresh wait times for the selected park(s) and rebuild the content queue."""
-        # Every refresh hits the internet (queue-times), and the synchronous fetch
+        # Every refresh hits the internet (themeparks.wiki), and the synchronous fetch
         # freezes the display while it runs — so paint a frame first, or a hang/delay
         # looks like a dead screen. Skip only the first (boot) refresh, where
         # setup()'s "Updating / Parks" frame is already up; every later refresh

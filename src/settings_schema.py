@@ -29,6 +29,9 @@ DEFAULTS = {
     "display_mode": "all_rides",
     "sort_mode": "alphabetical",
     "group_by_park": False,
+    # themeparks.wiki park ids are UUID strings (e.g. "75ea578a-..."); legacy
+    # integer ids from the old source are cleared on upgrade (see
+    # ThemeParkList._migrate_legacy_selection).
     "selected_park_ids": [],
 }
 
