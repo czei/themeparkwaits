@@ -26,6 +26,7 @@ DEFAULTS = {
     "ride_wait_time_color": ColorUtils.colors["Old Lace"],
     "scroll_speed": "Medium",
     "wait_time_effect": "Rain",
+    "wait_color_mode": "severity",      # severity (green->red by wait) | fixed
     "display_mode": "all_rides",
     "sort_mode": "alphabetical",
     "group_by_park": False,

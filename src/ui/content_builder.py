@@ -24,6 +24,25 @@ REQUIRED_MESSAGE = "ThemeParks.wiki"
 # top). Mid-teens vertically centers a single line on the 32px panel.
 _SCROLL_Y = 13
 
+# Wait-number severity coloring (wait_color_mode="severity"): minutes -> color,
+# green (short) through red (long). Channels stick to 4-bit-clean values
+# (0x00/0x80/0xc0/0xff) so they survive the bit_depth=4 panel. Thresholds are
+# inclusive upper bounds.
+_SEVERITY_BANDS = ((20, 0x00FF00), (45, 0xFFC000), (75, 0xFF8000))
+_SEVERITY_MAX = 0xFF0000   # 76+ minutes
+
+
+def _severity_color(minutes):
+    """Color for a wait of ``minutes`` under severity coloring (green -> red)."""
+    try:
+        m = int(minutes)
+    except (TypeError, ValueError):
+        return _SEVERITY_BANDS[0][1]   # unknown wait reads as low, not alarming
+    for threshold, color in _SEVERITY_BANDS:
+        if m <= threshold:
+            return color
+    return _SEVERITY_MAX
+
 
 def _sort_rides(rides, sort_mode):
     """Sort a list of ThemeParkRide by the given mode (closed rides weigh 0)."""
@@ -80,10 +99,12 @@ def _scroll_speed(settings):
     return 30
 
 
-def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0, wait_effect="Rain"):
+def _add_ride(queue, ride, name_color, wait_color, scroll_step=1.0, wait_effect="Rain",
+              wait_color_mode="severity"):
     if ride.open_flag is True:
+        wc = _severity_color(ride.wait_time) if wait_color_mode == "severity" else wait_color
         queue.add(RideScreenContent(ride.name, ride.wait_time,
-                                    name_color=name_color, wait_color=wait_color,
+                                    name_color=name_color, wait_color=wc,
                                     scroll_step=scroll_step, effect=wait_effect))
     else:
         queue.add(ClosedRideContent(ride.name, name_color=name_color,
@@ -123,6 +144,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     skip_closed = settings.get("skip_closed", False)
     step = _scroll_step(settings)   # ride-name scroll px/frame from Scroll Speed
     wait_effect = settings.get("wait_time_effect", "Rain")  # wait-number reveal style
+    wait_color_mode = settings.get("wait_color_mode", "severity")  # severity|fixed
 
     if group_by_park:
         for park in parks:
@@ -134,14 +156,14 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
                                     y=_SCROLL_Y, color=default_color, speed=msg_speed))
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
-                _add_ride(queue, ride, name_color, wait_color, step, wait_effect)
+                _add_ride(queue, ride, name_color, wait_color, step, wait_effect, wait_color_mode)
     else:
         combined = []
         for park in parks:
             if park.is_open:
                 combined.extend(_filter_rides(park.rides, skip_meet, skip_closed))
         for ride in _sort_rides(combined, sort_mode):
-            _add_ride(queue, ride, name_color, wait_color, step, wait_effect)
+            _add_ride(queue, ride, name_color, wait_color, step, wait_effect, wait_color_mode)
 
     # Vacation countdown.
     if vacation is not None and vacation.is_set():

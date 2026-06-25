@@ -40,6 +40,9 @@ from src.ui.ride_screen_content import WAIT_EFFECTS
 
 SORT_MODES = ("alphabetical", "max_wait", "min_wait")
 SCROLL_SPEEDS = ("Slow", "Medium", "Fast")
+# Wait-number coloring: "severity" colors by wait length (green->red); "fixed"
+# uses the Ride Wait Time Color setting.
+WAIT_COLOR_MODES = ("severity", "fixed")
 MAX_PARKS = 4
 
 # Curated colors that stay visually distinct on the bit_depth=4 panel (16 levels
@@ -179,7 +182,8 @@ def apply_settings(app, params) -> None:
         sm.set("current_park_id", ids[0] if ids else "")
 
     # Scalars.
-    for key in ("sort_mode", "scroll_speed", "wait_time_effect", "domain_name"):
+    for key in ("sort_mode", "scroll_speed", "wait_time_effect", "wait_color_mode",
+                "domain_name"):
         if key in params and params[key]:
             sm.set(key, params[key])
     if "brightness_scale" in params:
@@ -322,6 +326,8 @@ def render_page(app) -> str:
         scroll=select("scroll_speed", SCROLL_SPEEDS, sm.get("scroll_speed", "Medium")),
         wait_effect=select("wait_time_effect", WAIT_EFFECTS,
                            sm.get("wait_time_effect", "Rain")),
+        wait_color_mode=select("wait_color_mode", WAIT_COLOR_MODES,
+                               sm.get("wait_color_mode", "severity")),
         brightness=brightness,
         group=checkbox("group_by_park"),
         skip_closed=checkbox("skip_closed"),
@@ -460,6 +466,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 {skip_meet}
 {default_color}
 {name_color}
+{wait_color_mode}
 {wait_color}
 <h3>Network</h3>
 <div class="form-group"><label>Domain Name (.local)</label>

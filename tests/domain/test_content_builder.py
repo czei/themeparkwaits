@@ -84,6 +84,24 @@ def test_wait_time_effect_threads_to_rides(settings_factory):
     assert effects(wait_time_effect="Swarm", group_by_park=True) == {"Swarm"}
 
 
+def test_wait_color_severity_vs_fixed(settings_factory):
+    """severity mode colors the number green->red by wait; fixed uses the setting."""
+    def waits(**overrides):
+        sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID], **overrides)
+        q = ContentQueue()
+        build_content_queue(q, _park_list_with_rides(sm), sm, Vacation())
+        return {c.ride_name: c.wait_color for c in _items(q)
+                if isinstance(c, RideScreenContent)}
+
+    sev = waits()                                  # default wait_color_mode=severity
+    assert sev["Astro Orbiter"] == 0x00FF00        # 0 min -> green
+    assert sev["Mickey Meet & Greet"] == 0x00FF00  # 15 min -> green
+    assert sev["Space Mountain"] == 0xFFC000       # 45 min -> amber
+
+    fixed = waits(wait_color_mode="fixed", ride_wait_time_color="0xffffff")
+    assert set(fixed.values()) == {0xFFFFFF}        # all use the fixed setting
+
+
 def test_group_by_park_adds_header_and_attribution(settings_factory):
     sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID], group_by_park=True)
     q = ContentQueue()
