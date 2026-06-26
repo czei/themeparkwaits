@@ -139,14 +139,27 @@ def _instantiate_scroller(name, text, color, speed, y):
         return KineticMarquee(text, y=y, color=color, speed=speed)
 
 
-def _instantiate_palette(name, text, speed, y=_PALETTE_Y):
-    """Palette-animated bitmap text using the catalog palette effect ``name``."""
+def _instantiate_palette(name, text, speed, y=_PALETTE_Y, color=None):
+    """Palette-animated bitmap text using the catalog palette effect ``name``.
+
+    When ``color`` is given it is passed as the effect's BASE colour, so the
+    animation shimmers/pulses THAT colour (the configured Ride Name colour) instead
+    of imposing the effect's own default. Every palette effect except RainbowChase
+    takes a ``color``; RainbowChase has none (it forces a rainbow), so it falls back
+    to its no-arg form."""
     from scrollkit.display import bitmap_text as _bt
     eff_cls = getattr(_bt, name, None) or RainbowChase
-    try:
-        eff = eff_cls()
-    except Exception:                       # new/changed palette class -> safe default
-        eff = RainbowChase()
+    eff = None
+    if color is not None:
+        try:
+            eff = eff_cls(color=color)      # derive the shades from the chosen colour
+        except Exception:
+            eff = None                      # effect takes no colour (e.g. RainbowChase)
+    if eff is None:
+        try:
+            eff = eff_cls()
+        except Exception:                   # new/changed palette class -> safe default
+            eff = RainbowChase()
     return _PaletteMessage(text, palette_effect=eff, scroll_speed=speed, y=y)
 
 
@@ -185,16 +198,20 @@ def _random_content(text, color, speed, cat, rng):
 def _name_scroller(ride_name, color, speed, cat, rng):
     """A random SCROLLING-category effect to render the ride NAME in the top zone —
     drawn from the FULL scrolling-tagged set (motion scrollers AND palette colour
-    effects), so names get visibly varied effects, not just subtle motion. Returns
-    (content, effect_name); (None, "plain") falls back to the built-in scroll."""
-    pool = cat.content_pool
+    effects), so names get visibly varied effects, not just subtle motion. ``color``
+    (the configured Ride Name colour) is passed into whichever effect is chosen so the
+    name always displays in that colour — the effect only animates it. RainbowChase is
+    excluded for the name: it ignores the base colour and forces a multi-hue rainbow,
+    which would override the Ride Name setting. Returns (content, effect_name);
+    (None, "plain") falls back to the built-in scroll."""
+    pool = [p for p in cat.content_pool if p != ("palette", "RainbowChase")]
     if not pool:
         return None, "plain"
     kind, name = rng.choice(pool)
     if kind == "scroller":
         item = _instantiate_scroller(name, ride_name, color, speed, _NAME_Y)
     else:                              # palette colour effect, kept in the top zone
-        item = _instantiate_palette(name, ride_name, speed, y=_NAME_PALETTE_Y)
+        item = _instantiate_palette(name, ride_name, speed, y=_NAME_PALETTE_Y, color=color)
     return item, name
 
 
