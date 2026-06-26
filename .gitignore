@@ -1,5 +1,7 @@
 /src/.version
 /secrets.py
+.env
+.env.*
 /.idea/.gitignore
 .DS_STORE
 error_log

@@ -10,6 +10,8 @@ Copyright 2024 3DUPFitters LLC
 """
 from __future__ import annotations
 
+import asyncio
+
 from scrollkit.app.base import ScrollKitApp
 
 from scrollkit.utils.error_handler import ErrorHandler
@@ -48,6 +50,15 @@ class ThemeParkApp(ScrollKitApp):
         # frame is still up; later refreshes paint their own indicator (see
         # update_data) since they hit the internet with no boot context on screen.
         self._initial_refresh_done = False
+        # The boot swarm splash's reveal, held on screen so the first boot status
+        # frame can WIPE it away (a real transition, not a hard cut). Detached the
+        # first time _status(..., transition=True) runs. See setup()/_status().
+        self._boot_splash = None
+        # setup() fetches + builds + reveals the first content itself (so the
+        # status->first-content handoff is a real transition, done before the
+        # concurrent display loop owns the screen). This makes the data loop's
+        # very first update_data() a no-op so it doesn't immediately re-fetch.
+        self._skip_initial_update = False
 
     async def create_display(self):
         """Return the ScrollKit display (auto-detects sim/hardware).
@@ -96,16 +107,12 @@ class ThemeParkApp(ScrollKitApp):
             pass
 
         # Opening splash: a small, sparse flock of birds (keep it to ~20 — fewer
-        # looks better) flies in and assembles "THEME PARK WAITS"
-        # (scrollkit.effects.swarm_reveal), then disperses and holds. Pixel map
-        # stays app-side (reveal_splash.get_theme_park_waits_pixels).
-        try:
-            from src.ui.reveal_splash import get_theme_park_waits_pixels
-            from scrollkit.effects.swarm_reveal import show_swarm_splash
-            await show_swarm_splash(self.display, get_theme_park_waits_pixels(),
-                                    num_birds=20, bird_speed=5.0, hold_seconds=1.5)
-        except Exception as e:
-            logger.error(e, "swarm splash failed")
+        # looks better) flies in and assembles "THEME PARK WAITS". Driven here
+        # frame-by-frame (instead of the blocking show_swarm_splash, which detaches
+        # at the end) so the assembled name STAYS on screen and the first boot
+        # status frame can wipe it away with a real transition. The reveal is held
+        # in self._boot_splash and detached by the first transitioned _status().
+        await self._play_boot_splash()
 
         # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
         # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
@@ -120,35 +127,200 @@ class ThemeParkApp(ScrollKitApp):
                 print("OTA install_pending failed:", e)
 
         # Park-list fetch is the big blocking call (/destinations + retries) — tell
-        # the user before the panel would otherwise go black on it.
-        await self._status("Parks")
+        # the user before the panel would otherwise go black on it. transition=True
+        # wipes the splash (on desktop) / the prior status frame into "Parks".
+        await self._status("Parks", transition=True)
         try:
             await self.service.initialize()  # fetch park list + load park/vacation settings
         except Exception as e:  # never crash boot (FR-014)
             logger.error(e, "service.initialize failed")
 
-    async def _status(self, step, color=0xFFAA00) -> None:
-        """Two-row boot status: a constant "Updating" header over the current step
-        ("Wi-Fi" / "Clock" / "Parks"), both horizontally centered.
+        # Fetch wait times + build the queue HERE (the "Parks" frame stays up during
+        # the fetch), then WIPE "Parks" into the first content screen. Done in setup
+        # so this status->content handoff is a real transition — before the display
+        # loop starts and becomes the screen's owner. The data loop's first
+        # update_data() is then a no-op (it would otherwise immediately re-fetch).
+        try:
+            await self._fetch_and_build()
+            self._initial_refresh_done = True
+            self._skip_initial_update = True
+            await self._transition_to_first_queue_content()
+        except Exception as e:
+            logger.error(e, "boot first-content build failed")
+
+    async def _draw_status_frame(self, step, color=0xFFAA00) -> None:
+        """Draw (without show) the two-row boot status: "Updating" over the step row."""
+        disp = self.display
+        await disp.clear()
+        await self._draw_centered(disp, "Updating", 11, color)
+        if step:
+            await self._draw_centered(disp, step, 27, color)
+
+    async def _status(self, step, color=0xFFAA00, *, transition=False) -> None:
+        """Two-row boot status ("Updating" + step), shown before a blocking boot call.
 
         Boot makes several blocking network calls between the splash and the first
         data frame while the display loop isn't running yet, so without a frame in
-        between the panel sits black for what can be minutes and the user assumes it
-        hung. The header says what's happening; the step row says which one (a step
-        that lingers points straight at the slow call). Defensive — never raises
-        into boot. Keep ``step`` short: ~10 chars fit at the default font.
+        between the panel sits black and looks hung. ``transition=True`` WIPES the
+        previous full-screen frame (the splash, or the prior status) into this one
+        via the direct-display driver — these boot handoffs are not content-queue
+        advances, so the queue's transition system can't animate them. Default False
+        so the per-attempt Wi-Fi retry callback doesn't wipe-spam. Defensive — never
+        raises into boot. Keep ``step`` short: ~10 chars fit at the default font.
         """
         disp = self.display
         if not disp:
             return
+
+        async def _draw():
+            # The first status frame wipes the held boot splash away for good.
+            sp = self._boot_splash
+            if sp is not None:
+                try:
+                    sp.detach()
+                except Exception:
+                    pass
+                self._boot_splash = None
+            await self._draw_status_frame(step, color)
+
         try:
-            await disp.clear()
-            await self._draw_centered(disp, "Updating", 11, color)
-            if step:
-                await self._draw_centered(disp, step, 27, color)
-            await disp.show()
+            if transition:
+                await self._play_direct_transition(_draw)
+            else:
+                await _draw()
+                await disp.show()
         except Exception:
             pass
+
+    async def _play_boot_splash(self, num_birds=20, bird_speed=5.0, hold_seconds=1.5) -> None:
+        """Assemble the THEME PARK WAITS swarm and HOLD it on screen (don't detach),
+        so the first boot status frame can wipe it away with a real transition.
+
+        Driven frame-by-frame here instead of the blocking ``show_swarm_splash``
+        (which detaches at the end, leaving nothing to wipe). The reveal is stored
+        in ``self._boot_splash``. Never raises into boot.
+        """
+        self._boot_splash = None
+        disp = self.display
+        if disp is None:
+            return
+        try:
+            from src.ui.reveal_splash import get_theme_park_waits_pixels
+            from scrollkit.effects.swarm_reveal import SwarmReveal
+            splash = SwarmReveal(get_theme_park_waits_pixels(),
+                                 num_birds=num_birds, bird_speed=bird_speed)
+            splash.start(disp)
+            steps = 0
+            while not splash.is_complete and steps < 2000:
+                steps += 1
+                splash.step()
+                if await disp.show() is False:
+                    splash.detach()
+                    return
+                await asyncio.sleep(0.05)
+            await asyncio.sleep(hold_seconds)      # hold the assembled name
+            self._boot_splash = splash             # held on screen; wiped by next _status
+        except Exception as e:
+            logger.error(e, "swarm splash failed")
+            self._boot_splash = None
+
+    def _boot_transition(self, style=None):
+        """A transition for a boot / direct-display handoff. The ``transition_style``
+        setting gates the off-switch ("None" -> no transition); ``style`` chooses
+        which transition to use WHEN ON. Pass a scroll-safe transition
+        ("Horizontal Wipe") when revealing SCROLLING content; leave None for the
+        STATIC, held boot status frames, which get a full-screen wipe (Iris Snap) —
+        full-screen transitions are [best on: fullscreen], i.e. for static screens.
+        """
+        setting = self.settings.get("transition_style", "None")
+        if not setting or setting == "None":
+            return None
+        name = style or ("Iris Snap" if setting == "Auto" else setting)
+        try:
+            from scrollkit.effects.transitions import transition_factory
+        except ImportError:
+            return None
+        return transition_factory(name)
+
+    async def _play_direct_transition(self, draw_next, *, style=None) -> None:
+        """Wipe whatever is on screen into a freshly-drawn full-screen frame, using
+        the generic transition primitive DIRECTLY (independent of the content queue).
+
+        ``draw_next`` is an async callable that draws the destination frame; it runs
+        once while the transition is fully covered (so the swap is hidden), then the
+        transition reveals it. Paced at ~20 fps. Falls back to a plain draw on any
+        error — boot must never crash on a transition. MUST only be called while the
+        display loop is not concurrently drawing (i.e. during setup, before the
+        loop starts) — the transition and the loop are both display drivers.
+        """
+        disp = self.display
+        if disp is None:
+            return
+        t = self._boot_transition(style)
+        if t is None:                              # transitions off: just show it
+            await draw_next()
+            try:
+                await disp.show()
+            except Exception:
+                pass
+            return
+        try:
+            await t.start(disp, draw_next)         # swap_callback may be async (awaited)
+            guard = 0
+            while not t.is_complete and guard < 120:
+                guard += 1
+                await t.render(disp)
+                if await disp.show() is False:
+                    return
+                await asyncio.sleep(0.05)
+        except Exception as e:
+            logger.error(e, "boot transition failed")
+            try:
+                await draw_next()
+                await disp.show()
+            except Exception:
+                pass
+
+    async def _transition_to_first_queue_content(self) -> None:
+        """Wipe the boot status frame into the FIRST content item (e.g. "Configure").
+
+        The library's display loop deliberately skips the transition on the first
+        queue item, so we drive it here (in setup, before the loop runs): start the
+        first item via the queue's public ``get_current()`` (which leaves the queue
+        positioned on it with advance_count=1, so the loop continues naturally and
+        the NEXT advance still transitions), and reveal it with the direct driver.
+        """
+        q = self.content_queue
+        disp = self.display
+        if q is None or disp is None:
+            return
+        try:
+            content = await q.get_current()        # starts item 0; advance_count -> 1
+        except Exception:
+            content = None
+        if content is None:
+            return
+
+        async def _draw():
+            await disp.clear()
+            await content.render(disp)
+        # The first content ("Configure") is SCROLLING text, so reveal it with the
+        # scroll-safe transition, not the full-screen one used for static frames.
+        await self._play_direct_transition(_draw, style="Horizontal Wipe")
+
+    async def _fetch_and_build(self) -> None:
+        """Refresh wait times for the selected park(s) and rebuild the content queue.
+        Shared by boot (setup) and the periodic refresh (update_data)."""
+        pl = self.service.park_list
+        try:
+            if pl is not None:
+                if getattr(pl, "selected_parks", None):
+                    await self.service.update_selected_parks()
+                elif pl.current_park.is_valid():
+                    await self.service.update_current_park()
+            build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
+        except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
+            logger.error(e, "fetch_and_build failed")
 
     async def _draw_centered(self, disp, text, y, color) -> None:
         """draw_text ``text`` horizontally centered on ``disp`` at baseline ``y``."""
@@ -161,6 +333,33 @@ class ThemeParkApp(ScrollKitApp):
         blocking boot calls, and update_data() paints "Updating / Times" before each
         later refresh — so this base hook has nothing to add."""
         return
+
+    def _get_transition(self):
+        """Per-content screen transition (app policy), without touching the library.
+
+        The base reads a single global ``transition_style`` and returns one
+        transition for every content advance. We add an ``"Auto"`` mode that picks
+        a transition per the INCOMING content: each major scrolling-text message is
+        tagged in build_content_queue with ``_tpw_transition`` (the splash, rides,
+        and their overlay-bearing content are left untagged → no transition, since
+        their number/swarm overlay layers composite ABOVE the transition mask and
+        would not wipe cleanly). ``"None"`` keeps transitions off; any other value
+        is a specific transition applied globally (library behavior via super()).
+        """
+        style = self.settings.get("transition_style", "None")
+        if not style or style == "None":
+            return None
+        if style != "Auto":
+            return super()._get_transition()
+        content = getattr(self, "_current_content", None)
+        name = getattr(content, "_tpw_transition", None)
+        if not name:
+            return None
+        try:
+            from scrollkit.effects.transitions import transition_factory
+        except ImportError:
+            return None
+        return transition_factory(name)
 
     async def _init_network(self):
         """WiFi station connect (+ HTTP session, NTP, mDNS) — CircuitPython hardware only.
@@ -177,7 +376,7 @@ class ThemeParkApp(ScrollKitApp):
         try:
             from scrollkit.network.wifi_manager import WiFiManager
             self.wifi = WiFiManager(self.settings)
-            await self._status("Wi-Fi")
+            await self._status("Wi-Fi", transition=True)
             # connect() reports per-attempt status ("Attempt n/3") on the step row
             # via this callback, so a slow/retrying join shows instead of black.
             connected = await self.wifi.connect(display_callback=self._status)
@@ -196,7 +395,7 @@ class ThemeParkApp(ScrollKitApp):
                 # HTTP Date header (kept as the fallback for networks blocking UDP/123).
                 try:
                     from scrollkit.utils.system_utils import set_system_clock
-                    await self._status("Clock")
+                    await self._status("Clock", transition=True)
                     pool = None
                     try:
                         import socketpool
@@ -220,27 +419,27 @@ class ThemeParkApp(ScrollKitApp):
             logger.error(e, "network init failed")
 
     async def update_data(self) -> None:
-        """Refresh wait times for the selected park(s) and rebuild the content queue."""
-        # Every refresh hits the internet (themeparks.wiki), and the synchronous fetch
-        # freezes the display while it runs — so paint a frame first, or a hang/delay
-        # looks like a dead screen. Skip only the first (boot) refresh, where
-        # setup()'s "Updating / Parks" frame is already up; every later refresh
-        # (the 5-min cycle, or a settings-change refresh) shows "Updating / Times".
+        """Refresh wait times for the selected park(s) and rebuild the content queue.
+
+        setup() already did the first fetch/build/reveal, so the data loop's very
+        first call here is a no-op (otherwise it would immediately re-fetch). Every
+        later refresh (the 5-min cycle, or a settings-change refresh) tears down the
+        on-screen content and WIPES it into the "Updating / Times" frame — the
+        ``_status(..., transition=True)`` runs in the data loop, but only after
+        _teardown_active_content() has cleared the previous content, so there is no
+        concurrent display-loop drawing the same screen.
+        """
+        if self._skip_initial_update:
+            self._skip_initial_update = False
+            return
+        # Every refresh hits the internet (themeparks.wiki); the synchronous fetch
+        # freezes the display, so paint a frame first or a hang looks like a dead screen.
         if self._initial_refresh_done:
             await self._teardown_active_content()
-            await self._status("Times")
+            await self._status("Times", transition=True)
         else:
             self._initial_refresh_done = True
-        pl = self.service.park_list
-        try:
-            if pl is not None:
-                if getattr(pl, "selected_parks", None):
-                    await self.service.update_selected_parks()
-                elif pl.current_park.is_valid():
-                    await self.service.update_current_park()
-            build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
-        except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
-            logger.error(e, "update_data failed")
+        await self._fetch_and_build()
 
     async def _teardown_active_content(self) -> None:
         """Release the on-screen content's persistent overlay before a status frame.

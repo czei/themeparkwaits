@@ -2,7 +2,6 @@
 import os
 
 from src.app import ThemeParkApp
-from src.ui.ride_screen_content import RideScreenContent
 from tests.conftest import MAGIC_KINGDOM_ID
 
 
@@ -17,7 +16,8 @@ async def test_app_boots_and_builds_ride_queue(mock_http_client, settings_factor
     res = await run_headless_async(app, frames=5, hardware=False, warmup_data=True)
     assert not res.errors, res.errors
 
-    rides = [c for c in app.content_queue if isinstance(c, RideScreenContent)]
-    names = {c.ride_name for c in rides}
+    # Rides are scrolling content tagged with their ride name (any random effect).
+    rides = [c for c in app.content_queue if getattr(c, "_tpw_ride", None)]
+    names = {c._tpw_ride for c in rides}
     assert "Space Mountain" in names
     assert app.content_queue.get_content_count() > 0
