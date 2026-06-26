@@ -149,12 +149,18 @@ class ThemeParkApp(ScrollKitApp):
             logger.error(e, "boot first-content build failed")
 
     async def _draw_status_frame(self, step, color=0xFFAA00) -> None:
-        """Draw (without show) the two-row boot status: "Updating" over the step row."""
+        """Draw (without show) the two-row boot status: "Updating" over the step row.
+
+        Two lines with a 4px gap, centered on the panel. NOTE: draw_text renders ~2
+        rows HIGHER on the actual hardware than the geometry suggests (calibrated from
+        on-device photos), so the block is placed 2px low here (line1 y=9, line2 y=20)
+        to land vertically centered on the real display.
+        """
         disp = self.display
         await disp.clear()
-        await self._draw_centered(disp, "Updating", 11, color)
+        await self._draw_centered(disp, "Updating", 9, color)
         if step:
-            await self._draw_centered(disp, step, 27, color)
+            await self._draw_centered(disp, step, 20, color)
 
     async def _status(self, step, color=0xFFAA00, *, transition=False) -> None:
         """Two-row boot status ("Updating" + step), shown before a blocking boot call.
