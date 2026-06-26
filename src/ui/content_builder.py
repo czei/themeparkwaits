@@ -27,6 +27,7 @@ from src.ui.effect_catalog import scrolling_catalog
 from src.ui.reveal_splash import SplashContent
 from src.ui.ride_screen_content import (
     RideScreenContent, ClosedRideContent, _to_int_color, _NAME_Y, NUMBER_STYLES,
+    DRIP_DIRECTIONS,
 )
 
 REQUIRED_MESSAGE = "ThemeParks.wiki"
@@ -43,10 +44,11 @@ _TX_SCROLL = "Horizontal Wipe"
 _TX_RIDE = _TX_SCROLL
 
 # The wait NUMBER's effect is randomized per ride across BOTH the assembly reveals
-# ("Rain" drips the digits down, "Swarm" flies a flock in) and the held colour
-# animations (sheen/pulse). ALL render the digits in their green->red SEVERITY
-# colour, in place at 2x size — the layout never changes.
-_NUMBER_EFFECTS = ("Rain", "Swarm") + tuple(NUMBER_STYLES)
+# ("Rain" drips the digits in from a random edge, "Swarm" flies a flock in,
+# "SplitFlap" flips each digit through a few glyphs before it lands) and the held
+# colour animations (sheen/pulse). ALL render the digits in their green->red
+# SEVERITY colour, in place at 2x size — the layout never changes.
+_NUMBER_EFFECTS = ("Rain", "Swarm", "SplitFlap") + tuple(NUMBER_STYLES)
 
 # Wait severity coloring (wait_color_mode="severity"): minutes -> color, green
 # (short) through red (long). 4-bit-clean channels so they survive bit_depth=4.
@@ -228,16 +230,22 @@ def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, 
     if ride.open_flag is True:
         wc = (_severity_color(ride.wait_time) if wait_color_mode == "severity"
               else _to_int_color(wait_color))
-        num = rng.choice(_NUMBER_EFFECTS)        # Rain/Swarm reveal OR sheen/pulse colour
+        num = rng.choice(_NUMBER_EFFECTS)        # Rain/Swarm/SplitFlap reveal OR sheen/pulse
         if num in NUMBER_STYLES:
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
                                         wait_color=wc, number_style=num, name_content=name_c)
+            drip_dir = None
         else:
+            # "Rain" drips in from a RANDOM edge each ride; the other reveals don't
+            # use a direction (kept as "top", the harmless default).
+            drip_dir = rng.choice(DRIP_DIRECTIONS) if num == "Rain" else "top"
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
-                                        wait_color=wc, effect=num, name_content=name_c)
+                                        wait_color=wc, effect=num, drip_direction=drip_dir,
+                                        name_content=name_c)
         content._tpw_wait = ride.wait_time
         content._tpw_color = wc
         content._tpw_number_effect = num
+        content._tpw_drip_direction = drip_dir
     else:
         content = ClosedRideContent(ride.name, name_color=name_color, name_content=name_c)
         content._tpw_wait = None

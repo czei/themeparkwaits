@@ -128,6 +128,32 @@ def test_wait_number_keeps_severity_colour_with_randomized_effect(settings_facto
     assert by["Space Mountain"] == 0xFFC000                # 45 min -> amber
 
 
+def test_splitflap_in_rotation_and_rain_direction_randomized(settings_factory):
+    """The wait NUMBER rotation includes SplitFlap (digits flip into place), and the
+    'Rain' drip now enters from a RANDOM edge per ride (top/bottom/left/right) instead
+    of always the top. Other reveals don't steer a drip (direction stays top/None)."""
+    from src.ui.content_builder import _NUMBER_EFFECTS
+    from src.ui.ride_screen_content import DRIP_DIRECTIONS, WAIT_EFFECTS
+    assert "SplitFlap" in _NUMBER_EFFECTS and "SplitFlap" in WAIT_EFFECTS
+
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID], skip_meet=True)
+    number_effects, rain_dirs = set(), set()
+    for seed in range(30):
+        for c in _rides(_build(sm, seed=seed)):
+            ne = getattr(c, "_tpw_number_effect", None)
+            if ne is None:
+                continue                                   # closed ride (no number)
+            number_effects.add(ne)
+            direction = getattr(c, "_tpw_drip_direction", None)
+            if ne == "Rain":
+                assert direction in DRIP_DIRECTIONS        # a valid entry edge
+                rain_dirs.add(direction)
+            else:
+                assert direction in (None, "top")          # non-Rain: no steered drip
+    assert "SplitFlap" in number_effects                   # SplitFlap actually reaches rides
+    assert len(rain_dirs) > 1                              # Rain direction is randomized
+
+
 def test_wait_color_severity_vs_fixed(settings_factory):
     """severity mode colors the wait NUMBER green->red by wait; fixed uses the
     setting. The big number is always present (its color, not its existence, varies)."""

@@ -23,9 +23,16 @@ from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 
 # Wait-number reveal styles the user can pick (settings: wait_time_effect). The
 # value stored is one of these labels; "Rain" is the default and the fallback for
-# any unrecognized value. "Swarm" is lazily imported (heavier boids code +
-# ``random``) so a board using the default never loads it.
-WAIT_EFFECTS = ("Rain", "Swarm", "None")
+# any unrecognized value. "Rain" drips the digits into place (from a RANDOM edge —
+# see DRIP_DIRECTIONS), "Swarm" flies a flock in (lazily imported — heavier boids
+# code + ``random`` — so a board using the default never loads it), "SplitFlap"
+# flips each digit through a few glyphs before it lands, "None" shows it instantly.
+WAIT_EFFECTS = ("Rain", "Swarm", "SplitFlap", "None")
+
+# Edges the "Rain" drip can enter from. Sourced from the library's DripReveal so the
+# app stays in lockstep if that set ever changes; the per-ride direction is chosen at
+# random in content_builder (never hardcoded to one edge).
+DRIP_DIRECTIONS = getattr(DripReveal, "_DIRECTIONS", ("top", "bottom", "left", "right"))
 
 # terminalio glyphs are ~6px wide / ~8px tall. draw_text's `y` is the text
 # BASELINE (top-down origin, top-left = 0,0; y=0 clips the glyph off the top), so
@@ -299,6 +306,146 @@ class _PaletteNumberReveal:
         self._started = False
 
 
+# Split-flap reveal tuning. Each digit cycles through _FLAP_STEPS random glyphs,
+# successive digits start _FLAP_STAGGER frames apart, and a flip advances every
+# _FLAP_PERIOD display frames (a readable departure-board cadence, not a blur).
+_FLAP_STEPS = 4
+_FLAP_STAGGER = 3
+_FLAP_PERIOD = 2
+_FLAP_ALPHABET = "0123456789"
+
+
+class _SplitFlapNumberReveal:
+    """Assembles the 2x wait NUMBER like a split-flap board: each digit flips through
+    a few random digits before LANDING on its real value, staggered left-to-right.
+
+    Same ``start()/step()/is_complete/detach()`` contract as ``DripReveal`` — once
+    every digit has landed the overlay holds the real number (the landed pixels ARE
+    the live number, so nothing is swapped in). The glyphs are composed from the SAME
+    font/scale and centered in the SAME wait band as ``_number_pixels``/the other
+    reveals, so the final number is identical in place + size (layout untouched).
+
+    Per-glyph pixels are precomputed in ``start()`` (no per-frame allocation); each
+    advanced frame clears the bitmap and writes only the currently-shown glyphs —
+    bounded, hardware-safe like ``DripReveal``.
+    """
+
+    def __init__(self, text, color, *, seed=1):
+        self.text = text
+        self.color = color
+        self.seed = seed
+        self._display = None
+        self._bitmap = None
+        self._tile = None
+        self._w = 0
+        self._h = 0
+        self._cells = ()           # per digit: tuple of pixel-lists (steps... then final)
+        self._frame = 0
+        self._tick = 0
+        self._last_land = 0
+        self._started = False
+
+    def start(self, display):
+        gfx = display.gfx
+        w, h = display.width, display.height
+        self._w, self._h = w, h
+        bitmap = gfx.Bitmap(w, h, 2)
+        palette = gfx.Palette(2)
+        palette.make_transparent(0)            # composite over the name below
+        palette[1] = self.color
+        tile = gfx.TileGrid(bitmap, pixel_shader=palette)
+        display.add_layer(tile)
+        self._display = display
+        self._bitmap = bitmap
+        self._tile = tile
+        self._frame = 0
+        self._tick = 0
+        self._started = True
+
+        font = getattr(display, "font", None)
+        if font is None or not self.text:
+            self._cells = ()
+            self._last_land = 0
+            return
+        # Center the whole number; derive the vertical placement from the FINAL string
+        # so every (equal-height) digit glyph aligns in the wait band.
+        total_w = font_text_width(font, self.text, scale=_WAIT_SCALE)
+        x0 = max(0, (w - total_w) // 2)
+        final_raw = pixels_from_font_text(font, self.text, x=x0, y=0, scale=_WAIT_SCALE)
+        if final_raw:
+            min_y = min(p[1] for p in final_raw)
+            ink_h = max(p[1] for p in final_raw) - min_y + 1
+            center = (_WAIT_BAND_TOP + h) // 2
+            top = center - ink_h // 2
+            if top < _WAIT_BAND_TOP:
+                top = _WAIT_BAND_TOP
+            if top + ink_h > h:
+                top = h - ink_h
+            dy = top - min_y
+        else:
+            dy = 0
+        # Deterministic intermediate digits from a seeded LCG (no per-frame random).
+        state = (self.seed * 2654435761 + 1) & 0x7FFFFFFF
+        cells = []
+        cell_x = x0
+        for ch in self.text:
+            seq = []
+            for _ in range(_FLAP_STEPS):
+                state = (state * 1103515245 + 12345) & 0x7FFFFFFF
+                seq.append(_FLAP_ALPHABET[state % len(_FLAP_ALPHABET)])
+            frames = []
+            for glyph in tuple(seq) + (ch,):       # intermediates, then the real digit
+                px = pixels_from_font_text(font, glyph, x=cell_x, y=0, scale=_WAIT_SCALE)
+                frames.append([(x, py + dy) for (x, py) in px])
+            cells.append(tuple(frames))
+            cell_x += font_text_width(font, ch, scale=_WAIT_SCALE)
+        self._cells = tuple(cells)
+        # Last digit starts at (n-1)*stagger and lands _FLAP_STEPS frames later.
+        self._last_land = (len(cells) - 1) * _FLAP_STAGGER + _FLAP_STEPS if cells else 0
+
+    @property
+    def has_pixels(self):
+        return bool(self._cells)
+
+    @property
+    def is_complete(self):
+        return self._started and self._frame > self._last_land
+
+    def step(self):
+        if not self._started or self.is_complete:
+            return True
+        self._tick += 1
+        if self._tick < _FLAP_PERIOD:
+            return False                       # hold the current glyphs (cadence)
+        self._tick = 0
+        b = self._bitmap
+        try:
+            b.fill(0)
+        except (AttributeError, TypeError):
+            for xx in range(self._w):
+                for yy in range(self._h):
+                    b[xx, yy] = 0
+        f = self._frame
+        for i, frames in enumerate(self._cells):
+            local = f - i * _FLAP_STAGGER
+            if local < 0:
+                continue                       # this digit hasn't started flipping yet
+            idx = local if local < _FLAP_STEPS else _FLAP_STEPS   # then land on final
+            for (x, y) in frames[idx]:
+                if 0 <= x < self._w and 0 <= y < self._h:
+                    b[x, y] = 1
+        self._frame += 1
+        return self.is_complete
+
+    def detach(self):
+        if self._display is not None and self._tile is not None:
+            self._display.remove_layer(self._tile)
+        self._tile = None
+        self._display = None
+        self._bitmap = None
+        self._started = False
+
+
 class RideScreenContent(_ScrollingNameContent):
     """One ride: scrolling name (top) + large wait number revealed into place.
 
@@ -316,7 +463,8 @@ class RideScreenContent(_ScrollingNameContent):
 
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
                  wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0, effect="Rain",
-                 name_effect="plain", name_content=None, number_style=None):
+                 name_effect="plain", name_content=None, number_style=None,
+                 drip_direction="top"):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
                          name_content=name_content)
@@ -324,6 +472,9 @@ class RideScreenContent(_ScrollingNameContent):
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
         self.effect = effect if effect in WAIT_EFFECTS else "Rain"
+        # Edge the "Rain" drip enters from (top/bottom/left/right); ignored by the
+        # other reveals. Defaults to the classic top; randomized in content_builder.
+        self._drip_direction = drip_direction if drip_direction in DRIP_DIRECTIONS else "top"
         # A colour-animation style ("sheen"/"pulse") -> the big 2x number is shown
         # assembled and its COLOUR animates IN ITS SEVERITY COLOUR (wait_color); the
         # layout is unchanged. When set it takes precedence over the Rain/Swarm reveal.
@@ -365,8 +516,10 @@ class RideScreenContent(_ScrollingNameContent):
 
         A ``number_style`` ("sheen"/"pulse") takes precedence: the number appears
         assembled and its colour animates IN ITS SEVERITY COLOUR (layout-safe).
-        Otherwise "Swarm" is imported lazily (heavier flocking) and "Rain" drips
-        columns down; "None" is fast-forwarded to settled in render().
+        Otherwise "Swarm" is imported lazily (heavier flocking), "SplitFlap" flips
+        each digit through a few glyphs before landing, and "Rain" drips the digits
+        in from a RANDOM edge (``self._drip_direction``); "None" is fast-forwarded to
+        settled in render(). All land the SAME pixels in the SAME place.
         """
         if self._number_style is not None:
             return _PaletteNumberReveal(pixels, self.wait_color, self._number_style)
@@ -380,7 +533,12 @@ class RideScreenContent(_ScrollingNameContent):
             return SwarmReveal(pixels, text_color=self.wait_color,
                                bird_color=self.wait_color, num_birds=20,
                                bird_speed=4.0)
-        return DripReveal(pixels, color=self.wait_color, fall_speed=2, stagger=1)
+        if self.effect == "SplitFlap":
+            # Composes its own per-digit glyphs from the wait string (it flips through
+            # intermediate digits, so the pre-composed `pixels` aren't the whole story).
+            return _SplitFlapNumberReveal(self._wait_str, self.wait_color)
+        return DripReveal(pixels, color=self.wait_color, fall_speed=2, stagger=1,
+                          direction=self._drip_direction)
 
     async def render(self, display):
         await self._render_name(display)
