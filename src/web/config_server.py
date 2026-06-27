@@ -258,6 +258,36 @@ def schedule_update(app) -> bool:
 # --------------------------------------------------------------------------- #
 # Page rendering (GET / and GET /settings)
 # --------------------------------------------------------------------------- #
+def _diagnostics_html(app) -> str:
+    """Read-only health panel so a field user can see WHY the device misbehaved
+    (last reset reason, last crash, fetch failures) without a serial cable — the
+    gap that made the previous black-screen failures undiagnosable."""
+    diag = getattr(app, "diagnostics", None)
+    summary = {}
+    if diag is not None:
+        try:
+            summary = diag.summary()
+        except Exception:
+            summary = {}
+    stale = getattr(app, "_data_stale", False)              # live runtime state
+    consec = getattr(app, "_consecutive_fetch_failures", 0)
+    safe = getattr(app, "_safe_mode", False) or summary.get("safe_mode", False)
+    status = ("SAFE MODE - reconfigure" if safe
+              else "STALE (network issues)" if stale else "OK")
+    rows = (
+        ("Status", status),
+        ("Fetch failures (current)", consec),
+        ("Last reset reason", summary.get("reset_reason", "UNKNOWN")),
+        ("Boot count", summary.get("boot_count", 0)),
+        ("Reboot streak", summary.get("reboot_streak", 0)),
+        ("Last error", summary.get("last_error", "") or "(none)"),
+    )
+    items = "".join(
+        '<div class="form-group"><label>%s</label><div>%s</div></div>'
+        % (_esc(str(k)), _esc(str(v))) for k, v in rows)
+    return "<h3>Diagnostics</h3>" + items
+
+
 def render_page(app) -> str:
     """Render the settings form, pre-filled, with the live park list."""
     sm = app.settings
@@ -340,6 +370,7 @@ def render_page(app) -> str:
         vac_year=_esc(sm.get("next_visit_year", "") or ""),
         vac_month=_esc(sm.get("next_visit_month", "") or ""),
         vac_day=_esc(sm.get("next_visit_day", "") or ""),
+        diagnostics=_diagnostics_html(app),
     )
 
 
@@ -485,5 +516,6 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <form method="POST" action="/update" style="margin-top:20px">
 <button class="btn" type="submit">Check for Update</button>
 </form>
+{diagnostics}
 </div></div></body></html>
 """

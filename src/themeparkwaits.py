@@ -33,6 +33,36 @@ try:
     asyncio.run(main())
 except KeyboardInterrupt:
     print("Interrupted by user")
-except Exception as e:  # last-resort: keep a console trace on desktop/device
+except Exception as e:  # last-resort recovery
     print(f"Fatal error running ThemeParkWaits: {e}")
-    raise
+    if is_circuitpython:
+        # The old code re-raised here, leaving the panel frozen/black until a
+        # manual power-cycle. Instead: persist the cause to NVM (survives the
+        # reset) and reboot to self-recover. The boot-loop breaker in
+        # src/diagnostics catches a DETERMINISTIC crash — after a few fault
+        # reboots it drops into safe mode instead of resetting forever — so this
+        # can't spin. The cause is shown on the config web UI after recovery.
+        try:
+            import traceback
+            from src.diagnostics import open as open_diagnostics
+            try:
+                tb = "".join(traceback.format_exception(e))
+            except Exception:
+                tb = str(e)
+            open_diagnostics().record_crash("%s: %s" % (type(e).__name__, tb))
+        except Exception as log_err:
+            print("crash record failed:", log_err)
+        try:
+            import time
+            time.sleep(3)  # let serial/logs flush; avoid a tight reset cycle
+        except Exception:
+            pass
+        try:
+            import microcontroller
+            microcontroller.reset()
+        except Exception as reset_err:
+            print("reset failed:", reset_err)
+            raise
+    else:
+        # Desktop dev: surface the traceback so it's debuggable.
+        raise

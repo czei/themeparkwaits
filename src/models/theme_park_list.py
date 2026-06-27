@@ -32,7 +32,7 @@ class ThemeParkList:
 
         # Handle empty or invalid JSON response
         if not json_response:
-            logger.error("Empty JSON response when initializing ThemeParkList")
+            logger.error(None, "Empty JSON response when initializing ThemeParkList")
             return
 
         try:
@@ -59,7 +59,7 @@ class ThemeParkList:
                 self.park_list = sorted(self.park_list, key=lambda park: park.name)
                 logger.debug(f"Initialized ThemeParkList with {len(self.park_list)} parks")
             else:
-                logger.error("No parks found in JSON response")
+                logger.error(None, "No parks found in JSON response")
         except Exception as e:
             logger.error(e, "Error parsing JSON in ThemeParkList initialization")
             # Keep the empty park list

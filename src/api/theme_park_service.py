@@ -14,6 +14,21 @@ from scrollkit.utils.error_handler import ErrorHandler
 logger = ErrorHandler("error_log")
 
 
+def _close_response(response):
+    """Release an HTTP response's socket; safe on any response type or None.
+
+    The ESP32-S3 socket pool holds only ~4 sockets, so a leaked
+    ``adafruit_requests`` response quickly exhausts it and pushes the client into
+    ``OutOfRetries`` / connection hangs — a prime suspect for the field "frozen /
+    black screen" reports. Desktop (urllib/mock) responses already close cleanly;
+    this just makes the release explicit and unconditional."""
+    if response is not None and hasattr(response, "close"):
+        try:
+            response.close()
+        except Exception:
+            pass
+
+
 class ThemeParkService:
     """
     Service for fetching and managing theme park data
@@ -31,6 +46,10 @@ class ThemeParkService:
         self.settings_manager = settings_manager
         self.park_list = None
         self.vacation = Vacation()
+        # Optional callable set by the app to pet the hardware watchdog between
+        # sequential park fetches (a multi-park refresh blocks the event loop
+        # longer than the watchdog timeout). None off-device / when disabled.
+        self.watchdog_feed = None
 
     async def initialize(self):
         """Initialize the service by fetching park list and setting clock"""
@@ -110,17 +129,28 @@ class ThemeParkService:
                 url = "https://api.themeparks.wiki/v1/destinations"
                 logger.info(f"Fetching park list from {url} (attempt {retry_count + 1}/{max_retries})")
                 
+                gc.collect()  # free heap before the response buffer + parse spike
                 response = await self.http_client.get(url)
-                
+
                 if not response or not hasattr(response, 'text'):
                     logger.error(None, f"Invalid response when fetching park list (attempt {retry_count + 1})")
+                    _close_response(response)
                     retry_count += 1
                     await asyncio.sleep(1)
                     continue
-                
+
+                # Read the body, then ALWAYS release the socket before parsing.
+                try:
+                    text = response.text
+                finally:
+                    _close_response(response)
+                    response = None
+
                 # Try to parse JSON
                 try:
-                    data = json.loads(response.text)
+                    data = json.loads(text)
+                    del text
+                    gc.collect()  # drop the raw payload string before building models
                     if not data:
                         logger.error(None, f"Empty JSON data from park list API (attempt {retry_count + 1})")
                         retry_count += 1
@@ -177,18 +207,30 @@ class ThemeParkService:
                 url = f"https://api.themeparks.wiki/v1/entity/{park_id}/live"
                 logger.info(f"Fetching data for park ID {park_id} from {url} (attempt {retry_count + 1}/{max_retries})")
 
+                gc.collect()  # free heap before the ~90 KB response + parse spike
                 response = await self.http_client.get(url)
 
                 if not response or not hasattr(response, 'text'):
                     logger.error(None, f"Invalid response when fetching park data (attempt {retry_count + 1})")
+                    _close_response(response)
                     retry_count += 1
                     if retry_count < max_retries:
                         await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
                     continue
 
+                # Read the body, then ALWAYS release the socket before parsing
+                # (see _close_response: a leaked socket exhausts the ~4-socket pool).
+                try:
+                    text = response.text
+                finally:
+                    _close_response(response)
+                    response = None
+
                 # Try to parse JSON
                 try:
-                    data = json.loads(response.text)
+                    data = json.loads(text)
+                    del text
+                    gc.collect()  # drop the ~90 KB raw payload as soon as it's parsed
                     if not data:
                         logger.error(None, f"Empty JSON data from park API (attempt {retry_count + 1})")
                         retry_count += 1
@@ -265,6 +307,10 @@ class ThemeParkService:
             if await self._update_single_park(park):
                 updated_count += 1
             gc.collect()
+            # Keep the watchdog fed across a long multi-park refresh; a single
+            # hung socket is already bounded by the request timeout (< watchdog).
+            if self.watchdog_feed is not None:
+                self.watchdog_feed()
 
         logger.info(f"Updated {updated_count}/{total_parks} selected parks")
         return updated_count

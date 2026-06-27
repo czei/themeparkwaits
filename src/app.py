@@ -19,6 +19,7 @@ from scrollkit.utils.error_handler import ErrorHandler
 from src.settings_schema import make_settings
 from src.api.theme_park_service import ThemeParkService
 from src.ui.content_builder import build_content_queue
+from src import diagnostics
 
 logger = ErrorHandler("error_log")
 
@@ -33,13 +34,22 @@ class ThemeParkApp(ScrollKitApp):
 
     def __init__(self, *, enable_web: bool = True, update_interval: int = 300,
                  http_client=None, settings=None) -> None:
-        super().__init__(enable_web=enable_web, update_interval=update_interval)
+        # enable_watchdog=True: arm the hardware watchdog (CircuitPython only; a
+        # no-op in the simulator) so a true freeze — e.g. a hung synchronous socket
+        # that the timeout somehow doesn't catch — self-recovers via reset instead
+        # of sitting black until a power-cycle.
+        super().__init__(enable_web=enable_web, update_interval=update_interval,
+                         enable_watchdog=True)
         self.settings = settings or make_settings()
         if http_client is None:
             from scrollkit.network.http_client import HttpClient
             http_client = HttpClient()
         self.http_client = http_client
         self.service = ThemeParkService(self.http_client, self.settings)
+        # Feed the watchdog between sequential per-park fetches: a multi-park
+        # refresh can block the event loop longer than the watchdog timeout, so the
+        # display loop alone can't keep it fed across the whole fetch.
+        self.service.watchdog_feed = self._feed_watchdog
         try:
             from src.ota_glue import OTAGlue
             self.ota = OTAGlue()
@@ -59,6 +69,31 @@ class ThemeParkApp(ScrollKitApp):
         # concurrent display loop owns the screen). This makes the data loop's
         # very first update_data() a no-op so it doesn't immediately re-fetch.
         self._skip_initial_update = False
+        # When True, prepare_display_content() returns None so the display loop
+        # stops drawing queue content. Set ONLY while a refresh is painting the
+        # "Updating / Times" status frame (drawn directly, off-queue) and then
+        # blocking on the fetch — this prevents the old ride from ghosting OVER
+        # the status frame/transition WITHOUT clearing the queue, so a FAILED
+        # refresh resumes last-good content instead of going black (the field
+        # "goes black" bug). See update_data()/_teardown_active_content().
+        self._suspend_queue_render = False
+        # Set when the most recent refresh failed: the queue is showing stale
+        # data. Drives a faster retry and is surfaced for diagnostics.
+        self._data_stale = False
+        self._consecutive_fetch_failures = 0
+        # Refresh cadence: the normal interval, plus a shorter one used to retry
+        # quickly while data is stale (a flaky network shouldn't make the user
+        # wait a full cycle for fresh times). The base data loop reads
+        # self.update_interval before each sleep, so swapping it takes effect on
+        # the next cycle.
+        self._default_update_interval = update_interval
+        self._stale_retry_interval = min(60, update_interval)
+        # Crash/boot diagnostics in NVM: boot-loop breaker + post-mortem surfaced
+        # on the config web UI. No-op on desktop. record_boot() runs in setup().
+        self.diagnostics = diagnostics.open()
+        # Set when repeated fault-reboots tripped the breaker: skip network fetches
+        # and just keep the config UI reachable so the user can fix the cause.
+        self._safe_mode = False
 
     async def create_display(self):
         """Return the ScrollKit display (auto-detects sim/hardware).
@@ -92,8 +127,30 @@ class ThemeParkApp(ScrollKitApp):
             print("web server unavailable:", e)
             return None
 
+    async def prepare_display_content(self):
+        """Feed the display loop, but go quiet during a refresh's status frame.
+
+        While ``_suspend_queue_render`` is set (a refresh is wiping in "Updating /
+        Times" and then blocking on the fetch), return None so the display loop
+        skips rendering — otherwise it would draw the previous ride OVER the
+        directly-drawn status frame/transition (the ghosting the old
+        ``queue.clear()`` worked around). The queue keeps its items, so once the
+        refresh finishes the loop resumes the NEW content on success or the
+        last-good (stale) content on failure — never an empty/black screen.
+        """
+        if self._suspend_queue_render:
+            return None
+        return await super().prepare_display_content()
+
     async def setup(self) -> None:
         """Pre-run sequence (boot state machine — partial; T018/T027 add WiFi/OTA/NTP)."""
+        # Record this boot in NVM and classify reboot loops up front. reset_reason
+        # lets the UI report e.g. a recovery from a watchdog reset (device-only;
+        # a no-op in the simulator).
+        try:
+            self.diagnostics.record_boot(diagnostics.read_reset_reason())
+        except Exception as e:
+            logger.error(e, "diagnostics.record_boot failed")
         if hasattr(self.display, "create_window"):
             try:
                 await self.display.create_window("ThemeParkWaits")
@@ -126,6 +183,21 @@ class ThemeParkApp(ScrollKitApp):
             except Exception as e:
                 print("OTA install_pending failed:", e)
 
+        # Boot-loop breaker: if we've fault-rebooted repeatedly with no healthy run
+        # in between (a deterministic crash — bad settings, an API change), stop
+        # fetching and just show a reconfigure message while the web/AP config UI
+        # stays reachable (network was brought up above). Prevents an endless
+        # reboot cycle from the watchdog / last-resort reset.
+        if self.diagnostics.safe_mode:
+            self._safe_mode = True
+            logger.error(None, "entering safe mode after repeated reboots")
+            self._show_safe_mode_message()
+            try:
+                await self._transition_to_first_queue_content()
+            except Exception:
+                pass
+            return
+
         # Park-list fetch is the big blocking call (/destinations + retries) — tell
         # the user before the panel would otherwise go black on it. transition=True
         # wipes the splash (on desktop) / the prior status frame into "Parks".
@@ -141,12 +213,57 @@ class ThemeParkApp(ScrollKitApp):
         # loop starts and becomes the screen's owner. The data loop's first
         # update_data() is then a no-op (it would otherwise immediately re-fetch).
         try:
-            await self._fetch_and_build()
+            ok = await self._fetch_and_build()
             self._initial_refresh_done = True
             self._skip_initial_update = True
+            if self.content_queue.is_empty:
+                # Offline at boot with no content yet: show a message instead of
+                # stranding on the splash, and retry sooner than the full cycle.
+                self._show_offline_fallback()
+            if ok:
+                # Healthy boot: clear the reboot-loop streak so a single past crash
+                # never accumulates toward safe mode.
+                self.diagnostics.note_clean_run()
+            else:
+                self._data_stale = True
+                self.update_interval = self._stale_retry_interval
             await self._transition_to_first_queue_content()
         except Exception as e:
             logger.error(e, "boot first-content build failed")
+            try:
+                self._show_offline_fallback()
+                self.update_interval = self._stale_retry_interval
+                await self._transition_to_first_queue_content()
+            except Exception:
+                pass
+
+    def _show_offline_fallback(self) -> None:
+        """Put a 'retrying' message on an EMPTY queue so first boot with no network
+        shows something instead of the frozen splash / black panel. Never displaces
+        real content (only acts when the queue is empty). Never raises into boot."""
+        try:
+            q = self.content_queue
+            if q is None or not q.is_empty:
+                return
+            from scrollkit.display.content import ScrollingText
+            q.add(ScrollingText("Offline - retrying...", y=13, color=0xFFAA00, speed=20))
+        except Exception as e:
+            logger.error(e, "offline fallback failed")
+
+    def _show_safe_mode_message(self) -> None:
+        """Replace the queue with a safe-mode notice when the boot-loop breaker
+        trips, pointing the user at the still-reachable config UI. Never raises."""
+        try:
+            q = self.content_queue
+            if q is None:
+                return
+            q.clear()
+            from scrollkit.display.content import ScrollingText
+            domain = self.settings.get("domain_name", "themeparkwaits")
+            q.add(ScrollingText("Safe mode - reconfigure at %s.local" % domain,
+                                 y=13, color=0xFF0000, speed=20))
+        except Exception as e:
+            logger.error(e, "safe mode message failed")
 
     async def _draw_status_frame(self, step, color=0xFFAA00) -> None:
         """Draw (without show) the two-row boot status: "Updating" over the step row.
@@ -314,9 +431,14 @@ class ThemeParkApp(ScrollKitApp):
         # scroll-safe transition, not the full-screen one used for static frames.
         await self._play_direct_transition(_draw, style="Horizontal Wipe")
 
-    async def _fetch_and_build(self) -> None:
+    async def _fetch_and_build(self) -> bool:
         """Refresh wait times for the selected park(s) and rebuild the content queue.
-        Shared by boot (setup) and the periodic refresh (update_data)."""
+        Shared by boot (setup) and the periodic refresh (update_data).
+
+        Returns True on success, False if the refresh failed. On failure the
+        existing queue is left UNTOUCHED (build_content_queue is skipped), so the
+        caller keeps showing last-good content instead of going black — the queue
+        is no longer cleared ahead of this call (see _teardown_active_content)."""
         pl = self.service.park_list
         try:
             if pl is not None:
@@ -325,8 +447,10 @@ class ThemeParkApp(ScrollKitApp):
                 elif pl.current_park.is_valid():
                     await self.service.update_current_park()
             build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
+            return True
         except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
             logger.error(e, "fetch_and_build failed")
+            return False
 
     async def _draw_centered(self, disp, text, y, color) -> None:
         """draw_text ``text`` horizontally centered on ``disp`` at baseline ``y``."""
@@ -435,6 +559,8 @@ class ThemeParkApp(ScrollKitApp):
         _teardown_active_content() has cleared the previous content, so there is no
         concurrent display-loop drawing the same screen.
         """
+        if self._safe_mode:
+            return  # boot-loop breaker tripped: no fetching until reconfigured
         if self._skip_initial_update:
             self._skip_initial_update = False
             return
@@ -442,10 +568,36 @@ class ThemeParkApp(ScrollKitApp):
         # freezes the display, so paint a frame first or a hang looks like a dead screen.
         if self._initial_refresh_done:
             await self._teardown_active_content()
-            await self._status("Times", transition=True)
+            # Suspend queue rendering across BOTH the status-frame transition and
+            # the blocking fetch: the status frame is drawn directly (off-queue)
+            # and the transition yields to the display loop, which would otherwise
+            # redraw the old ride over it. The queue keeps its items, so a failed
+            # fetch resumes last-good content (never black). Always released.
+            self._suspend_queue_render = True
+            try:
+                await self._status("Times", transition=True)
+                ok = await self._fetch_and_build()
+            finally:
+                self._suspend_queue_render = False
         else:
             self._initial_refresh_done = True
-        await self._fetch_and_build()
+            ok = await self._fetch_and_build()
+
+        # Track staleness and retry faster while stale, so a transient network
+        # blip doesn't strand the user on hours-old times.
+        self._data_stale = not ok
+        if ok:
+            self._consecutive_fetch_failures = 0
+            self.update_interval = self._default_update_interval
+        else:
+            self._consecutive_fetch_failures += 1
+            self.update_interval = self._stale_retry_interval
+            logger.error(None, "refresh failed; keeping last-good content "
+                               "(consecutive=%d)" % self._consecutive_fetch_failures)
+        try:
+            self.diagnostics.note_fetch_result(ok, self._consecutive_fetch_failures)
+        except Exception:
+            pass
 
     async def _teardown_active_content(self) -> None:
         """Release the on-screen content's persistent overlay before a status frame.
@@ -455,13 +607,19 @@ class ThemeParkApp(ScrollKitApp):
         deliberately leaves untouched so an effect can span frames — it is only
         released by the content's ``stop()``. The "Updating / Times" status frame
         (_status) is drawn from this data task, OUTSIDE the display loop, and is
-        immediately followed by the *blocking* fetch that freezes the loop; so
-        without stopping the current content here, the previous ride's number
-        ghosts on top of "Updating / Times" for the whole fetch (the reported
-        bug). ContentQueue.clear() only DEFERS that stop to the display loop,
-        which is frozen, so run it now and empty the queue so nothing re-renders
-        over the status frame; build_content_queue() repopulates it after the
-        fetch. Defensive — never raises into the refresh."""
+        immediately followed by the *blocking* fetch; so without stopping the
+        current content here, the previous ride's number ghosts on top of
+        "Updating / Times".
+
+        We stop the overlay but DELIBERATELY DO NOT clear the queue: clearing it
+        meant a failed refresh (flaky network) left the queue empty and the panel
+        BLACK until a later refresh happened to succeed — the field "goes black"
+        bug. Ghosting during the status frame is instead prevented by
+        ``_suspend_queue_render`` (see update_data/prepare_display_content), which
+        keeps the loop from redrawing the old content while leaving the items in
+        place, so a failed fetch resumes last-good (stale) content.
+        build_content_queue() rebuilds the queue in place on success.
+        Defensive — never raises into the refresh."""
         queue = self.content_queue
         if queue is None:
             return
@@ -469,6 +627,5 @@ class ThemeParkApp(ScrollKitApp):
             current = queue.get_current_content()
             if current is not None:
                 await current.stop()
-            queue.clear()
         except Exception as e:
             logger.error(e, "teardown active content failed")
