@@ -15,11 +15,15 @@ Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 
+import gc
 import math
 
 from scrollkit.display.content import DisplayContent
 from scrollkit.effects.drip_splash import DripReveal
 from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
+# Use the SAME displayio the display uses (real on CircuitPython, the simulator's on
+# desktop). A bare ``import displayio`` can grab a stray Blinka PyPI package on desktop.
+from scrollkit.display.unified import displayio
 
 # Wait-number reveal styles the user can pick (settings: wait_time_effect). The
 # value stored is one of these labels; "Rain" is the default and the fallback for
@@ -48,6 +52,13 @@ _CLOSED_Y = 21        # "Closed" (single size, bottom zone)
 # vertically centered in [_WAIT_BAND_TOP .. display height].
 _WAIT_SCALE = 2
 _WAIT_BAND_TOP = 11
+
+# Optional per-ride intro image (see ride_images): a 64x32 silhouette HOLDS, then
+# FADES out while the ride name scrolls in; the wait number is gated until NORMAL.
+# Frame-counted (not wall-clock) so the fade stays locked to the frame-paced name
+# scroll on a slow device (~20fps -> ~1.6s hold, ~1.3s fade).
+_INTRO_HOLD_FRAMES = 32
+_INTRO_FADE_FRAMES = 26
 
 # Ride-NAME scroll styles (settings: per-ride, chosen in content_builder). "plain"
 # is the normal constant-speed scroll; "wave" rides each character on a sine path
@@ -110,7 +121,7 @@ class _ScrollingNameContent(DisplayContent):
     """
 
     def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0, scroll_step=1.0,
-                 name_effect="plain", name_content=None):
+                 name_effect="plain", name_content=None, intro_image=None):
         # We own completion (see is_complete), so the base never times us out
         # mid-scroll; duration becomes the minimum on-screen time.
         super().__init__(duration=None, priority=2)
@@ -132,6 +143,17 @@ class _ScrollingNameContent(DisplayContent):
         self._scrolled_off = False
         self._char_offsets = None  # cumulative per-char x offsets (wave mode), measured once
         self._wave_phase = 0
+        # Optional intro image: a transparent overlay that holds then fades while the
+        # name scrolls in. Loaded lazily on the first HOLD frame; only the on-screen
+        # ride's image is ever resident (released in stop()).
+        self._intro_image = intro_image
+        self._intro_phase = None       # "hold" | "fade" | None (None = normal screen)
+        self._intro_frame = 0
+        self._intro_tile = None
+        self._intro_palette = None
+        self._intro_base_colors = None
+        self._intro_odb = None
+        self._display = None
 
     async def start(self):
         await super().start()
@@ -139,6 +161,9 @@ class _ScrollingNameContent(DisplayContent):
         self._scrolled_off = False
         self._char_offsets = None
         self._wave_phase = 0
+        # Replay the intro each time the screen is shown (every display cycle).
+        self._intro_phase = "hold" if self._intro_image else None
+        self._intro_frame = 0
         if self._name_content is not None:
             await self._name_content.start()
 
@@ -146,6 +171,109 @@ class _ScrollingNameContent(DisplayContent):
         await super().stop()
         if self._name_content is not None:
             await self._name_content.stop()
+        # Detach the intro overlay so a mid-intro teardown can't strand it on screen,
+        # and free the bitmap/palette promptly (on-device RAM hygiene).
+        self._detach_intro()
+        self._intro_phase = None
+        self._intro_frame = 0
+        gc.collect()
+
+    async def _intro_step(self, display):
+        """Advance the intro for this frame.
+
+        Returns ``True`` while the intro owns the frame (the caller must return without
+        drawing the normal screen), ``False`` once the screen should render normally.
+        HOLD shows the still image; FADE darkens it WHILE the name scrolls in; when the
+        fade finishes the overlay is detached and the next frame is NORMAL — at which
+        point the existing ``_need_reveal`` path builds the wait-number reveal (so the
+        number is gated to land exactly as the image clears).
+        """
+        if self._intro_phase is None:
+            return False
+        if self._intro_phase == "hold":
+            if self._intro_tile is None and self._intro_image:
+                self._load_intro(display)            # lazy: load on the first hold frame
+                if self._intro_phase is None:        # load failed -> normal screen now
+                    return False
+            self._intro_frame += 1
+            if self._intro_frame >= _INTRO_HOLD_FRAMES:
+                self._intro_phase = "fade"
+                self._intro_frame = 0
+            return True
+        # "fade": darken the image while the name scrolls in (concurrent)
+        denom = _INTRO_FADE_FRAMES - 1 if _INTRO_FADE_FRAMES > 1 else 1
+        f = 1.0 - self._intro_frame / denom
+        if f < 0.0:
+            f = 0.0
+        self._fade_intro(f)
+        await self._render_name(display)
+        self._intro_frame += 1
+        if self._intro_frame >= _INTRO_FADE_FRAMES:
+            self._detach_intro()                     # free the layer the instant it's gone
+            self._intro_phase = None                 # next frame renders the normal screen
+        return True
+
+    def _load_intro(self, display):
+        """Load the intro bitmap as a transparent overlay layer (lazy, defensive).
+
+        On any failure (missing/corrupt file, or a non-indexed BMP whose pixel_shader
+        is not a writable Palette we can fade) it abandons the intro and falls straight
+        through to the normal screen — never blanks.
+        """
+        try:
+            odb = displayio.OnDiskBitmap(self._intro_image)
+            pal = odb.pixel_shader
+            # We fade by rewriting palette entries, so we need a mutable, indexable
+            # Palette. Probe it FUNCTIONALLY, not with hasattr: on CircuitPython native
+            # types implement len()/subscription via C type-slots, so
+            # hasattr(pal, "__len__"/"__setitem__") is False on-device even though they
+            # work. A non-indexed BMP yields a ColorConverter (no len/subscript) which
+            # raises here -> the outer except falls through to the normal screen.
+            len(pal)
+            pal[0]
+            pal.make_transparent(0)                  # index 0 = sky (authoring keeps it slot 0)
+            # Capture the un-faded colors as RGB888 so _scale_color is correct on both
+            # platforms: CircuitPython's Palette[i] is already RGB888, but the simulator
+            # stores RGB565 internally and exposes the true color via get_rgb888().
+            get888 = getattr(pal, "get_rgb888", None)
+            if get888 is not None:                   # simulator: ints may be np.uint8
+                self._intro_base_colors = [
+                    (int(c[0]) << 16) | (int(c[1]) << 8) | int(c[2])
+                    for c in (get888(i) for i in range(len(pal)))]
+            else:
+                self._intro_base_colors = [pal[i] for i in range(len(pal))]
+            # CircuitPython: the OnDiskBitmap IS the bitmap. Simulator: the Bitmap is
+            # at odb.bitmap (the OnDiskBitmap shim isn't subscriptable).
+            bmp = getattr(odb, "bitmap", odb)
+            tile = displayio.TileGrid(bmp, pixel_shader=pal)
+            display.add_layer(tile)
+            self._display = display
+            self._intro_odb = odb
+            self._intro_tile = tile
+            self._intro_palette = pal
+        except Exception:
+            self._detach_intro()
+            self._intro_phase = None
+
+    def _fade_intro(self, f):
+        """Scale every non-sky palette entry to ``f`` of its original color."""
+        pal, base = self._intro_palette, self._intro_base_colors
+        if pal is None or base is None:
+            return
+        for i in range(1, len(base)):
+            pal[i] = _scale_color(base[i], f)
+
+    def _detach_intro(self):
+        """Remove the overlay layer and drop refs (idempotent)."""
+        if self._intro_tile is not None and self._display is not None:
+            try:
+                self._display.remove_layer(self._intro_tile)
+            except Exception:
+                pass
+        self._intro_tile = None
+        self._intro_palette = None
+        self._intro_base_colors = None
+        self._intro_odb = None
 
     async def _render_name(self, display):
         """Draw + advance the scrolling name; mark complete after one full pass."""
@@ -201,6 +329,8 @@ class _ScrollingNameContent(DisplayContent):
     def is_complete(self):
         if self._is_complete:
             return True
+        if self._intro_phase is not None:
+            return False        # never advance while the intro is still playing
         # Advance once the name has scrolled fully across, never before the minimum.
         if self._name_content is not None:
             return self._name_content.is_complete and self.elapsed >= self._min_duration
@@ -213,6 +343,14 @@ class _ScrollingNameContent(DisplayContent):
 NUMBER_STYLES = ("sheen", "pulse")
 _NUM_RAMP = 6          # palette slots holding shades of the severity colour
 _NUM_PERIOD = 2        # advance the animation every N frames (calmer motion)
+
+
+def _scale_color(color, f):
+    """Scale a 24-bit color toward black by factor ``f`` (1.0 = full, 0.0 = black)."""
+    r = int(((color >> 16) & 0xFF) * f)
+    g = int(((color >> 8) & 0xFF) * f)
+    b = int((color & 0xFF) * f)
+    return (r << 16) | (g << 8) | b
 
 
 def _color_shades(color, n):
@@ -464,10 +602,10 @@ class RideScreenContent(_ScrollingNameContent):
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
                  wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0, effect="Rain",
                  name_effect="plain", name_content=None, number_style=None,
-                 drip_direction="top"):
+                 drip_direction="top", intro_image=None):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
-                         name_content=name_content)
+                         name_content=name_content, intro_image=intro_image)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
@@ -541,6 +679,8 @@ class RideScreenContent(_ScrollingNameContent):
                           direction=self._drip_direction)
 
     async def render(self, display):
+        if await self._intro_step(display):
+            return                       # intro owns the frame (hold / fade+scroll)
         await self._render_name(display)
         # --- bottom: large wait number, revealed into place then held ---
         if self._need_reveal:
@@ -581,14 +721,17 @@ class ClosedRideContent(_ScrollingNameContent):
     """A closed ride: scrolling name (top) + centered 'Closed' (bottom)."""
 
     def __init__(self, ride_name, *, name_color=0x0000FF, closed_color=0xFDF5E6,
-                 duration=4.0, scroll_step=1.0, name_effect="plain", name_content=None):
+                 duration=4.0, scroll_step=1.0, name_effect="plain", name_content=None,
+                 intro_image=None):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
-                         name_content=name_content)
+                         name_content=name_content, intro_image=intro_image)
         self.closed_color = _to_int_color(closed_color)
         self._closed_x = None        # centered x; measured once on first render
 
     async def render(self, display):
+        if await self._intro_step(display):
+            return                       # intro owns the frame (hold / fade+scroll)
         await self._render_name(display)
         label = "Closed"
         if self._closed_x is None:

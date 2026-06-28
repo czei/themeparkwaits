@@ -29,6 +29,7 @@ from src.ui.ride_screen_content import (
     RideScreenContent, ClosedRideContent, _to_int_color, _NAME_Y, NUMBER_STYLES,
     DRIP_DIRECTIONS,
 )
+from src.ui.ride_images import lookup_intro_image
 
 REQUIRED_MESSAGE = "ThemeParks.wiki"
 
@@ -220,13 +221,17 @@ def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, 
         name_c, name_eff = _name_scroller(ride.name, _to_int_color(name_color), speed, cat, rng)
     else:
         name_c, name_eff = None, "plain"     # plain scroll — the built-in name renderer
+    # Optional per-ride intro image (matched strictly by the themeparks.wiki ride id);
+    # None for rides without one, so only rides WITH an image get the intro.
+    intro = lookup_intro_image(ride.id)
     if ride.open_flag is True:
         wc = (_severity_color(ride.wait_time) if wait_color_mode == "severity"
               else _to_int_color(wait_color))
         num = rng.choice(_NUMBER_EFFECTS)        # Rain/Swarm/SplitFlap reveal OR sheen/pulse
         if num in NUMBER_STYLES:
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
-                                        wait_color=wc, number_style=num, name_content=name_c)
+                                        wait_color=wc, number_style=num, name_content=name_c,
+                                        intro_image=intro)
             drip_dir = None
         else:
             # "Rain" drips in from a RANDOM edge each ride; the other reveals don't
@@ -234,18 +239,20 @@ def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, 
             drip_dir = rng.choice(DRIP_DIRECTIONS) if num == "Rain" else "top"
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
                                         wait_color=wc, effect=num, drip_direction=drip_dir,
-                                        name_content=name_c)
+                                        name_content=name_c, intro_image=intro)
         content._tpw_wait = ride.wait_time
         content._tpw_color = wc
         content._tpw_number_effect = num
         content._tpw_drip_direction = drip_dir
     else:
-        content = ClosedRideContent(ride.name, name_color=name_color, name_content=name_c)
+        content = ClosedRideContent(ride.name, name_color=name_color, name_content=name_c,
+                                    intro_image=intro)
         content._tpw_wait = None
         content._tpw_color = _to_int_color(wait_color)
         content._tpw_number_effect = None
     content._tpw_ride = ride.name
     content._tpw_name_effect = name_eff
+    content._tpw_intro_image = intro
     content._tpw_transition = _TX_RIDE
     queue.add(content)
 
