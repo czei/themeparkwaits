@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Field-reliability regressions for the "goes black" failures.
 
 1. A FAILED refresh must keep showing last-good content — never empty the queue
@@ -46,6 +47,32 @@ async def test_failed_refresh_keeps_last_good_content(mock_http_client, settings
     # And it must NOT be stuck suspended (that would also blank the screen).
     assert app._suspend_queue_render is False
     assert await app.prepare_display_content() is not None
+
+
+async def test_http_500_refresh_marks_stale(settings_factory):
+    """A refresh that fails via the HTTP client's swallowed-error path (returns a
+    500 response, NOT an exception) must register as stale and shorten the retry —
+    the common real failure the old code missed by returning True regardless."""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    from scrollkit.network.http_client import HttpClient, MockResponse
+
+    def prov(url):
+        if url.endswith("/destinations"):
+            return MockResponse(status_code=200, text=DESTINATIONS_JSON)
+        return MockResponse(status_code=500, text="{}")   # /live fails, no exception
+
+    hc = HttpClient(session=None, mock_provider=prov)
+    hc.set_use_live_data(False)
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=hc, settings=sm)
+    await app._initialize_display()
+    await app.setup()                     # boot fetch fails (0 parks updated)
+    await app.update_data()               # consume the no-op skip
+
+    await app.update_data()               # real refresh: 500 -> 0 updated, no raise
+    assert app._data_stale is True, "a 500/timeout refresh must be detected as stale"
+    assert app.update_interval == app._stale_retry_interval
+    assert not app.content_queue.is_empty, "must keep last-good/offline content, not black"
 
 
 async def test_recovered_refresh_clears_stale_state(mock_http_client, settings_factory):

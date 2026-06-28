@@ -6,7 +6,7 @@ WiFi/onboarding/OTA/NTP land in T018/T027), the data process calls
 ``update_data()`` every ``update_interval`` to refresh wait times and rebuild the
 content queue, and the display process renders the queue.
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 
@@ -34,10 +34,11 @@ class ThemeParkApp(ScrollKitApp):
 
     def __init__(self, *, enable_web: bool = True, update_interval: int = 300,
                  http_client=None, settings=None) -> None:
-        # enable_watchdog=True: arm the hardware watchdog (CircuitPython only; a
-        # no-op in the simulator) so a true freeze — e.g. a hung synchronous socket
-        # that the timeout somehow doesn't catch — self-recovers via reset instead
-        # of sitting black until a power-cycle.
+        # enable_watchdog=True: opt this app into the hardware watchdog (CircuitPython
+        # only; a no-op in the simulator) so a true freeze — e.g. a hung synchronous
+        # socket — self-recovers via reset instead of sitting black until a
+        # power-cycle. The timeout (and its clamp to the ESP32-S3 hardware max) and
+        # the HTTP request timeout are the library's defaults now.
         super().__init__(enable_web=enable_web, update_interval=update_interval,
                          enable_watchdog=True)
         self.settings = settings or make_settings()
@@ -435,19 +436,25 @@ class ThemeParkApp(ScrollKitApp):
         """Refresh wait times for the selected park(s) and rebuild the content queue.
         Shared by boot (setup) and the periodic refresh (update_data).
 
-        Returns True on success, False if the refresh failed. On failure the
-        existing queue is left UNTOUCHED (build_content_queue is skipped), so the
-        caller keeps showing last-good content instead of going black — the queue
-        is no longer cleared ahead of this call (see _teardown_active_content)."""
+        Returns True only if the refresh actually got fresh data. The HTTP client
+        SWALLOWS network errors (it returns a 500 response, not an exception), so
+        success cannot be inferred from "no exception raised" — we check the update
+        count / flag. On failure the existing queue is left UNTOUCHED (build is
+        skipped) so the caller keeps last-good content and the stale flag/retry
+        cadence stay truthful instead of flapping back to "fresh". An UNconfigured
+        device (no park selected) is not a failure: it builds the Configure prompt
+        and reports success."""
         pl = self.service.park_list
         try:
-            if pl is not None:
-                if getattr(pl, "selected_parks", None):
-                    await self.service.update_selected_parks()
-                elif pl.current_park.is_valid():
-                    await self.service.update_current_park()
-            build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
-            return True
+            if pl is not None and getattr(pl, "selected_parks", None):
+                ok = (await self.service.update_selected_parks()) > 0
+            elif pl is not None and pl.current_park.is_valid():
+                ok = bool(await self.service.update_current_park())
+            else:
+                ok = True  # nothing to fetch (unconfigured) — show Configure prompt
+            if ok:
+                build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
+            return ok
         except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
             logger.error(e, "fetch_and_build failed")
             return False
@@ -567,14 +574,15 @@ class ThemeParkApp(ScrollKitApp):
         # Every refresh hits the internet (themeparks.wiki); the synchronous fetch
         # freezes the display, so paint a frame first or a hang looks like a dead screen.
         if self._initial_refresh_done:
-            await self._teardown_active_content()
-            # Suspend queue rendering across BOTH the status-frame transition and
-            # the blocking fetch: the status frame is drawn directly (off-queue)
-            # and the transition yields to the display loop, which would otherwise
-            # redraw the old ride over it. The queue keeps its items, so a failed
-            # fetch resumes last-good content (never black). Always released.
+            # Suspend queue rendering BEFORE the teardown await: _teardown_active_content()
+            # awaits current.stop(), which yields to the display loop — if the flag
+            # isn't set yet, the loop can render one more frame of the old ride. The
+            # suspend covers teardown + the status-frame transition + the blocking
+            # fetch. The queue keeps its items, so a failed fetch resumes last-good
+            # content (never black). Always released in finally.
             self._suspend_queue_render = True
             try:
+                await self._teardown_active_content()
                 await self._status("Times", transition=True)
                 ok = await self._fetch_and_build()
             finally:
