@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """T026/T027 — OTA manifest generation + glue construction (no network)."""
 import hashlib
 

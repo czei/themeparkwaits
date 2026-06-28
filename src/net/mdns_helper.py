@@ -5,7 +5,7 @@ config page stays app code. CircuitPython only; a no-op on desktop (and harmless
 if the ``mdns`` module is unavailable). Verify on-device coexistence with the web
 server's socket pool (R3 / hardware checklist T038).
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 

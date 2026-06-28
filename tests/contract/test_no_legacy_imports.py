@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """T031 — import guard: the active boot path must not import legacy app subsystems.
 
 The diverged modules (src/config, src/utils, src/network, the old src/ui display

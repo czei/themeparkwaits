@@ -11,7 +11,7 @@ names are never cut off mid-scroll), with ``duration`` kept as a *minimum* on-sc
 time so short names don't flash past. The scroll-complete check is frame-based, so a
 slower device still shows the whole name — it just takes longer in wall-clock.
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 

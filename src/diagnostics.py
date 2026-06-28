@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """On-device crash/boot diagnostics, persisted in ``microcontroller.nvm``.
 
 Why this exists: the previous field release went black with no usable logs — the

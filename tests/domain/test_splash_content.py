@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """SplashContent: assemble -> hold -> complete, frame-cap, and overlay cleanup.
 
 Drives the content with a fake SwarmReveal (patched in) so the completion/hold/

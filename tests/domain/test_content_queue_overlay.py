@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Regression: a settings change must not orphan the on-screen content's overlay.
 
 A ride's wait number (Rain/Swarm reveal) is a persistent display LAYER, released

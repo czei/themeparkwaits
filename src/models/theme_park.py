@@ -1,6 +1,6 @@
 """
 ThemePark model to represent a theme park with rides.
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 
 from src.models.theme_park_ride import ThemeParkRide

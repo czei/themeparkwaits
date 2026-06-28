@@ -9,7 +9,7 @@ loaded, so device RAM holds a few small sets, never the whole catalog.
 CircuitPython-safe: only ``json`` + ``OSError``/``ValueError``. A missing or garbled
 file yields an empty set (every ride name scrolls plain) rather than raising.
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import json
 

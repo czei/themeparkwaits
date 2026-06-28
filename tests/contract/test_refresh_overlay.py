@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Regression: a data refresh must not leave the previous ride's wait-number
 overlay ghosting on top of the "Updating / Times" status frame.
 

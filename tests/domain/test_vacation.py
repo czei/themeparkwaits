@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """T007 — vacation countdown math, including tomorrow/today special cases."""
 from datetime import datetime, timedelta
 

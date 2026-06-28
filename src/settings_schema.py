@@ -8,7 +8,7 @@ library's ``scrollkit.config.SettingsManager`` (which already defaults
 (there is no prerelease channel under raw-content fetching — see
 specs/001-this-project-is/contracts/ota-release.md).
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from scrollkit.config.settings_manager import SettingsManager
 from scrollkit.utils.color_utils import ColorUtils

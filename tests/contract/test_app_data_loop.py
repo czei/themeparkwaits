@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """T022 — the wired app: setup() + update_data() populate the queue with rides."""
 import os
 

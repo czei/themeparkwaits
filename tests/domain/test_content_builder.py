@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Content builder: sort / group / filter / closed / vacation / attribution, the
 dual-zone ride LAYOUT (scrolling name + large wait number) is preserved, and each
 ride's name effect (scrolling category) + number reveal (static category) are chosen

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """T023-T025 — config web UI on native adafruit_httpserver.
 
 The config server is now plain ``adafruit_httpserver`` (no library web layer).

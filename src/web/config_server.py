@@ -28,7 +28,7 @@ cause of the on-device POST freeze).
 Note: adafruit ``FormData`` exposes one value per field, so multi-park selection
 uses four distinct ``park_1..park_4`` dropdowns rather than a repeated field.
 
-Copyright 2024 3DUPFitters LLC
+Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 from __future__ import annotations
 

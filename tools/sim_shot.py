@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """Dev helper: render a ScrollKit content/app headlessly and save a scaled PNG.
 
 Lets us iterate on the LED layout from screenshots without hardware or a window.
