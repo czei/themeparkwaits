@@ -109,44 +109,19 @@ def _scroll_speed(settings):
     return 30
 
 
-class _PaletteMessage(BitmapText):
-    """BitmapText (palette-animated) made queue-safe for INFO MESSAGES and ride NAMES.
-    The library's BitmapText is a persistent banner — ``is_complete`` is always False
-    (would freeze the cycle) and it doesn't rebuild after ``stop()`` detaches its layer.
-    Here it completes after ONE full scroll pass and rebuilds each time it is shown.
+def _palette_message(text, *, palette_effect, scroll_speed, priority=2, y=_PALETTE_Y):
+    """A palette-animated BitmapText made queue-safe for INFO MESSAGES and ride NAMES.
 
-    Completion is keyed on the SCROLL itself: BitmapText snaps its position back to the
-    right edge the frame the text finishes scrolling off the left (it loops), and that
-    upward jump marks one complete pass. The scroll is FRAME-based, so its completion
-    must be too — a wall-clock timer would fire while the text is only half-scrolled
-    whenever a heavy concurrent effect (e.g. the swarm wait-number, ~34 ms/frame) drops
-    the frame rate, cutting the name off mid-scroll. (The motion scrollers complete on
-    scroll position for the same reason.)"""
-
-    def __init__(self, text, *, palette_effect, scroll_speed, priority=2, y=_PALETTE_Y):
-        speed = max(1, int(scroll_speed))
-        super().__init__(text, y=y, palette_effect=palette_effect,
-                         scroll_speed=speed,
-                         max_width_px=max(64, len(text) * 6 + 6), priority=priority)
-        self._passed = False        # one full scroll pass completed (frame-based)
-
-    async def start(self):
-        await super().start()
-        self._built = False        # rebuild (re-add the layer) each time shown
-        self._passed = False
-
-    async def render(self, display):
-        was_built = self._built
-        prev = self._pos_q
-        await super().render(display)
-        # The wrap (position snapping back up to the right edge) = one full pass. Skip
-        # the build frame, where _pos_q is (re)initialized from a stale value.
-        if was_built and self._pos_q > prev:
-            self._passed = True
-
-    @property
-    def is_complete(self):
-        return self._is_complete or self._passed
+    Uses the library's ``BitmapText(complete_after_passes=1)``: it completes after ONE
+    full scroll pass (so the queue can advance) and rebuilds its layer each time it is
+    shown. Completion is FRAME-based (keyed on scroll position, not wall-clock), so a
+    heavy concurrent effect (e.g. the swarm wait-number, ~34 ms/frame) that drops the
+    frame rate can't cut the name off mid-scroll. ``max_width_px`` and the baseline
+    ``y`` are this app's layout, so they stay here."""
+    return BitmapText(text, y=y, palette_effect=palette_effect,
+                      scroll_speed=max(1, int(scroll_speed)),
+                      max_width_px=max(64, len(text) * 6 + 6), priority=priority,
+                      complete_after_passes=1)
 
 
 def _instantiate_scroller(name, text, color, speed, y):
@@ -180,7 +155,7 @@ def _instantiate_palette(name, text, speed, y=_PALETTE_Y, color=None):
             eff = eff_cls()
         except Exception:                   # new/changed palette class -> safe default
             eff = RainbowChase()
-    return _PaletteMessage(text, palette_effect=eff, scroll_speed=speed, y=y)
+    return _palette_message(text, palette_effect=eff, scroll_speed=speed, y=y)
 
 
 def _plain_message(text, color, speed):

@@ -39,12 +39,12 @@ except Exception as e:  # last-resort recovery
         # The old code re-raised here, leaving the panel frozen/black until a
         # manual power-cycle. Instead: persist the cause to NVM (survives the
         # reset) and reboot to self-recover. The boot-loop breaker in
-        # src/diagnostics catches a DETERMINISTIC crash — after a few fault
-        # reboots it drops into safe mode instead of resetting forever — so this
-        # can't spin. The cause is shown on the config web UI after recovery.
+        # scrollkit.utils.diagnostics catches a DETERMINISTIC crash — after a few
+        # fault reboots it drops into safe mode instead of resetting forever — so
+        # this can't spin. The cause is shown on the config web UI after recovery.
         try:
             import traceback
-            from src.diagnostics import open as open_diagnostics
+            from scrollkit.utils.diagnostics import open as open_diagnostics
             try:
                 tb = "".join(traceback.format_exception(e))
             except Exception:

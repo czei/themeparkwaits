@@ -19,7 +19,7 @@ from scrollkit.utils.error_handler import ErrorHandler
 from src.settings_schema import make_settings
 from src.api.theme_park_service import ThemeParkService
 from src.ui.content_builder import build_content_queue
-from src import diagnostics
+from scrollkit.utils import diagnostics
 
 logger = ErrorHandler("error_log")
 
@@ -70,14 +70,11 @@ class ThemeParkApp(ScrollKitApp):
         # concurrent display loop owns the screen). This makes the data loop's
         # very first update_data() a no-op so it doesn't immediately re-fetch.
         self._skip_initial_update = False
-        # When True, prepare_display_content() returns None so the display loop
-        # stops drawing queue content. Set ONLY while a refresh is painting the
-        # "Updating / Times" status frame (drawn directly, off-queue) and then
-        # blocking on the fetch — this prevents the old ride from ghosting OVER
-        # the status frame/transition WITHOUT clearing the queue, so a FAILED
-        # refresh resumes last-good content instead of going black (the field
-        # "goes black" bug). See update_data()/_teardown_active_content().
-        self._suspend_queue_render = False
+        # Render suspension during a refresh's status frame now lives in the base
+        # ScrollKitApp (suspend_render()/suspended_render(); the base
+        # prepare_display_content() returns None while suspended). See update_data().
+        # The _suspend_queue_render property below is a back-compat alias for it.
+        #
         # Set when the most recent refresh failed: the queue is showing stale
         # data. Drives a faster retry and is surfaced for diagnostics.
         self._data_stale = False
@@ -128,20 +125,19 @@ class ThemeParkApp(ScrollKitApp):
             print("web server unavailable:", e)
             return None
 
-    async def prepare_display_content(self):
-        """Feed the display loop, but go quiet during a refresh's status frame.
+    @property
+    def _suspend_queue_render(self):
+        """Back-compat alias for the base ScrollKitApp render-suspend flag.
 
-        While ``_suspend_queue_render`` is set (a refresh is wiping in "Updating /
-        Times" and then blocking on the fetch), return None so the display loop
-        skips rendering — otherwise it would draw the previous ride OVER the
-        directly-drawn status frame/transition (the ghosting the old
-        ``queue.clear()`` worked around). The queue keeps its items, so once the
-        refresh finishes the loop resumes the NEW content on success or the
-        last-good (stale) content on failure — never an empty/black screen.
-        """
-        if self._suspend_queue_render:
-            return None
-        return await super().prepare_display_content()
+        Render suspension during a refresh's status frame moved into the library:
+        the base ``prepare_display_content()`` returns None while suspended, so this
+        app no longer overrides it — it uses ``self.suspended_render()`` in
+        update_data(). Kept as a read/write alias so existing checks still work."""
+        return self._render_suspended
+
+    @_suspend_queue_render.setter
+    def _suspend_queue_render(self, value):
+        self._render_suspended = bool(value)
 
     async def setup(self) -> None:
         """Pre-run sequence (boot state machine — partial; T018/T027 add WiFi/OTA/NTP)."""
@@ -544,7 +540,7 @@ class ThemeParkApp(ScrollKitApp):
                 except Exception as e:
                     logger.error(e, "set_system_clock failed")
                 try:
-                    from src.net.mdns_helper import advertise
+                    from scrollkit.network.mdns import advertise
                     # Retain the mdns.Server for the app's lifetime: if it is garbage
                     # collected, the responder stops answering and <domain>.local
                     # resolution dies after the first query (intermittent .local).
@@ -574,19 +570,16 @@ class ThemeParkApp(ScrollKitApp):
         # Every refresh hits the internet (themeparks.wiki); the synchronous fetch
         # freezes the display, so paint a frame first or a hang looks like a dead screen.
         if self._initial_refresh_done:
-            # Suspend queue rendering BEFORE the teardown await: _teardown_active_content()
-            # awaits current.stop(), which yields to the display loop — if the flag
-            # isn't set yet, the loop can render one more frame of the old ride. The
-            # suspend covers teardown + the status-frame transition + the blocking
-            # fetch. The queue keeps its items, so a failed fetch resumes last-good
-            # content (never black). Always released in finally.
-            self._suspend_queue_render = True
-            try:
+            # Suspend queue rendering across teardown + status frame + the blocking
+            # fetch: _teardown_active_content() awaits current.stop(), which yields to
+            # the display loop — without suspending, the loop could render one more
+            # frame of the old ride over the status frame. The queue keeps its items,
+            # so a failed fetch resumes last-good content (never black). The context
+            # manager always resumes, even if the fetch raises.
+            with self.suspended_render():
                 await self._teardown_active_content()
                 await self._status("Times", transition=True)
                 ok = await self._fetch_and_build()
-            finally:
-                self._suspend_queue_render = False
         else:
             self._initial_refresh_done = True
             ok = await self._fetch_and_build()
@@ -622,10 +615,11 @@ class ThemeParkApp(ScrollKitApp):
         We stop the overlay but DELIBERATELY DO NOT clear the queue: clearing it
         meant a failed refresh (flaky network) left the queue empty and the panel
         BLACK until a later refresh happened to succeed — the field "goes black"
-        bug. Ghosting during the status frame is instead prevented by
-        ``_suspend_queue_render`` (see update_data/prepare_display_content), which
-        keeps the loop from redrawing the old content while leaving the items in
-        place, so a failed fetch resumes last-good (stale) content.
+        bug. Ghosting during the status frame is instead prevented by suspending
+        render (``self.suspended_render()`` in update_data; the base display loop
+        skips drawing the queue while suspended), which keeps the loop from
+        redrawing the old content while leaving the items in place, so a failed
+        fetch resumes last-good (stale) content.
         build_content_queue() rebuilds the queue in place on success.
         Defensive — never raises into the refresh."""
         queue = self.content_queue

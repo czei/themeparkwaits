@@ -48,7 +48,14 @@ git -C "$REPO_ROOT" archive HEAD | tar -x -C "$WORK"
 
 echo "==> app: code.py, boot.py, src/  ->  $DEST"
 rsync "${RSYNC_OPTS[@]}" "$WORK/code.py" "$WORK/boot.py" "$DEST/"
-rsync "${RSYNC_OPTS[@]}" "$WORK/src/" "$DEST/src/"
+# Clean MIRROR of the tracked src/ tree: --delete prunes files removed from the repo
+# (retired modules, the old dead src/config|network|ota|utils dirs) and
+# --delete-excluded clears stale __pycache__/.pyc/._* AppleDouble cruft, so the board
+# never accumulates orphaned code. /src holds no device-owned state except .version
+# (untracked, so not in the archive); it is deleted here and re-copied immediately
+# below. Device-owned files (secrets.py, settings.json, error_log) live at the ROOT,
+# outside /src, so this never touches them.
+rsync "${RSYNC_OPTS[@]}" --delete --delete-excluded "$WORK/src/" "$DEST/src/"
 
 # src/.version is untracked (not in the archive) — copy the local one explicitly
 # so OTAGlue.read_current_version() reports a real version on the device.
