@@ -96,6 +96,15 @@ RIDES_WITH_INTRO = [
     ("Incredicoaster",   "5d07a2b1-49ca-4de7-9d32-6d08edf69b08"),
     ("Soarin Across America", "81b15dfd-cf6a-466f-be59-3dd65d2a2807"),
     ("Soarin Over California", "77f205a4-d482-4d91-a5ff-71e54a086ad2"),
+    # batch 9 (Efteling) — one per new image
+    ("Joris en de Draak", "5db59b64-d2cd-4211-a1fa-b4369b6e110a"),
+    ("Python",            "c0137454-0e1f-451e-85bd-aef4f443c51e"),
+    ("Pagode",            "27551b3f-7188-4bd6-b6b9-6bdd6b0f6ddd"),
+    ("Danse Macabre",     "1f356f6c-2033-48bb-b2d1-761c73441ac1"),
+    ("Droomvlucht",       "bd02be82-ce77-4c38-8c8d-567df7810648"),
+    ("Fairytale Forest",  "3b01fd39-77d3-437d-a195-9904e010ec3f"),
+    ("Pirana",            "a59b1021-ae84-4a11-a93f-545553f5e568"),  # device strips the ñ
+    ("Vogel Rok",         "1fdcb9bd-7ce3-4b23-a89c-b6d5f338cae9"),
 ]
 
 

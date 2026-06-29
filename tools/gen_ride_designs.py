@@ -91,6 +91,25 @@ def ellipse(g, cx, cy, rx, ry, ch, half=None):
                 put(g, x, y, ch)
 
 
+def fill_tri(g, p0, p1, p2, ch):
+    """Fill the triangle p0-p1-p2 (each an (x, y) tuple) with ch."""
+    pts = (p0, p1, p2)
+    minx = max(0, min(p[0] for p in pts)); maxx = min(W - 1, max(p[0] for p in pts))
+    miny = max(0, min(p[1] for p in pts)); maxy = min(H - 1, max(p[1] for p in pts))
+
+    def edge(a, b, c):
+        return (a[0] - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (a[1] - c[1])
+
+    for y in range(miny, maxy + 1):
+        for x in range(minx, maxx + 1):
+            p = (x, y)
+            d1, d2, d3 = edge(p, p0, p1), edge(p, p1, p2), edge(p, p2, p0)
+            neg = d1 < 0 or d2 < 0 or d3 < 0
+            pos = d1 > 0 or d2 > 0 or d3 > 0
+            if not (neg and pos):
+                put(g, x, y, ch)
+
+
 def write(name, g):
     path = os.path.join(DESIGNS, name + ".txt")
     with open(path, "w") as f:
@@ -1146,6 +1165,227 @@ def hang_glider():
     write("hang_glider", g)
 
 
+# ================================================================ BATCH 9 (Efteling)
+# ---------------------------------------------------------------- MUSHROOM (Fairytale Forest)
+def mushroom():
+    g = grid()
+    cx = 32
+    # grassy hummock the toadstool grows from
+    ellipse(g, cx, 28, 15, 3, "g")
+    ellipse(g, cx, 30, 22, 2, "G")
+    # white stem, flaring gently at the base
+    for y in range(15, 28):
+        t = (y - 15) / 12.0
+        hw = int(4 + 3 * t * t)
+        hline(g, cx - hw, cx + hw, y, "w")
+    # red dome cap (rounded top, flat underside) with a thick lip
+    ellipse(g, cx, 15, 18, 10, "r", half="top")
+    hline(g, cx - 18, cx + 18, 15, "r")
+    hline(g, cx - 16, cx + 16, 16, "r")
+    hline(g, cx - 7, cx + 7, 17, "w")              # cream collar under the cap
+    # white polka spots
+    for sx, sy, sr in ((22, 9, 3), (41, 8, 2), (31, 12, 2), (47, 12, 2),
+                       (16, 12, 2), (36, 6, 2)):
+        ellipse(g, sx, sy, sr, sr, "#")
+    write("mushroom", g)
+
+
+# ---------------------------------------------------------------- SNAKE (Python coaster)
+def snake():
+    g = grid()
+    cx, cy = 26, 21
+    # coiled body: a thick green ring (a wound coil you can see through the middle)
+    for y in range(H):
+        for x in range(W):
+            d = math.hypot(x - cx, (y - cy) * 1.25)
+            if 6.5 <= d <= 11.5:
+                put(g, x, y, "g")
+                if d <= 7.5 or d >= 10.5:
+                    put(g, x, y, "G")              # darker inner/outer body edge
+    # diamond markings around the coil (python blotches)
+    for a in range(0, 360, 45):
+        bx = cx + int(9 * math.cos(math.radians(a)))
+        by = cy + int(7 * math.sin(math.radians(a)))
+        ellipse(g, bx, by, 1, 1, "G")
+    # tail tip poking out of the coil (lower-left)
+    line(g, cx - 9, cy + 6, cx - 14, cy + 9, "g"); put(g, cx - 14, cy + 9, "G")
+    # neck rising up-right from the coil to a raised head
+    npts = ((cx + 8, cy - 6), (cx + 12, cy - 11), (cx + 16, cy - 14))
+    for i in range(len(npts) - 1):
+        thick_line(g, npts[i][0], npts[i][1], npts[i + 1][0], npts[i + 1][1], "g", 5)
+    # raised head (upper-right) + snout
+    ellipse(g, cx + 19, cy - 15, 5, 4, "g")        # ~ (45, 6)
+    rect(g, cx + 22, cy - 16, cx + 26, cy - 14, "g")
+    ellipse(g, cx + 18, cy - 16, 1, 1, "y"); put(g, cx + 19, cy - 16, "N")   # eye
+    # forked red tongue flicking out to the right
+    line(g, cx + 26, cy - 15, cx + 32, cy - 17, "r")
+    line(g, cx + 26, cy - 15, cx + 32, cy - 13, "r"); put(g, cx + 30, cy - 15, "r")
+    write("snake", g)
+
+
+# ---------------------------------------------------------------- PAGODA (Pagode)
+def pagoda():
+    g = grid()
+    cx = 32
+
+    def roof(cy, hw):
+        for i in range(3):                         # narrows upward over 3 rows
+            w = hw - i * 3
+            hline(g, cx - w, cx + w, cy - i, "r")
+        put(g, cx - hw, cy - 1, "o"); put(g, cx + hw, cy - 1, "o")          # upturned
+        put(g, cx - hw - 1, cy - 2, "o"); put(g, cx + hw + 1, cy - 2, "o")  # gold eaves
+
+    def body(y0, y1, hw, door=False):
+        rect(g, cx - hw, y0, cx + hw, y1, "w")
+        hline(g, cx - hw, cx + hw, y0, ":")        # shaded line under the eave
+        if door:
+            rect(g, cx - 2, y1 - 4, cx + 2, y1, "r")
+        else:
+            put(g, cx, (y0 + y1) // 2, ":")        # little window
+
+    vline(g, cx, 2, 5, "o"); put(g, cx, 1, "y")    # finial spike
+    roof(7, 9);   body(8, 11, 4)                   # top tier
+    roof(14, 13); body(15, 18, 6)                  # mid tier
+    roof(21, 17); body(22, 29, 8, door=True)       # base tier
+    write("pagoda", g)
+
+
+# ---------------------------------------------------------------- SKULL (Danse Macabre)
+def skull():
+    g = grid()
+    cx = 32
+    ellipse(g, cx, 13, 11, 10, "w")                # bone cranium
+    for y in range(19, 27):                        # cheeks taper to the chin
+        hw = int(10 - (y - 19) * 1.0)
+        hline(g, cx - hw, cx + hw, y, "w")
+    ellipse(g, cx - 5, 13, 3, 3, " ")              # deep eye sockets (carve to dark)
+    ellipse(g, cx + 5, 13, 3, 3, " ")
+    for i in range(3):                             # inverted-triangle nose cavity
+        hline(g, cx - (2 - i), cx + (2 - i), 18 + i, " ")
+    rect(g, cx - 7, 22, cx + 7, 26, "w")           # teeth block
+    for tx in range(cx - 6, cx + 7, 2):            # gaps between the teeth
+        vline(g, tx, 22, 26, " ")
+    write("skull", g)
+
+
+# ---------------------------------------------------------------- FISH / PIRANHA (Piraña)
+def fish():
+    g = grid()
+    cx, cy = 31, 16
+    ellipse(g, cx, cy, 14, 9, "s")                 # deep silvery body, head to the right
+    ellipse(g, cx + 5, cy + 4, 9, 4, "r")          # red belly
+    # forked tail fin sweeping out to the left
+    for x in range(7, 19):
+        t = (18 - x) / 11.0
+        h = int(1 + 8 * t)
+        vline(g, x, cy - h, cy + h, "s")
+    fill_tri(g, (7, cy), (12, cy - 2), (12, cy + 2), " ")   # tail notch (fork)
+    # dorsal fin (top)
+    fill_tri(g, (26, 8), (37, 8), (31, 3), "s")
+    # anal fin (bottom)
+    fill_tri(g, (28, 24), (38, 24), (33, 28), "r")
+    # open jaw + teeth (under-bite, right side)
+    fill_tri(g, (40, 18), (46, 16), (46, 21), " ")          # mouth gap
+    for tx in (42, 44):
+        fill_tri(g, (tx, 16), (tx + 2, 16), (tx + 1, 19), "#")   # upper teeth
+        fill_tri(g, (tx, 21), (tx + 2, 21), (tx + 1, 18), "#")   # lower teeth
+    # gill arc + eye
+    ring(g, 38, cy, 7, "S", cond=lambda x, y: x < 39)
+    ellipse(g, 40, 12, 2, 2, "#"); put(g, 40, 12, "N")
+    write("fish", g)
+
+
+# ---------------------------------------------------------------- BIRD / ROC (Vogel Rok)
+def bird():
+    g = grid()
+    cx = 32
+    # soaring bald-eagle look, head-on: dark wings/body, WHITE head + WHITE tail so it
+    # reads as a BIRD, not a bat (both AI testers called the all-dark version a bat).
+    thick_line(g, cx - 2, 14, 5, 7, "S", 4)
+    thick_line(g, cx + 2, 14, 59, 7, "S", 4)
+    thick_line(g, cx - 2, 16, 14, 16, "S", 3)
+    thick_line(g, cx + 2, 16, 50, 16, "S", 3)
+    fill_tri(g, (cx - 2, 13), (5, 7), (14, 16), "S")           # left wing membrane
+    fill_tri(g, (cx + 2, 13), (59, 7), (50, 16), "S")          # right wing membrane
+    for fx in range(10, 26, 4):                    # lighter feather separations
+        put(g, fx, 15 + (fx - 10) // 8, "s")
+    for fx in range(40, 56, 4):
+        put(g, fx, 15 + (54 - fx) // 8, "s")
+    for ex, ey in ((5, 7), (8, 5), (11, 7)):       # left wingtip primary fingers
+        line(g, cx - 8, 12, ex, ey, "S")
+    for ex, ey in ((59, 7), (56, 5), (53, 7)):     # right wingtip primary fingers
+        line(g, cx + 8, 12, ex, ey, "S")
+    ellipse(g, cx, 18, 3, 6, "S")                  # dark body
+    ellipse(g, cx, 9, 3, 3, "#")                   # white head (eagle)
+    fill_tri(g, (cx - 2, 11), (cx + 2, 11), (cx, 14), "o")     # gold hooked beak
+    put(g, cx - 1, 8, "N"); put(g, cx + 1, 8, "N")            # eyes
+    fill_tri(g, (cx - 4, 23), (cx + 4, 23), (cx, 30), "#")     # fanned white tail
+    write("bird", g)
+
+
+# ---------------------------------------------------------------- DRAGON (Joris en de Draak)
+def dragon():
+    g = grid()
+    cy = 15
+    # fire breath blasting LEFT (red outer, orange mid, yellow core)
+    fill_tri(g, (0, 7), (0, 23), (19, cy), "r")
+    fill_tri(g, (2, 10), (2, 20), (15, cy), "o")
+    fill_tri(g, (4, 12), (4, 18), (12, cy), "y")
+    # head mass (right of the jaws)
+    ellipse(g, 40, 14, 13, 11, "g")
+    # upper jaw / snout reaching left, lower jaw below — open mouth between them
+    fill_tri(g, (13, 11), (32, 8), (32, 15), "g")          # upper jaw
+    fill_tri(g, (15, 22), (32, 17), (32, 23), "g")         # lower jaw
+    fill_tri(g, (16, 15), (31, 12), (31, 18), " ")         # open mouth (dark gap)
+    # white fangs ringing the mouth
+    fill_tri(g, (21, 13), (24, 13), (22, 17), "w")         # upper fang
+    fill_tri(g, (27, 13), (30, 13), (28, 16), "w")
+    fill_tri(g, (22, 19), (25, 19), (23, 16), "w")         # lower fang
+    put(g, 14, 11, "N")                                    # nostril
+    # reptilian eye (yellow, vertical slit) + brow
+    ellipse(g, 35, 11, 2, 2, "y"); vline(g, 35, 10, 12, "N")
+    line(g, 31, 7, 40, 6, "G")                             # brow ridge
+    # swept-back horns (bone)
+    thick_line(g, 37, 5, 52, 1, "w", 2)
+    thick_line(g, 41, 5, 53, 4, "w", 2)
+    # spiky frill / crest down the back of the head (right edge)
+    for hx, hy in ((52, 9), (54, 14), (53, 19), (49, 24)):
+        fill_tri(g, (46, hy - 2), (46, hy + 2), (hx, hy), "G")
+    # scaly neck curving down to the lower-right
+    thick_line(g, 45, 23, 52, 29, "g", 7)
+    ellipse(g, 51, 28, 7, 3, "g")
+    for sx in range(30, 47, 4):                            # belly scale shading
+        put(g, sx, 23, "G")
+    write("dragon", g)
+
+
+# ---------------------------------------------------------------- FAIRY (Droomvlucht)
+def fairy():
+    g = grid()
+    cx = 28
+    # translucent butterfly wings spread behind (light blue)
+    fill_tri(g, (cx, 15), (cx - 16, 6), (cx - 8, 16), ":")     # upper-left wing
+    fill_tri(g, (cx, 15), (cx - 13, 22), (cx - 5, 17), ":")    # lower-left wing
+    fill_tri(g, (cx, 15), (cx + 16, 6), (cx + 8, 16), ":")     # upper-right wing
+    fill_tri(g, (cx, 15), (cx + 13, 22), (cx + 5, 17), ":")    # lower-right wing
+    ring(g, cx - 9, 10, 6, "~", cond=lambda x, y: x < cx)      # wing edge glow
+    ring(g, cx + 9, 10, 6, "~", cond=lambda x, y: x > cx)
+    # little figure: head + triangular dress
+    ellipse(g, cx, 8, 2, 2, "w")                   # head (skin)
+    ellipse(g, cx, 6, 2, 2, "o")                   # hair
+    for y in range(11, 19):                         # dress (pink/red gown)
+        hw = int(1 + (y - 11) * 0.7)
+        hline(g, cx - hw, cx + hw, y, "r")
+    line(g, cx - 1, 11, cx - 5, 14, "w"); line(g, cx + 1, 11, cx + 6, 9, "w")   # arms
+    vline(g, cx - 1, 19, 22, "w"); vline(g, cx + 1, 19, 22, "w")                # legs
+    # wand with a gold star sparkle + a trail of fairy dust
+    put(g, cx + 6, 9, "o")
+    for sx, sy in ((48, 7), (53, 11), (44, 14), (57, 16), (50, 19), (40, 5)):
+        put(g, sx, sy, "y"); put(g, sx + 1, sy, "o")
+    put(g, cx + 6, 8, "#"); put(g, cx + 7, 9, "#"); put(g, cx + 5, 9, "#")      # star points
+    write("fairy", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -1203,3 +1443,12 @@ if __name__ == "__main__":
     coaster_car()
     airplane()
     hang_glider()
+    # batch 9 (Efteling)
+    mushroom()
+    snake()
+    pagoda()
+    skull()
+    fish()
+    bird()
+    dragon()
+    fairy()

@@ -1,0 +1,32 @@
+
+                                y
+                                o
+                                o
+                                o
+                      o      rrrrrrr      o
+                       o  rrrrrrrrrrrrr  o
+                       rrrrrrrrrrrrrrrrrrr
+                            :::::::::
+                            wwww:wwww
+                            wwwwwwwww
+                            wwwwwwwww
+                  o      rrrrrrrrrrrrrrr      o
+                   o  rrrrrrrrrrrrrrrrrrrrr  o
+                   rrrrrrrrrrrrrrrrrrrrrrrrrrr
+                          :::::::::::::
+                          wwwwww:wwwwww
+                          wwwwwwwwwwwww
+                          wwwwwwwwwwwww
+              o      rrrrrrrrrrrrrrrrrrrrrrr      o
+               o  rrrrrrrrrrrrrrrrrrrrrrrrrrrrr  o
+               rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+                        :::::::::::::::::
+                        wwwwwwwwwwwwwwwww
+                        wwwwwwwwwwwwwwwww
+                        wwwwwwrrrrrwwwwww
+                        wwwwwwrrrrrwwwwww
+                        wwwwwwrrrrrwwwwww
+                        wwwwwwrrrrrwwwwww
+                        wwwwwwrrrrrwwwwww
+
+
