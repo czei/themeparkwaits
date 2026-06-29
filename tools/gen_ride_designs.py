@@ -1701,6 +1701,40 @@ def indiana_hat():
     write("indiana_hat", g)
 
 
+# ---------------------------------------------------------------- MOUNTAIN + FALLS (Tiana's / Splash Mountain)
+def mountain_falls():
+    g = grid()
+    cx, peak = 32, 5
+    # idealized green mountain: a bold symmetric peak filling the panel to the base
+    for y in range(peak, 31):
+        t = (y - peak) / (30 - peak)
+        hw = int(2 + 28 * t)
+        hline(g, cx - hw, cx + hw, y, "g")
+        for x in range(cx + hw - 4, cx + hw + 1):      # shaded right flank
+            put(g, x, y, "G")
+    line(g, cx, peak, cx - 16, 30, "G")                # ridge lines -> reads "mountain"
+    line(g, cx, peak, cx + 16, 30, "G")
+    for rx, ry in ((cx - 9, 12), (cx + 9, 14), (cx - 13, 20)):   # rocky texture flecks
+        put(g, rx, ry, "G")
+    # GIANT waterfall: a sheet pouring over the summit lip and fanning out to the pool.
+    # Monotonic widening + horizontal cascade ripples so it reads as falling WATER, not a
+    # tower (gemini called the old narrow-waisted column a "Space Needle").
+    put(g, cx, peak - 1, "#")                          # water cresting the summit
+    for y in range(peak, 30):
+        t = (y - peak) / (30 - peak)
+        w = int(2 + 5 * t)                             # narrow at top -> wide at base
+        hline(g, cx - w, cx + w, y, "#")               # white water sheet
+        put(g, cx - w, y, "~"); put(g, cx + w, y, "~")  # cyan edges
+        if (y - peak) % 3 == 1:                        # horizontal cascade ripples
+            hline(g, cx - w + 1, cx + w - 1, y, "~")
+    ellipse(g, cx, 30, 13, 2, "~")                     # splash pool at the base
+    for fx in (cx - 9, cx - 4, cx + 4, cx + 9):        # foam crests on the pool
+        put(g, fx, 29, "#")
+    for sx, sy in ((cx - 7, 13), (cx + 8, 17), (cx - 9, 22), (cx + 10, 25)):  # spray
+        put(g, sx, sy, "#")
+    write("mountain_falls", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -1782,3 +1816,4 @@ if __name__ == "__main__":
     slinky_dog()
     tower_of_terror()
     indiana_hat()
+    mountain_falls()
