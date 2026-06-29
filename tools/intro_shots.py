@@ -114,6 +114,11 @@ RIDES_WITH_INTRO = [
     ("Tiger Rock",        "f8ee1993-38f2-4f9f-96cf-e228b4a4e914"),
     ("Mandrill Mayhem",   "089d2fb3-b24c-4eb2-85ce-c7849c844ea2"),
     ("Ostrich Stampede",  "013c9096-4b5a-4ff0-9a5d-24af5d544737"),
+    # batch 11 (worldwide Disney) — one per new image
+    ("Iron Man Experience", "8483a3f9-89fb-4760-8142-bf62e604cd6f"),
+    ("Frozen Ever After", "630e2675-f9fc-4984-ba83-03daf5fc89ed"),
+    ("Slinky Dog Spin",  "337bce77-57bd-49c7-83d7-662f16c162ea"),
+    ("Tower of Terror",  "d2ec9363-a215-4904-b297-b66734ea9a00"),
 ]
 
 

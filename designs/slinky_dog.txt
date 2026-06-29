@@ -1,0 +1,32 @@
+
+
+
+
+
+            n
+           nnn                                                n
+          nnnnn                                              n
+          nnnnn                                             n
+         nnnnnnn                                    n       n
+          nnnnnnnnn                              nnnnnnn   n
+          nnnnnnn#nn#                           nnnnnnnnn n
+          nnnnnnnNnnN   s  s  s  s  s  s  s  s nnnnnnnnnnn
+          nnnnnnnnnnnr ssssssssssssssssssssssssnnnnnnnnnnn
+    nnnnnnnnnnnnnnnnnr ssssssssssssssssssssssssnnnnnnnnnnn
+    nnnnnnnnnnnnnnnnnr sssssssssssssssssssssssnnnnnnnnnnnnn
+    Nnnnnnnnnnnnnnnnnr ssssssssssssssssssssssssnnnnnnnnnnn
+    nnnnnnnnnnnnnnnn rsssssssssssssssssssssssssnnnnnnnnnnn
+            nnnnnnn  r ssssssssssssssssssssssssnnnnnnnnnnn
+           nnn n nnn r ssssssssssssssssssssssssSnnnnnnnnn
+           nnn   nnn   ssssssssssssssssssssssssS nnnnnnnnn
+           nnn   nnn   ssssssssssssssssssssssssS nnnn  nnn
+           nnn   nnn    s  s  s  s  s  s  s  s   nnn   nnn
+           nnn   nnn                             nnn   nnn
+           nnn   nnn                             nnn   nnn
+           nnn   nnn                             nnn   nnn
+           nnn   nnn                             nnn   nnn
+           Nnn   nNn                             nnn   nnn
+                                                 Nnn   nnN
+
+
+

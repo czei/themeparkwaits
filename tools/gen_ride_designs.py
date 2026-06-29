@@ -1557,6 +1557,139 @@ def ostrich():
     write("ostrich", g)
 
 
+# ================================================================ BATCH 11 (worldwide Disney)
+# ---------------------------------------------------------------- IRON MAN (helmet)
+def iron_man():
+    g = grid()
+    cx = 32
+
+    # red helmet silhouette, front view: domed crown, wide temples, jaw to a chin
+    def hw_at(y):
+        if y < 7:
+            return int(4 + (y - 3) * 1.7)              # 4..10 dome
+        if y < 15:
+            return 11                                  # temples / cheeks (widest)
+        if y < 23:
+            return int(11 - (y - 15) * 0.5)            # taper down the face
+        return max(3, int(7 - (y - 23) * 0.8))         # jaw -> pointed chin
+    for y in range(3, 29):
+        hline(g, cx - hw_at(y), cx + hw_at(y), y, "r")
+    # gold faceplate down the centre (red temples + red crown remain)
+    for y in range(9, 28):
+        if y < 12:
+            fw = (y - 9) * 2 + 2
+        elif y < 16:
+            fw = 8
+        else:
+            fw = max(3, int(8 - (y - 16) * 0.6))
+        hline(g, cx - fw, cx + fw, y, "o")
+    # angry brow notch + faint mouth vents on the plate
+    hline(g, cx - 3, cx + 3, 11, "r")
+    for vy in (22, 24):
+        hline(g, cx - 4, cx + 4, vy, "r")
+    # the tell: two glowing eye slits, slanting down toward the nose
+    for i in range(6):
+        put(g, cx - 9 + i, 13 + i // 2, "#")
+        put(g, cx + 9 - i, 13 + i // 2, "#")
+    write("iron_man", g)
+
+
+# ---------------------------------------------------------------- SNOWFLAKE (Frozen)
+def snowflake():
+    g = grid()
+    cx, cy, R = 32, 16, 13
+    for k in range(6):                                 # six-fold symmetry
+        a = math.radians(60 * k)
+        ca, sa = math.cos(a), math.sin(a)
+        ex, ey = round(cx + R * ca), round(cy + R * sa)
+        thick_line(g, cx, cy, ex, ey, "~", 2)          # main spine (icy blue)
+        for frac, blen in ((0.5, 4), (0.74, 3)):       # paired side branches
+            bx, by = cx + R * frac * ca, cy + R * frac * sa
+            for da in (55, -55):
+                a2 = a + math.radians(da)
+                line(g, round(bx), round(by),
+                     round(bx + blen * math.cos(a2)),
+                     round(by + blen * math.sin(a2)), "#")
+        put(g, ex, ey, "#")                            # bright tip
+    ellipse(g, cx, cy, 2, 2, "#")                      # hub
+    ellipse(g, cx, cy, 1, 1, ":")
+    write("snowflake", g)
+
+
+# ---------------------------------------------------------------- SLINKY DOG (Toy Story)
+def slinky_dog():
+    g = grid()
+    # front end: dachshund head + long snout facing left
+    ellipse(g, 15, 14, 6, 5, "n")                      # head
+    rect(g, 4, 14, 15, 17, "n")                        # long snout
+    put(g, 4, 16, "N")                                 # black nose at the tip
+    ellipse(g, 12, 9, 3, 4, "n")                       # floppy ear
+    put(g, 17, 11, "#"); put(g, 17, 12, "N")           # eye + pupil
+    put(g, 20, 11, "#"); put(g, 20, 12, "N")           # second eye
+    vline(g, 21, 13, 19, "r")                          # red collar
+    rect(g, 11, 19, 13, 27, "n"); rect(g, 17, 19, 19, 27, "n")   # front legs
+    put(g, 11, 27, "N"); put(g, 18, 27, "N")           # paws
+    # the Slinky spring body: a row of grey coil rings
+    for sx in range(24, 47, 3):
+        ellipse(g, sx, 17, 2, 5, "s")
+        vline(g, sx + 2, 13, 21, "S")                  # darker back edge of each coil
+    # rear end: haunch + back legs + tail
+    ellipse(g, 52, 15, 6, 6, "n")
+    rect(g, 49, 20, 51, 28, "n"); rect(g, 55, 20, 57, 28, "n")   # back legs
+    put(g, 49, 28, "N"); put(g, 57, 28, "N")
+    thick_line(g, 57, 12, 62, 6, "n", 2)               # tail up
+    write("slinky_dog", g)
+
+
+# ---------------------------------------------------------------- TOWER OF TERROR (Hollywood Tower Hotel)
+def tower_of_terror():
+    g = grid()
+    for sx, sy in ((50, 4), (56, 10), (12, 13), (46, 2)):       # night stars
+        put(g, sx, sy, "*")
+    # tan tiered hotel: base block, main shaft, setback tier, rooftop box
+    rect(g, 16, 24, 48, 31, "w")
+    rect(g, 22, 8, 42, 31, "w")
+    rect(g, 26, 4, 38, 9, "w")
+    rect(g, 29, 1, 35, 4, "w")
+    rect(g, 43, 24, 48, 31, "s")                       # shaded right wing
+    for yy in range(8, 31):
+        put(g, 41, yy, "s")                            # shaded right face
+    hline(g, 22, 42, 8, "o"); hline(g, 16, 48, 24, "o")         # cornice trim
+    lit = {(0, 1), (1, 3), (2, 0), (3, 2)}             # a few lit windows
+    for r in range(4):
+        for c in range(4):
+            wx, wy = 25 + c * 4, 11 + r * 3
+            rect(g, wx, wy, wx + 1, wy + 1, "y" if (r, c) in lit else "S")
+    ellipse(g, 32, 30, 3, 2, "N"); rect(g, 30, 28, 34, 31, "N")  # entrance arch
+    bolt = ((9, 1), (15, 7), (12, 8), (19, 15), (16, 15), (23, 7))  # lightning strike
+    for i in range(len(bolt) - 1):
+        line(g, bolt[i][0], bolt[i][1], bolt[i + 1][0], bolt[i + 1][1], "y")
+    write("tower_of_terror", g)
+
+
+# ---------------------------------------------------------------- INDIANA JONES (fedora + whip)
+def indiana_hat():
+    g = grid()
+    cx = 27
+    # fedora crown (domed, pinched) in worn brown
+    ellipse(g, cx, 13, 11, 7, "n", half="top")
+    rect(g, cx - 11, 13, cx + 11, 16, "n")
+    vline(g, cx, 7, 12, "N")                           # centre crease
+    put(g, cx - 4, 8, "N"); put(g, cx + 4, 8, "N")     # pinch dents
+    hline(g, cx - 11, cx + 11, 15, "N")                # hat band
+    hline(g, cx - 11, cx + 11, 16, "N")
+    # wide brim, turned down at the front sides (the Indy brim)
+    ellipse(g, cx, 18, 18, 3, "n")
+    line(g, cx - 18, 18, cx - 15, 22, "n")
+    line(g, cx + 18, 18, cx + 15, 22, "n")
+    ellipse(g, cx, 19, 15, 1, "N")                     # underbrim shadow
+    # coiled bullwhip, lower-right corner
+    for r in (6, 4, 2):
+        ring(g, 52, 26, r, "n")
+    line(g, 57, 23, 63, 17, "n"); line(g, 58, 24, 63, 19, "N")  # whip tail
+    write("indiana_hat", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -1632,3 +1765,9 @@ if __name__ == "__main__":
     tiger()
     monkey()
     ostrich()
+    # batch 11 (worldwide Disney)
+    iron_man()
+    snowflake()
+    slinky_dog()
+    tower_of_terror()
+    indiana_hat()
