@@ -1,0 +1,32 @@
+
+
+
+
+
+                                         o
+                                         w
+                           o
+                           w
+
+                                                    o
+            o                     r                 w
+            w                wwwwwwwwwww
+                                rrrrr
+                   :           rrrrrrr
+               wwwwwwwww      rrrrrrrrr
+                 :::::       rrrrrrrrrrr       g
+                :::::::     rrrrrrrrrrrrr   wwwwwww
+               :::::::::     rrrrrrrrrrr     ggggg
+              :::::::::::     rrrrrrrrr     ggggggg
+               :::::::::       rrrrrrr     ggggggggg
+                :::::::         rrrrr       ggggggg
+                 :::::           rrr         ggggg
+                  :::             r           ggg
+                   :                           g
+
+
+
+
+
+
+

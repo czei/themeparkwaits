@@ -1,0 +1,32 @@
+                               :::
+                              :::::
+                             :::::::
+                             :::::::
+                            :::::::::
+                    r      :::::::::::      r
+                    :rr   :::::::::::::     :rr
+                    :      wssssssssss      :
+                   :::     wssssssssss     :::
+                  :::::    wssssssssss    :::::
+           r     :::::::   wssss:sssss   :::::::     r
+           :rr  :::::::::  wssssssssss  :::::::::    :rr
+           :   ::::::::::: wssssssssss :::::::::::   :
+          :::   wssssssss  wssssssssss  wssssssss   :::
+         :::::  wssssssss  wssssssssss  wssssssss  :::::
+        ::::::: wssssssss  wssssssssss  wssssssss :::::::
+       :::::::::wsss:ssss  wssssssssss  wsss:ssss:::::::::
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wss:sss wssssssss  wssssssssss  wssssssss wss:sss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssssssss  wssssssss wssssss
+        wssssss wssssssss  wssssSsssss  wssssssss wssssss
+        sssssssssssssssssssssSSSSSSSsssssssssssssssssssss
+        sssssssssssssssssssssSSSSSSSsssssssssssssssssssss
+        sssssssssssssssssssssSSSSSSSsssssssssssssssssssss
+        sssssssssssssssssssssSSSSSSSsssssssssssssssssssss
+                              SSSSS
+                              SSSSS

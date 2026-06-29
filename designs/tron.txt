@@ -1,0 +1,32 @@
+
+
+
+
+
+
+
+
+
+                                 S
+                               ~~~~~
+                               SSSSS               ~~
+                            SSSSSSSSSSS          ~~
+                            SSSSSSSSSSS        ~~   SS
+                   ~~~~~    SSSSSSSSSSS   ~~~~~   SS
+                 ~~SSSSS~~~~SSSSSSSSSSS~~~SSSS~~SS  ~~
+               ~~~~SSSSSSSSSSSSSSSSSSSSSSSSSSSSS~~~~
+           ~~~~~~SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS~~~
+           ~~~~~~SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS~S~~
+           ~~~~~~SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS~~
+             ~~SSS~SSSSSSSSSSSSSSSSSSSSSSSSSSS~SSS~~
+             ~~SS~~~~~SS~~             ~~SS~~~~~SS~~
+             ~~SSS~~~SSS~~             ~~SSS~~~SSS~~
+             ~~~SSS~SSS~~~             ~~~SSS~SSS~~~
+              ~~SSSSSSS~~               ~~SSSSSSS~~
+              ~~~~SSSS~~~               ~~~~SSSS~~~
+               ~~~~~~~~~                 ~~~~~~~~~
+                 ~~~~~                     ~~~~~
+
+
+
+

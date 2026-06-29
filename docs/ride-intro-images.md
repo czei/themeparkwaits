@@ -4,9 +4,12 @@
 US Disney rides as possible. Each plays before that ride's wait-time screen on the
 Matrix Portal S3.
 
-**Status (2026-06-28):** framework DONE + committed (`da36781` on `main`) + verified on
-hardware. One reference image shipped (Space Mountain). Remaining work = draw + register
-more rides; **no code changes needed per ride.**
+**Status (2026-06-29):** framework DONE + verified on hardware. **All 49 ride icons are
+drawn + registered** — every filled-in representation in `docs/ride-icons.md` now maps to a
+BMP (79 ride UUIDs → 49 images in `manifest.json`), sim-verified through the real
+`UnifiedDisplay`. Designs are reproducible via `tools/gen_ride_designs.py`
+(+ `tools/trace_ref_outline.py` for reference-traced ones, e.g. the glass slipper).
+Adding more rides still needs **no code changes** — just a design + a manifest line.
 
 ---
 

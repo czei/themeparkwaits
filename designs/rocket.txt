@@ -1,0 +1,32 @@
+
+
+
+
+                                r
+                               rrr          *
+            *                 rrrrr
+                             rrrrrrr
+                            rrrrrrrrr
+                           rrrrrrrrrrr              *
+                          rrrrrrrrrrrrr
+                          #############
+                          #############
+                          ######:######
+                          #####:::#####
+                          ####:::::####
+                          #####:::#####
+                          ######:######
+                          #############
+                          rrrrrrrrrrrrr
+                          #############
+                          r###########r
+                         r#############r
+                         r#############r         *
+              *         r ############# r
+                       rrrr  ooooooo  rrrr
+                       rrrr   yyyyy   rrrr
+                      rrrrr    rrr    rrrrr
+
+
+
+

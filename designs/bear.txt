@@ -1,0 +1,32 @@
+
+
+
+                     n                     n
+                  nnnnnnn               nnnnnnn
+                 nnnnnnnnn             nnnnnnnnn
+                 nnnnNnnnn             nnnnNnnnn
+                 nnnNNNnnn      n      nnnNNNnnn
+                nnnNNNNNnnnnnnnnnnnnnnnnnNNNNNnnn
+                 nnnNNNnnnnnnnnnnnnnnnnnnnNNNnnn
+                 nnnnNnnnnnnnnnnnnnnnnnnnnnNnnnn
+                 nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+                  nnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+                    nnnnnnNnnnnnnnnnnnNnnnnnn
+                   nnnnnnnNnnnnnnnnnnnNnnnnnnn
+                   nnnnnnNNNnnnnnnnnnNNNnnnnnn
+                   nnnnnnnNnnnnnnnnnnnNnnnnnnn
+                   nnnnnnnNnnnnnwnnnnnNnnnnnnn
+                  nnnnnnnnnnwwwwNwwwwnnnnnnnnnn
+                   nnnnnnnnwwwwNNNwwwwnnnnnnnn
+                   nnnnnnnwwwwNNNNNwwwwnnnnnnn
+                   nnnnnnnwwwwwNNNwwwwwnnnnnnn
+                   nnnnnnwwwwwwwNwwwwwwwnnnnnn
+                    nnnnnnwwwwwwwwwwwwwnnnnnn
+                     nnnnnwwwwwwwwwwwwwnnnnn
+                      nnnnnwwwwwwwwwwwnnnnn
+                       nnnnnwwwwwwwwwnnnnn
+                        nnnnnnnnwnnnnnnnn
+                           nnnnnnnnnnn
+                                n
+
+

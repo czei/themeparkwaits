@@ -35,6 +35,7 @@ SKY = " "
 
 # char -> RGB. ' ' (sky) is forced to palette index 0 and made transparent on device.
 # Matches the approved "variant 1" look (white structure, blue rib-fins, dim stars).
+# Each image may use AT MOST 16 of these (bit_depth=4); the master map can be larger.
 PALETTE = {
     " ": (0, 0, 0),          # sky (index 0; transparent on device — color is irrelevant)
     "#": (255, 255, 255),    # bright white structure
@@ -44,8 +45,19 @@ PALETTE = {
     "=": (0x40, 0x4E, 0x80), # ground
     "*": (0xCD, 0xD0, 0xE1), # bright star
     "+": (0x18, 0x28, 0x60), # faint star
-    "o": (255, 0xD2, 0x46),  # warm accent
+    "o": (255, 0xD2, 0x46),  # warm accent (gold)
     "r": (0xEB, 0x3C, 0x3C), # red accent
+    # --- extended palette for the broader ride set (added 2026-06-28) ---
+    "w": (0xEA, 0xDF, 0xC4), # warm cream / sailcloth / fur
+    "n": (0x9A, 0x5F, 0x2C), # wood / hull brown
+    "N": (0x4E, 0x2C, 0x12), # dark brown (mast, shadow)
+    "g": (0x36, 0xB0, 0x3E), # foliage green
+    "G": (0x1C, 0x62, 0x28), # dark green
+    "~": (0x1F, 0x6F, 0xD6), # water blue
+    "s": (0x9C, 0x9F, 0xB0), # stone / snow-grey
+    "S": (0x4C, 0x50, 0x60), # dark grey
+    "R": (0xC0, 0x5A, 0x2E), # rust-red rock (Big Thunder / Everest)
+    "y": (0xFF, 0xE0, 0x44), # bright yellow
 }
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -92,6 +104,11 @@ def _build(grid, colors):
     if len(colors) > MAX_COLORS:
         raise SystemExit("too many colors: %d (max %d) — simplify the design"
                          % (len(colors), MAX_COLORS))
+    # Pillow encodes a <=2-color P image as a 1-bit BMP, which is not the indexed
+    # format the device reads (and fails the P-mode round-trip). Pad with unused
+    # palette slots so the encoder emits a 4-bit indexed BMP; sky stays index 0.
+    while len(colors) < 3:
+        colors.append((1, 1, 1))
     if grid[0][0] != 0:
         raise SystemExit("top-left pixel must be sky (index 0) so make_transparent(0) "
                          "is correct in the simulator — make row 0 / the corners sky")
