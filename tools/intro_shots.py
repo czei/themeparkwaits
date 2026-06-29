@@ -105,6 +105,15 @@ RIDES_WITH_INTRO = [
     ("Fairytale Forest",  "3b01fd39-77d3-437d-a195-9904e010ec3f"),
     ("Pirana",            "a59b1021-ae84-4a11-a93f-545553f5e568"),  # device strips the ñ
     ("Vogel Rok",         "1fdcb9bd-7ce3-4b23-a89c-b6d5f338cae9"),
+    # batch 10 (Chessington) — one per new image
+    ("Croc Drop",         "7a10dbec-c209-4bfe-8b19-84b428ae266b"),
+    ("Room on the Broom", "0f29655b-884e-44f7-b3c5-9edc0017d8e8"),
+    ("Vampire",           "97465ae2-dd6c-47e0-a55c-5ff4b221b672"),
+    ("Marshalls Firetruck", "98f86d9f-ffe5-45c2-a679-6a6d23778350"),
+    ("Skyes Helicopter",  "09d8ffee-a759-4563-8d78-fa268f712e52"),
+    ("Tiger Rock",        "f8ee1993-38f2-4f9f-96cf-e228b4a4e914"),
+    ("Mandrill Mayhem",   "089d2fb3-b24c-4eb2-85ce-c7849c844ea2"),
+    ("Ostrich Stampede",  "013c9096-4b5a-4ff0-9a5d-24af5d544737"),
 ]
 
 

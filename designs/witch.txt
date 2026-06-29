@@ -1,0 +1,32 @@
+                         S
+                         SS                          o
+                        SSSS                          ooo
+                       SSSSSS                          ooo
+                       SSSSSSS                          ooo
+                      SSSSSSSSS                         oooo
+                   SSSSSSSSSSSSSS                       oooo
+                   SSSSSSSSSSSSSS                        ooo
+                         www                            ooooo
+                        wwwww                           oooo
+                         www                            oooo
+                          w                            ooooo
+                          :ww                         ooooo
+                         ::: ww                  o ooooooo
+                        ::::   ww                 ooooooo
+                        :::::    ww          nn      o
+                       ::::::      ww    nnnn
+                      ::::::::       nnnn
+                      ::::::::    nnn
+                     ::::::::::nnn
+                    :::::::::::
+ y                  ::::::::::::
+ yy                :::::::::::::
+ yyyy           nn:::::::::::::::
+ yyyyy      nnnn
+ yyyyyy nnnn
+ yyyyyyy
+ yyyyyy
+ yyyy
+ yy
+
+

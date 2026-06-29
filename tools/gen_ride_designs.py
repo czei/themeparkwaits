@@ -1386,6 +1386,177 @@ def fairy():
     write("fairy", g)
 
 
+# ================================================================ BATCH 10 (Chessington)
+# ---------------------------------------------------------------- CROCODILE (Croc Drop)
+def crocodile():
+    g = grid()
+    # long jaws (left), upper + lower with a mouth gap + teeth
+    rect(g, 3, 15, 28, 17, "g")                    # upper jaw
+    rect(g, 6, 20, 28, 22, "g")                    # lower jaw
+    put(g, 5, 15, "N")                             # nostril at the snout tip
+    for tx in range(8, 27, 3):                     # white fangs ringing the mouth
+        put(g, tx, 18, "w"); put(g, tx, 19, "w")
+    # head + eye bump on top
+    ellipse(g, 32, 17, 8, 6, "g")
+    ellipse(g, 30, 11, 3, 2, "g"); put(g, 30, 10, "y"); put(g, 30, 11, "N")
+    # body + thick tapering tail to the right
+    ellipse(g, 46, 18, 12, 6, "g")
+    for x in range(56, 64):
+        t = (x - 56) / 7.0
+        h = int(5 * (1 - t))
+        vline(g, x, 18 - h, 18 + h, "g")
+    # ridged back scutes (dark-green triangles along the spine)
+    for sx in range(28, 60, 5):
+        fill_tri(g, (sx, 13), (sx + 3, 13), (sx + 1, 10), "G")
+    # FOUR clawed legs sticking down (a fish has none -> breaks the fish read)
+    for lx in (34, 41, 50, 57):
+        rect(g, lx, 23, lx + 1, 27, "g")
+        for c in (-1, 0, 1):
+            put(g, lx + c, 28, "G")                # 3-toe foot
+    write("crocodile", g)
+
+
+# ---------------------------------------------------------------- WITCH ON A BROOM (Room on the Broom)
+def witch():
+    g = grid()
+    # crescent moon behind (upper right)
+    ellipse(g, 53, 8, 7, 7, "o"); ellipse(g, 50, 7, 6, 6, " ")
+    # broomstick handle (lower-left up to the right) + bristles
+    thick_line(g, 6, 26, 46, 15, "n", 2)
+    for i in range(-4, 5):
+        line(g, 7, 26, 1, 25 + i, "y")
+    # witch: flowing cloak (purple), face, pointy hat, arm to the broom
+    fill_tri(g, (26, 11), (32, 23), (18, 23), ":")     # cloak
+    ellipse(g, 26, 9, 2, 2, "w")                       # face
+    fill_tri(g, (21, 6), (31, 6), (25, 0), "S")        # pointy hat
+    rect(g, 19, 6, 32, 7, "S")                         # hat brim
+    line(g, 27, 12, 36, 16, "w")                       # arm reaching to the broom
+    write("witch", g)
+
+
+# ---------------------------------------------------------------- BAT (Vampire)
+def bat():
+    g = grid()
+    cx = 32
+    # body + head with two pointed ears (the bat tell) + red vampire eyes
+    ellipse(g, cx, 16, 3, 5, "S")
+    ellipse(g, cx, 10, 3, 3, "S")
+    fill_tri(g, (cx - 3, 10), (cx - 1, 10), (cx - 2, 5), "S")
+    fill_tri(g, (cx + 1, 10), (cx + 3, 10), (cx + 2, 5), "S")
+    put(g, cx - 1, 10, "r"); put(g, cx + 1, 10, "r")
+    # spread wings with a SCALLOPED trailing edge (vs the eagle's feathered one)
+    fill_tri(g, (cx - 3, 13), (3, 7), (12, 20), "S")           # left membrane
+    fill_tri(g, (cx + 3, 13), (61, 7), (52, 20), "S")          # right membrane
+    fill_tri(g, (cx - 3, 14), (10, 19), (20, 21), "S")
+    fill_tri(g, (cx + 3, 14), (54, 19), (44, 21), "S")
+    for bx in (5, 9, 14, 19):                                  # finger bones (left)
+        line(g, cx - 4, 14, bx, 7 + (bx % 3) + (19 - bx) // 2, "S")
+    for sx, sy in ((9, 20), (16, 21), (23, 21)):               # scallop notches (left)
+        ellipse(g, sx, sy + 1, 2, 2, " ")
+    for sx, sy in ((55, 20), (48, 21), (41, 21)):              # scallop notches (right)
+        ellipse(g, sx, sy + 1, 2, 2, " ")
+    write("bat", g)
+
+
+# ---------------------------------------------------------------- FIRETRUCK (Marshall)
+def firetruck():
+    g = grid()
+    rect(g, 5, 15, 57, 24, "r")                    # red body
+    rect(g, 44, 10, 57, 16, "r")                   # cab
+    rect(g, 46, 11, 55, 15, ":")                   # windshield
+    hline(g, 5, 44, 19, "w"); hline(g, 5, 44, 20, "w")        # white side stripe
+    # silver extension ladder along the top
+    line(g, 8, 13, 42, 8, "s"); line(g, 9, 15, 43, 10, "s")
+    for k in range(0, 34, 4):
+        line(g, 8 + k, 13 - k * 5 // 34, 9 + k, 15 - k * 5 // 34, "S")   # rungs
+    put(g, 50, 8, "y"); put(g, 50, 7, "r")         # roof beacon
+    for wx in (16, 47):                            # wheels
+        ellipse(g, wx, 25, 4, 4, "N"); ellipse(g, wx, 25, 2, 2, "s")
+    write("firetruck", g)
+
+
+# ---------------------------------------------------------------- HELICOPTER (Skye)
+def helicopter():
+    g = grid()
+    hline(g, 7, 57, 6, "s"); hline(g, 7, 57, 7, "s")          # main rotor blades
+    vline(g, 32, 7, 11, "S")                       # rotor mast
+    ellipse(g, 26, 17, 11, 7, "r")                 # body
+    ellipse(g, 21, 16, 5, 4, ":")                  # cockpit bubble
+    rect(g, 35, 15, 57, 18, "r")                   # tail boom
+    fill_tri(g, (53, 10), (59, 11), (57, 17), "r") # tail fin
+    line(g, 57, 10, 57, 15, "S"); line(g, 55, 12, 59, 12, "S")   # tail rotor
+    hline(g, 17, 39, 26, "S")                      # landing skid
+    vline(g, 22, 23, 26, "S"); vline(g, 34, 23, 26, "S")
+    write("helicopter", g)
+
+
+# ---------------------------------------------------------------- TIGER (Tiger Rock)
+def tiger():
+    g = grid()
+    cx = 32
+    # ears
+    ellipse(g, cx - 11, 8, 4, 4, "o"); ellipse(g, cx + 11, 8, 4, 4, "o")
+    ellipse(g, cx - 11, 9, 2, 2, "N"); ellipse(g, cx + 11, 9, 2, 2, "N")
+    # orange face
+    ellipse(g, cx, 17, 13, 12, "o")
+    # white muzzle + brow patches
+    ellipse(g, cx, 22, 8, 5, "w")
+    ellipse(g, cx - 5, 13, 3, 2, "w"); ellipse(g, cx + 5, 13, 3, 2, "w")
+    # bold black stripes (forehead + cheeks)
+    for dx in (-2, 0, 2):
+        vline(g, cx + dx, 6, 11, "N")
+    for sx in (-12, -9, 9, 12):
+        line(g, cx + sx, 15, cx + sx + (1 if sx < 0 else -1) * 3, 20, "N")
+    # eyes + nose + mouth
+    ellipse(g, cx - 5, 14, 1, 2, "N"); ellipse(g, cx + 5, 14, 1, 2, "N")
+    fill_tri(g, (cx - 2, 19), (cx + 2, 19), (cx, 21), "r")
+    vline(g, cx, 21, 23, "N"); put(g, cx - 2, 24, "N"); put(g, cx + 2, 24, "N")
+    write("tiger", g)
+
+
+# ---------------------------------------------------------------- MONKEY / MANDRILL (Mandrill Mayhem)
+def monkey():
+    g = grid()
+    cx = 32
+    # big round ears
+    ellipse(g, cx - 12, 15, 5, 5, "n"); ellipse(g, cx + 12, 15, 5, 5, "n")
+    ellipse(g, cx - 12, 15, 3, 3, "w"); ellipse(g, cx + 12, 15, 3, 3, "w")
+    # brown head + tan face
+    ellipse(g, cx, 15, 11, 10, "n")
+    ellipse(g, cx, 18, 8, 8, "w")
+    ellipse(g, cx, 8, 6, 3, "n")                   # brow/fur crown
+    # eyes, nose pad, mouth (clean monkey — no cheek streaks, which read as tears)
+    ellipse(g, cx - 3, 13, 1, 2, "N"); ellipse(g, cx + 3, 13, 1, 2, "N")
+    ellipse(g, cx, 19, 2, 1, "n")                  # nose pad
+    put(g, cx - 1, 19, "N"); put(g, cx + 1, 19, "N")   # nostrils
+    put(g, cx - 4, 22, "N"); put(g, cx + 4, 22, "N")
+    for x in range(cx - 3, cx + 4):                # smile
+        put(g, x, 23, "N")
+    write("monkey", g)
+
+
+# ---------------------------------------------------------------- OSTRICH (Ostrich Stampede)
+def ostrich():
+    g = grid()
+    # round body of dark plumes
+    ellipse(g, 27, 15, 11, 7, "S")
+    ellipse(g, 26, 18, 5, 3, "w")                  # folded white wing (low/central)
+    ellipse(g, 18, 16, 4, 3, "w")                  # white tail tuft (rear, left)
+    # very long thin S-neck to a SMALL head (tiny beak -> not a toucan)
+    nk = ((36, 11), (43, 7), (48, 4), (51, 3))
+    for i in range(len(nk) - 1):
+        thick_line(g, nk[i][0], nk[i][1], nk[i + 1][0], nk[i + 1][1], "w", 2)
+    ellipse(g, 52, 3, 2, 2, "w")                   # small head
+    put(g, 54, 3, "o")                             # tiny beak
+    put(g, 52, 2, "N")                             # eye
+    # two long thick legs with feet (long legs = the ostrich tell)
+    thick_line(g, 25, 21, 22, 31, "w", 2)
+    thick_line(g, 31, 21, 34, 31, "w", 2)
+    for fx in (21, 23, 33, 35):
+        put(g, fx, 31, "o")                        # splayed feet
+    write("ostrich", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -1452,3 +1623,12 @@ if __name__ == "__main__":
     bird()
     dragon()
     fairy()
+    # batch 10 (Chessington)
+    crocodile()
+    witch()
+    bat()
+    firetruck()
+    helicopter()
+    tiger()
+    monkey()
+    ostrich()
