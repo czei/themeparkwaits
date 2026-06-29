@@ -119,6 +119,7 @@ RIDES_WITH_INTRO = [
     ("Frozen Ever After", "630e2675-f9fc-4984-ba83-03daf5fc89ed"),
     ("Slinky Dog Spin",  "337bce77-57bd-49c7-83d7-662f16c162ea"),
     ("Tower of Terror",  "d2ec9363-a215-4904-b297-b66734ea9a00"),
+    ("Indiana Jones",    "5d0ce227-7ad0-4402-a95b-6cf56f25a8ec"),
 ]
 
 

@@ -1670,23 +1670,34 @@ def tower_of_terror():
 # ---------------------------------------------------------------- INDIANA JONES (fedora + whip)
 def indiana_hat():
     g = grid()
-    cx = 27
-    # fedora crown (domed, pinched) in worn brown
-    ellipse(g, cx, 13, 11, 7, "n", half="top")
-    rect(g, cx - 11, 13, cx + 11, 16, "n")
-    vline(g, cx, 7, 12, "N")                           # centre crease
-    put(g, cx - 4, 8, "N"); put(g, cx + 4, 8, "N")     # pinch dents
-    hline(g, cx - 11, cx + 11, 15, "N")                # hat band
-    hline(g, cx - 11, cx + 11, 16, "N")
-    # wide brim, turned down at the front sides (the Indy brim)
-    ellipse(g, cx, 18, 18, 3, "n")
-    line(g, cx - 18, 18, cx - 15, 22, "n")
-    line(g, cx + 18, 18, cx + 15, 22, "n")
-    ellipse(g, cx, 19, 15, 1, "N")                     # underbrim shadow
-    # coiled bullwhip, lower-right corner
-    for r in (6, 4, 2):
-        ring(g, 52, 26, r, "n")
-    line(g, 57, 23, 63, 17, "n"); line(g, 58, 24, 63, 19, "N")  # whip tail
+    cx = 28
+    # fedora crown: a creased "teardrop" — TAPERED (narrower on top than the base) with a
+    # mostly flat top, NOT a smooth dome (the dome read as a turtle shell).
+    for y in range(7, 16):
+        t = (y - 7) / 8.0
+        hw = int(6 + 4 * t)                            # 6 (top) -> 10 (base)
+        hline(g, cx - hw, cx + hw, y, "n")
+    hline(g, cx - 5, cx + 5, 6, "n")                   # flat-ish crown top
+    # centre crease + two pinch dents — the fedora tell that breaks the shell read
+    vline(g, cx, 6, 11, "N")
+    vline(g, cx - 4, 6, 9, "N"); vline(g, cx + 4, 6, 9, "N")
+    # dark hat band + a little gold buckle
+    hline(g, cx - 10, cx + 10, 14, "N"); hline(g, cx - 10, cx + 10, 15, "N")
+    put(g, cx - 6, 14, "o"); put(g, cx - 6, 15, "o")
+    # wide snap brim: the dominant horizontal element, front edge dipped down in the middle
+    ellipse(g, cx, 17, 19, 2, "n")
+    for x in range(cx - 12, cx + 13):
+        d = 1.0 - abs(x - cx) / 13.0
+        if d > 0:
+            vline(g, x, 17, 17 + int(3 * d), "n")
+    ellipse(g, cx, 18, 17, 1, "N")                     # underbrim shadow
+    put(g, cx - 19, 18, "n"); put(g, cx + 19, 18, "n")  # turned-down brim tips
+    # coiled bullwhip, lower-right: ONE loose loop + a long cracking lash (not a snail spiral)
+    ring(g, 52, 27, 4, "n")
+    ellipse(g, 52, 27, 1, 1, "N")
+    lash = ((55, 24), (59, 22), (61, 17), (58, 12), (62, 7))
+    for i in range(len(lash) - 1):
+        line(g, lash[i][0], lash[i][1], lash[i + 1][0], lash[i + 1][1], "n")
     write("indiana_hat", g)
 
 
