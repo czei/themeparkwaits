@@ -320,6 +320,15 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
             if park.is_open:
                 for ride in _filter_rides(park.rides, skip_meet, skip_closed):
                     combined.append((park.id, ride))
+        # Non-grouped mode used to show a blank board when the selected park(s) were
+        # closed (no OPERATING rides). Surface a clear "closed" message instead — the
+        # grouped path above already does this per park.
+        if not combined:
+            closed_names = [p.name for p in parks if p.is_open is False]
+            if closed_names:
+                verb = " is closed" if len(closed_names) == 1 else " are closed"
+                queue.add(_random_content(", ".join(closed_names) + verb,
+                                          default_color, speed, cat, rng))
         for _park_id, ride in _sort_pairs(combined, sort_mode):
             _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, rng,
                       name_effect_on=(ride_i % 2 == 0))

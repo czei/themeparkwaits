@@ -219,6 +219,32 @@ def test_no_parks_shows_choose_message(settings_factory):
     assert any("Choose theme park" in t for t in _texts(q))
 
 
+def _closed_park_list(settings, park_id=MAGIC_KINGDOM_ID):
+    """A selected park whose rides are all CLOSED, so park.is_open is False."""
+    plist = ThemeParkList(json.loads(DESTINATIONS_JSON))
+    plist.load_settings(settings)
+    park = plist.get_park_by_id(park_id)
+    park.update({"liveData": [
+        {"id": "c1", "name": "Dragon's Fury", "entityType": "ATTRACTION",
+         "status": "CLOSED", "queue": {}},
+        {"id": "c2", "name": "Croc Drop", "entityType": "ATTRACTION",
+         "status": "CLOSED", "queue": {}},
+    ]})
+    plist.selected_parks = [park]
+    return plist
+
+
+def test_closed_park_shows_closed_message_ungrouped(settings_factory):
+    """When the selected park has no OPERATING rides, the non-grouped board shows a
+    clear '<park> is closed' message instead of a near-blank queue (regression)."""
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID], group_by_park=False,
+                          skip_closed=False)
+    q = ContentQueue()
+    build_content_queue(q, _closed_park_list(sm), sm, Vacation(), rng=random.Random(0))
+    assert any("Magic Kingdom Park is closed" in t for t in _texts(q)), _texts(q)
+    assert not _rides(q)            # a fully-closed park has no ride screens to show
+
+
 def test_vacation_messages(settings_factory):
     from datetime import datetime, timedelta
     sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
