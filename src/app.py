@@ -53,7 +53,9 @@ class ThemeParkApp(ScrollKitApp):
         self.service.watchdog_feed = self._feed_watchdog
         try:
             from src.ota_glue import OTAGlue
-            self.ota = OTAGlue()
+            # Reuse the app's HttpClient session for OTA GETs (adafruit_requests is
+            # Session-based on CircuitPython — no module-level get).
+            self.ota = OTAGlue(http_client=self.http_client)
         except Exception as e:  # OTA is optional; never block construction
             print("OTA unavailable:", e)
             self.ota = None

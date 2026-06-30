@@ -55,12 +55,18 @@ class OTAGlue:
     display-progress + staged-install adapter. Thin: config + delegation."""
 
     def __init__(self, current_version=None, *, owner=DEFAULT_OWNER, repo=DEFAULT_REPO,
-                 branch=DEFAULT_BRANCH, display=None):
+                 branch=DEFAULT_BRANCH, display=None, http_client=None):
         from scrollkit.ota.client import OTAClient
         from scrollkit.ota.display_progress import OTAProgressDisplay
         self.current_version = current_version or read_current_version()
+        # OTA reuses the app's HttpClient session: on CircuitPython adafruit_requests
+        # is Session-based (no module-level get), so the OTAClient needs a Session.
+        # The session is created later (during WiFi connect) and can be rebuilt, so
+        # we keep the HttpClient and read its live session in schedule_update().
+        self._http_client = http_client
         client = OTAClient.for_github(owner, repo, branch=branch,
-                                      current_version=self.current_version)
+                                      current_version=self.current_version,
+                                      session=getattr(http_client, "session", None))
         self._progress = OTAProgressDisplay(client, display=display)
 
     @property
@@ -78,6 +84,11 @@ class OTAGlue:
         return self._progress.has_pending()
 
     def schedule_update(self):
+        # Pick up the HttpClient's CURRENT session (created during WiFi connect,
+        # and possibly rebuilt since this glue was constructed) so the OTA GET uses
+        # a live socket pool rather than the None captured at construction time.
+        if self._http_client is not None:
+            self.client.session = getattr(self._http_client, "session", None)
         return self._progress.schedule_update()
 
     async def install_pending(self):
