@@ -26,6 +26,9 @@ DEFAULTS = {
     "ride_wait_time_color": ColorUtils.colors["Old Lace"],
     "scroll_speed": "Medium",
     "wait_time_effect": "Rain",
+    # Vertical two-tone gradient on the scrolling ride NAME (lighter top -> deeper
+    # bottom, derived from ride_name_color). Off -> flat single-colour name.
+    "ride_name_gradient": True,
     "wait_color_mode": "severity",      # severity (green->red by wait) | fixed
     "display_mode": "all_rides",
     "sort_mode": "alphabetical",
@@ -38,7 +41,7 @@ DEFAULTS = {
 
 # Keys CircuitPython's JSON parser may store as strings; SettingsManager.get()
 # coerces these back to bool.
-BOOL_KEYS = ["skip_closed", "skip_meet", "group_by_park"]
+BOOL_KEYS = ["skip_closed", "skip_meet", "group_by_park", "ride_name_gradient"]
 
 DEFAULT_SETTINGS_FILE = "settings.json"
 

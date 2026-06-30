@@ -112,6 +112,24 @@ def _text_width(display, text, scale=1):
     return len(text) * _CHAR_W * scale
 
 
+def _name_gradient_stops(color):
+    """Two distinct vertical-gradient stops (lighter TOP -> deeper BOTTOM) derived
+    from the ride-name colour.
+
+    The single-hue ``depth_palette()`` used for "Closed" is too subtle for the
+    scrolling name at this glyph size, so this lifts the top ~45% toward white and
+    drops the bottom to ~45% of the base — same hue, but with enough separation to
+    survive the panel's RGB444 truncation (every channel stays well over 0x20
+    apart). Returned as ``(top, bottom)`` to hand straight to a two-stop palette.
+    """
+    r, g, b = (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF
+    top = (((r + (255 - r) * 45 // 100) << 16)
+           | ((g + (255 - g) * 45 // 100) << 8)
+           | (b + (255 - b) * 45 // 100))
+    bottom = ((r * 45 // 100) << 16) | ((g * 45 // 100) << 8) | (b * 45 // 100)
+    return top, bottom
+
+
 class _ScrollingNameContent(DisplayContent):
     """Base for a ride screen: a name that scrolls across the top exactly once.
 
@@ -122,7 +140,8 @@ class _ScrollingNameContent(DisplayContent):
     """
 
     def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0, scroll_step=1.0,
-                 name_effect="plain", name_content=None, intro_image=None):
+                 name_effect="plain", name_content=None, intro_image=None,
+                 name_gradient=False):
         # We own completion (see is_complete), so the base never times us out
         # mid-scroll; duration becomes the minimum on-screen time.
         super().__init__(duration=None, priority=2)
@@ -134,18 +153,21 @@ class _ScrollingNameContent(DisplayContent):
         self.ride_name = ride_name
         self.name_color = _to_int_color(name_color)
         self.name_effect = name_effect if name_effect in NAME_EFFECTS else "plain"
+        # Vertical two-tone gradient on the scrolling name (lighter top -> deeper
+        # bottom), drawn as a moving TileGrid layer built once (zero per-frame pixel
+        # writes). Off -> the flat draw_text fallback. Skipped in "wave" mode and
+        # when an embedded catalog effect owns the name. Relies on the library's
+        # baseline-aligned pixels_from_font_text (4acc2ba) so mixed-case names with
+        # descenders place correctly; if the gradient layer can't be built it falls
+        # back to the flat path (see _render_name_gradient).
+        self._name_gradient = bool(name_gradient)
+        self._name_grad = None          # the _GradientTextLayer (built on 1st render)
+        self._name_grad_failed = False  # build failed once -> stay flat (no retry/frame)
         # Optional embedded scrolling-effect content (chosen at random from the live
         # ScrollKit catalog) that renders the NAME in the top zone. When set it OWNS
         # the name scroll + completion; the built-in plain/wave path is the fallback.
         # The wait NUMBER below is rendered by the subclass either way — untouched.
         self._name_content = name_content
-        # The built-in PLAIN scroll (no catalog name_content, no "wave") keeps its
-        # own frame-by-frame motion (_name_x below) but draws through a StaticText
-        # repositioned every frame, so the existing scroll animation now carries a
-        # subtle vertical depth gradient instead of a flat fill — the animation
-        # plays ON TOP OF the gradient text, not instead of it.
-        self._plain_name = StaticText(ride_name, y=_NAME_Y, color=self.name_color,
-                                      palette=depth_palette(self.name_color))
         self._name_x = None        # set on first render (start from right edge)
         self._name_w = None
         self._scrolled_off = False
@@ -169,18 +191,18 @@ class _ScrollingNameContent(DisplayContent):
         self._scrolled_off = False
         self._char_offsets = None
         self._wave_phase = 0
+        self._detach_name_grad()   # rebuild the moving gradient layer on (re)show
         # Replay the intro each time the screen is shown (every display cycle).
         self._intro_phase = "hold" if self._intro_image else None
         self._intro_frame = 0
         if self._name_content is not None:
             await self._name_content.start()
-        await self._plain_name.start()     # detach/rebuild its gradient layer on re-show
 
     async def stop(self):
         await super().stop()
         if self._name_content is not None:
             await self._name_content.stop()
-        await self._plain_name.stop()
+        self._detach_name_grad()
         # Detach the intro overlay so a mid-intro teardown can't strand it on screen,
         # and free the bitmap/palette promptly (on-device RAM hygiene).
         self._detach_intro()
@@ -297,11 +319,16 @@ class _ScrollingNameContent(DisplayContent):
             self._name_w = _text_width(display, self.ride_name)
         if self.name_effect == "wave":
             await self._render_name_wave(display)
+        elif self._name_gradient:
+            await self._render_name_gradient(display)
         else:
-            # Same frame-driven position as every other name path (_name_x); only the
-            # draw call changes, from a flat Label to a repositioned gradient layer.
-            self._plain_name.x = int(self._name_x)
-            await self._plain_name.render(display)
+            # Flat single-colour fallback (gradient off). The gradient-text
+            # rasteriser used to top-align every glyph, which clipped cap tops on
+            # mixed-case names with descenders ("Space Mountain") — so the name was
+            # forced flat. pixels_from_font_text now baseline-aligns glyphs
+            # (library 4acc2ba), so the gradient path is correct and default; this
+            # stays as the off/fallback path.
+            await display.draw_text(self.ride_name, int(self._name_x), _NAME_Y, self.name_color)
         self._name_x -= self._scroll_step
         if self._name_x <= -self._name_w:
             # One full pass done: park it off-screen (don't loop) and let
@@ -337,6 +364,44 @@ class _ScrollingNameContent(DisplayContent):
             yy = _WAVE_CENTER + _WAVE[(x // _WAVE_X_SCALE + phase) & 255]
             await display.draw_text(name[i], x, yy, self.name_color)
         self._wave_phase = (self._wave_phase + _WAVE_PHASE_STEP) & 255
+
+    async def _render_name_gradient(self, display):
+        """Draw the scrolling name as a vertical two-tone gradient.
+
+        The name is rasterised ONCE into the library's ``_GradientTextLayer`` (an
+        indexed bitmap + TileGrid that the layer's own ``tile.y = y + 4 - ascent``
+        baseline-aligns to the flat ``draw_text`` path), then SCROLLED by moving the
+        TileGrid each frame — zero per-frame pixel writes, the same model
+        ``StaticText``/``ScrollingText`` use. Its width drives completion (kept in
+        lockstep with ``_name_w``). If the layer can't be built (older library
+        without the baseline fix, or no font headless) it falls back to a flat
+        ``draw_text`` once and stays flat — never blanks the name.
+        """
+        if self._name_grad is None and not self._name_grad_failed:
+            try:
+                from scrollkit.display.gradient_text import _GradientTextLayer
+                top, bottom = _name_gradient_stops(self.name_color)
+                grad = _GradientTextLayer(self.ride_name, _NAME_Y,
+                                          palette=(top, bottom), direction="vertical")
+                grad.build(display)
+                self._name_grad = grad
+                self._display = display          # for _detach_name_grad in stop()
+                self._name_w = grad.width        # completion in lockstep with the layer
+            except Exception:
+                self._name_grad_failed = True
+        if self._name_grad is not None:
+            self._name_grad.x = int(self._name_x)
+        else:
+            await display.draw_text(self.ride_name, int(self._name_x), _NAME_Y, self.name_color)
+
+    def _detach_name_grad(self):
+        """Remove the scrolling-name gradient layer and drop its ref (idempotent)."""
+        if self._name_grad is not None and self._display is not None:
+            try:
+                self._name_grad.detach(self._display)
+            except Exception:
+                pass
+        self._name_grad = None
 
     @property
     def is_complete(self):
@@ -631,10 +696,11 @@ class RideScreenContent(_ScrollingNameContent):
     def __init__(self, ride_name, wait_minutes, *, name_color=0x0000FF,
                  wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0, effect="Rain",
                  name_effect="plain", name_content=None, number_style=None,
-                 drip_direction="top", intro_image=None):
+                 drip_direction="top", intro_image=None, name_gradient=False):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
-                         name_content=name_content, intro_image=intro_image)
+                         name_content=name_content, intro_image=intro_image,
+                         name_gradient=name_gradient)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
@@ -767,10 +833,11 @@ class ClosedRideContent(_ScrollingNameContent):
 
     def __init__(self, ride_name, *, name_color=0x0000FF, closed_color=0xFDF5E6,
                  duration=4.0, scroll_step=1.0, name_effect="plain", name_content=None,
-                 intro_image=None):
+                 intro_image=None, name_gradient=False):
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
-                         name_content=name_content, intro_image=intro_image)
+                         name_content=name_content, intro_image=intro_image,
+                         name_gradient=name_gradient)
         self.closed_color = _to_int_color(closed_color)
         self._closed_x = None        # centered x; measured once on first render
         self._closed = StaticText("Closed", y=_CLOSED_Y,

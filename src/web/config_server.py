@@ -193,7 +193,7 @@ def apply_settings(app, params) -> None:
             sm.set(key, _html_to_hex(params[key]))
 
     # Booleans: an unchecked box is simply absent from the form.
-    for key in ("group_by_park", "skip_closed", "skip_meet"):
+    for key in ("group_by_park", "skip_closed", "skip_meet", "ride_name_gradient"):
         sm.set(key, key in params)
 
     # Vacation.
@@ -362,6 +362,7 @@ def render_page(app) -> str:
         group=checkbox("group_by_park"),
         skip_closed=checkbox("skip_closed"),
         skip_meet=checkbox("skip_meet"),
+        name_gradient=checkbox("ride_name_gradient"),
         default_color=color_select("default_color"),
         name_color=color_select("ride_name_color"),
         wait_color=color_select("ride_wait_time_color"),
@@ -497,6 +498,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 {skip_meet}
 {default_color}
 {name_color}
+{name_gradient}
 {wait_color_mode}
 {wait_color}
 <h3>Network</h3>

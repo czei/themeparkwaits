@@ -212,7 +212,7 @@ def _name_scroller(ride_name, color, speed, cat, rng):
 
 
 def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, rng,
-              name_effect_on=True):
+              name_effect_on=True, name_gradient=True):
     """Add the dual-zone ride screen (layout unchanged): the NAME alternates between
     a random scrolling effect (``name_effect_on``) and a plain scroll so the board
     isn't busy; the large wait NUMBER always keeps its green->red severity colour and
@@ -231,7 +231,7 @@ def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, 
         if num in NUMBER_STYLES:
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
                                         wait_color=wc, number_style=num, name_content=name_c,
-                                        intro_image=intro)
+                                        intro_image=intro, name_gradient=name_gradient)
             drip_dir = None
         else:
             # "Rain" drips in from a RANDOM edge each ride; the other reveals don't
@@ -239,14 +239,15 @@ def _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, 
             drip_dir = rng.choice(DRIP_DIRECTIONS) if num == "Rain" else "top"
             content = RideScreenContent(ride.name, ride.wait_time, name_color=name_color,
                                         wait_color=wc, effect=num, drip_direction=drip_dir,
-                                        name_content=name_c, intro_image=intro)
+                                        name_content=name_c, intro_image=intro,
+                                        name_gradient=name_gradient)
         content._tpw_wait = ride.wait_time
         content._tpw_color = wc
         content._tpw_number_effect = num
         content._tpw_drip_direction = drip_dir
     else:
         content = ClosedRideContent(ride.name, name_color=name_color, name_content=name_c,
-                                    intro_image=intro)
+                                    intro_image=intro, name_gradient=name_gradient)
         content._tpw_wait = None
         content._tpw_color = _to_int_color(wait_color)
         content._tpw_number_effect = None
@@ -272,6 +273,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     default_color = _to_int_color(settings.get("default_color", "0xffff00"))
     name_color = settings.get("ride_name_color", "0x0000ff")
     wait_color = settings.get("ride_wait_time_color", "0xfdf5e6")
+    name_gradient = settings.get("ride_name_gradient", True)
     domain = settings.get("domain_name", "themeparkwaits")
     speed = _scroll_speed(settings)
 
@@ -312,7 +314,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
             rides = _sort_rides(_filter_rides(park.rides, skip_meet, skip_closed), sort_mode)
             for ride in rides:
                 _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, rng,
-                          name_effect_on=(ride_i % 2 == 0))
+                          name_effect_on=(ride_i % 2 == 0), name_gradient=name_gradient)
                 ride_i += 1
     else:
         combined = []
@@ -331,7 +333,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
                                           default_color, speed, cat, rng))
         for _park_id, ride in _sort_pairs(combined, sort_mode):
             _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, rng,
-                      name_effect_on=(ride_i % 2 == 0))
+                      name_effect_on=(ride_i % 2 == 0), name_gradient=name_gradient)
             ride_i += 1
 
     # Vacation countdown.
