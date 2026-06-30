@@ -18,7 +18,8 @@ from __future__ import annotations
 import gc
 import math
 
-from scrollkit.display.content import DisplayContent
+from scrollkit.display.content import DisplayContent, StaticText
+from scrollkit.display.colors import depth_palette
 from scrollkit.effects.drip_splash import DripReveal
 from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 # Use the SAME displayio the display uses (real on CircuitPython, the simulator's on
@@ -138,6 +139,13 @@ class _ScrollingNameContent(DisplayContent):
         # the name scroll + completion; the built-in plain/wave path is the fallback.
         # The wait NUMBER below is rendered by the subclass either way — untouched.
         self._name_content = name_content
+        # The built-in PLAIN scroll (no catalog name_content, no "wave") keeps its
+        # own frame-by-frame motion (_name_x below) but draws through a StaticText
+        # repositioned every frame, so the existing scroll animation now carries a
+        # subtle vertical depth gradient instead of a flat fill — the animation
+        # plays ON TOP OF the gradient text, not instead of it.
+        self._plain_name = StaticText(ride_name, y=_NAME_Y, color=self.name_color,
+                                      palette=depth_palette(self.name_color))
         self._name_x = None        # set on first render (start from right edge)
         self._name_w = None
         self._scrolled_off = False
@@ -166,11 +174,13 @@ class _ScrollingNameContent(DisplayContent):
         self._intro_frame = 0
         if self._name_content is not None:
             await self._name_content.start()
+        await self._plain_name.start()     # detach/rebuild its gradient layer on re-show
 
     async def stop(self):
         await super().stop()
         if self._name_content is not None:
             await self._name_content.stop()
+        await self._plain_name.stop()
         # Detach the intro overlay so a mid-intro teardown can't strand it on screen,
         # and free the bitmap/palette promptly (on-device RAM hygiene).
         self._detach_intro()
@@ -288,7 +298,10 @@ class _ScrollingNameContent(DisplayContent):
         if self.name_effect == "wave":
             await self._render_name_wave(display)
         else:
-            await display.draw_text(self.ride_name, int(self._name_x), _NAME_Y, self.name_color)
+            # Same frame-driven position as every other name path (_name_x); only the
+            # draw call changes, from a flat Label to a repositioned gradient layer.
+            self._plain_name.x = int(self._name_x)
+            await self._plain_name.render(display)
         self._name_x -= self._scroll_step
         if self._name_x <= -self._name_w:
             # One full pass done: park it off-screen (don't loop) and let
@@ -341,8 +354,10 @@ class _ScrollingNameContent(DisplayContent):
 # band SWEEPS across the digits ("sheen") or the whole number BREATHES dim<->bright
 # ("pulse"). Size/position never change (layout-safe).
 NUMBER_STYLES = ("sheen", "pulse")
-_NUM_RAMP = 6          # palette slots holding shades of the severity colour
+_NUM_RAMP = 6          # animated brightness shades per depth band
 _NUM_PERIOD = 2        # advance the animation every N frames (calmer motion)
+_NUM_DEPTH_STRENGTH = 0.35   # top (lit) -> bottom (shadow) depth, same depth_palette
+                              # "lit from above" look gradient text uses elsewhere
 
 
 def _scale_color(color, f):
@@ -366,14 +381,15 @@ def _color_shades(color, n):
 
 
 class _PaletteNumberReveal:
-    """Shows the wait-number pixels assembled and ANIMATES THEIR COLOUR while KEEPING
-    the severity colour. A ramp of shades of ``color`` (the green->red severity
-    colour) is rotated each frame: "sheen" sends a bright band sweeping across the
-    digits; "pulse" breathes the whole number dim<->bright. Same
+    """Shows the wait-number pixels assembled with a static TWO-BAND vertical depth
+    (top band lit, bottom band shadowed — the same depth_palette() "lit from above"
+    look gradient text uses) and ANIMATES COLOUR ON TOP OF IT while KEEPING the
+    severity colour: "sheen" sends a bright band sweeping across the digits in both
+    depth bands at once; "pulse" breathes the whole number dim<->bright. Same
     ``start()/step()/detach()`` contract as ``DripReveal`` — the number sits in the
     SAME place at the SAME 2x size, only the colour moves (layout untouched).
 
-    Pure palette rewrites (<= _NUM_RAMP entries/frame), no per-frame pixel writes.
+    Pure palette rewrites (<= 2*_NUM_RAMP entries/frame), no per-frame pixel writes.
     """
 
     def __init__(self, pixels, color, style="sheen"):
@@ -383,7 +399,8 @@ class _PaletteNumberReveal:
         self._display = None
         self._tile = None
         self._palette = None
-        self._shades = None
+        self._shades_top = None
+        self._shades_bottom = None
         self._phase = 0
         self._tick = 0
         self._started = False
@@ -391,18 +408,27 @@ class _PaletteNumberReveal:
     def start(self, display):
         gfx = display.gfx
         w, h = display.width, display.height
-        self._shades = _color_shades(self.color, _NUM_RAMP)
-        bitmap = gfx.Bitmap(w, h, _NUM_RAMP + 1)
-        palette = gfx.Palette(_NUM_RAMP + 1)
+        n = _NUM_RAMP
+        top_color, bottom_color = depth_palette(self.color, strength=_NUM_DEPTH_STRENGTH)
+        self._shades_top = _color_shades(top_color, n)
+        self._shades_bottom = _color_shades(bottom_color, n)
+        bitmap = gfx.Bitmap(w, h, 2 * n + 1)
+        palette = gfx.Palette(2 * n + 1)
         palette.make_transparent(0)              # composite over the name below
-        for i in range(_NUM_RAMP):
-            palette[1 + i] = self._shades[i]
-        # "pulse": every lit pixel shares slot 1 (uniform breathe); "sheen": index by
-        # column so rotating the ramp sweeps a highlight across the digits.
+        for i in range(n):
+            palette[1 + i] = self._shades_top[i]
+            palette[1 + n + i] = self._shades_bottom[i]
+        # "pulse": every lit pixel shares one slot per band (uniform breathe);
+        # "sheen": index by column so rotating the ramp sweeps a highlight across
+        # the digits — in both depth bands at once, same phase.
         uniform = self.style == "pulse"
+        ys = [py for (_px, py) in self.pixels]
+        mid_y = (min(ys) + max(ys)) / 2.0 if ys else 0
         for (x, y) in self.pixels:
             if 0 <= x < w and 0 <= y < h:
-                bitmap[x, y] = 1 if uniform else (x % _NUM_RAMP) + 1
+                band = 0 if y <= mid_y else n
+                ramp_i = 0 if uniform else (x % n)
+                bitmap[x, y] = band + ramp_i + 1
         tile = gfx.TileGrid(bitmap, pixel_shader=palette)
         display.add_layer(tile)
         self._display = display
@@ -429,10 +455,13 @@ class _PaletteNumberReveal:
         n = _NUM_RAMP
         if self.style == "pulse":
             t = self._phase % (2 * n)            # triangle wave dim->bright->dim
-            self._palette[1] = self._shades[t if t < n else (2 * n - 1 - t)]
+            idx = t if t < n else (2 * n - 1 - t)
+            self._palette[1] = self._shades_top[idx]
+            self._palette[1 + n] = self._shades_bottom[idx]
         else:
             for i in range(n):                   # rotate the ramp -> sweeping sheen
-                self._palette[1 + i] = self._shades[(i + self._phase) % n]
+                self._palette[1 + i] = self._shades_top[(i + self._phase) % n]
+                self._palette[1 + n + i] = self._shades_bottom[(i + self._phase) % n]
         return False
 
     def detach(self):
@@ -669,14 +698,13 @@ class RideScreenContent(_ScrollingNameContent):
             # forms before the screen advances. The digits are readable once
             # captured, before the brief disperse tail finishes.
             #
-            # Assemble the digits in a vertical SHADE ramp of the severity colour
-            # (full at the top fading to ~60% at the bottom) — richer than one flat
-            # tone while STILL encoding severity, since every stop is the same
-            # green/yellow/red hue, only darker. (A fixed yellow->orange ramp like
-            # the logo's would destroy the severity meaning.) The fade floors at
-            # 0.60 so the bottom rows stay legible.
-            ramp = tuple(_scale_color(self.wait_color, f)
-                         for f in (1.0, 0.92, 0.84, 0.76, 0.68, 0.60))
+            # Assemble the digits in a vertical depth ramp of the severity colour
+            # (full at the top fading toward a darker shade at the bottom) — the
+            # same "lit from above" gradient-text look used elsewhere on the board,
+            # generated rather than hand-picked, while STILL encoding severity
+            # (every stop is the same green/yellow/red hue, only darker). The fade
+            # floors at 0.60 so the bottom rows stay legible.
+            ramp = depth_palette(self.wait_color, strength=0.40, steps=_NUM_RAMP)
             return SwarmReveal(pixels, text_color=self.wait_color,
                                text_colors=ramp, color_axis="vertical",
                                bird_color=self.wait_color, num_birds=20,
@@ -728,7 +756,14 @@ class RideScreenContent(_ScrollingNameContent):
 
 
 class ClosedRideContent(_ScrollingNameContent):
-    """A closed ride: scrolling name (top) + centered 'Closed' (bottom)."""
+    """A closed ride: scrolling name (top) + centered 'Closed' (bottom).
+
+    "Closed" is the one status word in the ride screen that always reads the same
+    way (the wait NUMBER already has its own severity-colour reveal animations), so
+    it's the deliberate, consistent spot for the new gradient text fill rather than
+    one more randomized effect: a subtle vertical depth_palette ramp off the
+    configured closed colour ("lit from above"), not a flat fill.
+    """
 
     def __init__(self, ride_name, *, name_color=0x0000FF, closed_color=0xFDF5E6,
                  duration=4.0, scroll_step=1.0, name_effect="plain", name_content=None,
@@ -738,15 +773,26 @@ class ClosedRideContent(_ScrollingNameContent):
                          name_content=name_content, intro_image=intro_image)
         self.closed_color = _to_int_color(closed_color)
         self._closed_x = None        # centered x; measured once on first render
+        self._closed = StaticText("Closed", y=_CLOSED_Y,
+                                  palette=depth_palette(self.closed_color))
+
+    async def start(self):
+        await super().start()
+        self._closed_x = None        # re-measure + rebuild the gradient layer on re-show
+        await self._closed.start()
+
+    async def stop(self):
+        await super().stop()
+        await self._closed.stop()
 
     async def render(self, display):
         if await self._intro_step(display):
             return                       # intro owns the frame (hold / fade+scroll)
         await self._render_name(display)
-        label = "Closed"
         if self._closed_x is None:
-            self._closed_x = max(0, (display.width - _text_width(display, label)) // 2)
-        await display.draw_text(label, self._closed_x, _CLOSED_Y, self.closed_color)
+            self._closed_x = max(0, (display.width - _text_width(display, self._closed.text)) // 2)
+            self._closed.x = self._closed_x
+        await self._closed.render(display)
 
     def describe(self):
         info = super().describe()
