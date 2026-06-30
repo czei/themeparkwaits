@@ -23,6 +23,15 @@ from scrollkit.display.unified import displayio
 
 logger = ErrorHandler("error_log")
 
+# Warm "sunset" ramp for the assembled THEME PARK WAITS logo: bright gold at the
+# top fading to deep orange at the bottom (low->high = top->bottom on the default
+# vertical axis). Replaces the old single flat yellow so the reveal uses the
+# panel's full range. 4-bit-clean channels (every channel a multiple of 0x11) so
+# the bit_depth=4 panel quantizes each stop exactly — no rounding banding.
+LOGO_TEXT_COLORS = (0xFFEE00, 0xFFDD00, 0xFFCC00, 0xFFBB00,
+                    0xFFAA00, 0xFF9900, 0xFF8800, 0xFF7700)
+LOGO_COLOR_AXIS = "vertical"
+
 
 def get_theme_park_waits_pixels():
     """(x, y) coordinates of the THEME PARK WAITS glyph pixels (verbatim)."""
@@ -149,10 +158,15 @@ class SplashContent(DisplayContent):
     """
 
     def __init__(self, pixels=None, *, text_color=0xFFCC00, bird_color=0xFFE08A,
+                 text_colors=LOGO_TEXT_COLORS, color_axis=LOGO_COLOR_AXIS,
                  num_birds=20, bird_speed=5.0, hold_seconds=1.5, priority=2):
         super().__init__(duration=None, priority=priority)
         self._pixels = pixels
         self.text_color = text_color
+        # A gradient ramp (low->high) for the assembled logo; when set it overrides
+        # the flat ``text_color``. ``text_colors=None`` restores the single color.
+        self.text_colors = text_colors
+        self.color_axis = color_axis
         self.bird_color = bird_color
         self.num_birds = num_birds
         self.bird_speed = bird_speed
@@ -184,6 +198,8 @@ class SplashContent(DisplayContent):
             pixels = self._pixels if self._pixels is not None else get_theme_park_waits_pixels()
             try:
                 self._reveal = SwarmReveal(pixels, text_color=self.text_color,
+                                           text_colors=self.text_colors,
+                                           color_axis=self.color_axis,
                                            bird_color=self.bird_color,
                                            num_birds=self.num_birds,
                                            bird_speed=self.bird_speed)

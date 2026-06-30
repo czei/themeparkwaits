@@ -668,7 +668,17 @@ class RideScreenContent(_ScrollingNameContent):
             # the 50 ms budget, and only during the ~2-4 s assembly) so the number
             # forms before the screen advances. The digits are readable once
             # captured, before the brief disperse tail finishes.
+            #
+            # Assemble the digits in a vertical SHADE ramp of the severity colour
+            # (full at the top fading to ~60% at the bottom) — richer than one flat
+            # tone while STILL encoding severity, since every stop is the same
+            # green/yellow/red hue, only darker. (A fixed yellow->orange ramp like
+            # the logo's would destroy the severity meaning.) The fade floors at
+            # 0.60 so the bottom rows stay legible.
+            ramp = tuple(_scale_color(self.wait_color, f)
+                         for f in (1.0, 0.92, 0.84, 0.76, 0.68, 0.60))
             return SwarmReveal(pixels, text_color=self.wait_color,
+                               text_colors=ramp, color_axis="vertical",
                                bird_color=self.wait_color, num_birds=20,
                                bird_speed=4.0)
         if self.effect == "SplitFlap":

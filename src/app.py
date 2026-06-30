@@ -325,9 +325,12 @@ class ThemeParkApp(ScrollKitApp):
         if disp is None:
             return
         try:
-            from src.ui.reveal_splash import get_theme_park_waits_pixels
+            from src.ui.reveal_splash import (get_theme_park_waits_pixels,
+                                              LOGO_TEXT_COLORS, LOGO_COLOR_AXIS)
             from scrollkit.effects.swarm_reveal import SwarmReveal
             splash = SwarmReveal(get_theme_park_waits_pixels(),
+                                 text_colors=LOGO_TEXT_COLORS,
+                                 color_axis=LOGO_COLOR_AXIS,
                                  num_birds=num_birds, bird_speed=bird_speed)
             splash.start(disp)
             steps = 0
