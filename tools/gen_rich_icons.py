@@ -17,6 +17,7 @@ make_ride_image._build/_save_preview. Desktop-only; never bundled to the board.
 Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
 import glob
+import math
 import os
 import sys
 
@@ -47,6 +48,12 @@ def ramp(dark, light, n):
 
 def _mix(a, b, t):
     return tuple(a[c] + (b[c] - a[c]) * t for c in range(3))
+
+
+def ramp3(dark, mid, light, n=6):
+    """An n-shade ramp passing through `mid` (dark -> mid -> light), all 4-bit-clean."""
+    half = n // 2
+    return ramp(dark, mid, half + 1)[:-1] + ramp(mid, light, n - half)
 
 
 def auto_ramp(base):
@@ -89,15 +96,17 @@ def _load(name):
     return grid, mask, (min(xs), min(ys), max(xs), max(ys))
 
 
-def _shade(name, region_ramps, extras=None, occlude=True, centered=False):
+def _shade(name, region_ramps, extras=None, occlude=True, centered=False, light_fn=None):
     """Re-shade `name` using {existing_hex: (ramp, level_bias)} and optional extras().
 
     Lighting is global top-left across the whole icon bbox; rim-light brightens top/left
     edges and ambient-occlusion darkens bottom/right edges, so every material gets a
     coherent 3-D read. ``centered`` (the generic path) centers the light on L=0.5 so a
     ramp's MIDDLE shade (the original flat color) dominates and only edges swing bright/
-    dark — this preserves saturation. Hero ramps go dark->light, so they keep the old
-    bright-biased curve. Writes the BMP + a preview; returns the final color count.
+    dark — this preserves saturation. ``light_fn(x, y, bbox) -> L`` overrides the base
+    light for shapes the linear model can't read (a sphere needs radial light, water a
+    vertical gradient). Hero ramps go dark->light, so they keep the bright-biased curve.
+    Writes the BMP + a preview; returns the final color count.
     """
     grid, mask, (x0, y0, x1, y1) = _load(name)
     gw = max(1, x1 - x0)
@@ -116,7 +125,9 @@ def _shade(name, region_ramps, extras=None, occlude=True, centered=False):
         rmp, bias = spec
         left = 1.0 - (x - x0) / gw
         top = 1.0 - (y - y0) / gh
-        if centered:
+        if light_fn is not None:
+            L = light_fn(x, y, (x0, y0, x1, y1)) + bias
+        elif centered:
             L = 0.5 + 0.30 * (left - 0.5) + 0.16 * (top - 0.5) + bias
         else:
             L = 0.42 + 0.32 * left + 0.16 * top + bias
@@ -226,8 +237,100 @@ def castle():
     return _shade("castle", R, extras)
 
 
+def _vertical(x, y, bbox):
+    """1.0 at the top of the shape, 0.0 at the bottom (top-lit / crest-bright)."""
+    x0, y0, x1, y1 = bbox
+    return 1.0 - (y - y0) / max(1, y1 - y0)
+
+
+def _radial(cxf, cyf, reach, squash=1.0):
+    """Light brightest at a point (cxf,cyf as fractions of the bbox), falling off over
+    `reach` x the bbox radius — for spheres / glows. `squash` narrows the x-axis."""
+    def fn(x, y, bbox):
+        x0, y0, x1, y1 = bbox
+        cx = x0 + (x1 - x0) * cxf
+        cy = y0 + (y1 - y0) * cyf
+        R = max(x1 - x0, y1 - y0) / 2 or 1
+        d = math.hypot((x - cx) * squash, y - cy)
+        return 1.0 - d / (R * reach)
+    return fn
+
+
+def haunted_mansion():
+    # spectral ghost: luminous greenish core -> white -> cool blue at the drips
+    body = ramp3((0x44, 0x55, 0x66), (0xCC, 0xDD, 0xDD), (0xEE, 0xFF, 0xEE), 6)
+    R = {"ffffff": (body, 0.0)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cx = (x0 + x1) // 2
+        for (dx, dy, c) in [(0, 2, (0x66, 0xFF, 0xAA)), (-1, 4, (0x33, 0xCC, 0x88))]:
+            if (cx + dx, y0 + dy) in mask:                # faint green heart-glow
+                _dot(out, pal, cx + dx, y0 + dy, c)
+    return _shade("haunted_mansion", R, extras, occlude=True,
+                  light_fn=_radial(0.5, 0.38, 1.5, squash=0.8))
+
+
+def skull():
+    bone = ramp3((0x55, 0x55, 0x66), (0xCC, 0xC4, 0xAA), (0xFF, 0xFF, 0xEE), 6)
+    R = {"eadfc4": (bone, 0.0)}
+    return _shade("skull", R, occlude=True, light_fn=_vertical)
+
+
+def splash():
+    water = ramp3((0x11, 0x44, 0x99), (0x22, 0x77, 0xDD), (0x88, 0xDD, 0xFF), 6)
+    foam = ramp((0xCC, 0xEE, 0xFF), (0xFF, 0xFF, 0xFF), 3)
+    R = {"1f6fd6": (water, 0.0), "eadfc4": (foam, 0.1)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        for (sx, sy, c) in [(20, y0 - 1, (0x88, 0xDD, 0xFF)), (32, y0 - 2, (0xCC, 0xF0, 0xFF)),
+                            (44, y0, (0x66, 0xCC, 0xFF))]:
+            if (sx, sy) not in mask:
+                _dot(out, pal, sx, sy, c)
+    return _shade("splash", R, extras, occlude=False, light_fn=_vertical)
+
+
+def seashell():
+    cream = ramp3((0x88, 0x77, 0x44), (0xEA, 0xDF, 0xC4), (0xFF, 0xFF, 0xEE), 6)
+    gold = ramp3((0x88, 0x55, 0x11), (0xFF, 0xD2, 0x46), (0xFF, 0xF0, 0xAA), 6)
+    R = {"eadfc4": (cream, 0.0), "ffd246": (gold, 0.05)}
+    # lit from the top rim, fanning down to the shadowed hinge at bottom-centre
+    return _shade("seashell", R, occlude=True, light_fn=_radial(0.5, 1.05, 1.7))
+
+
+def spaceship_earth():
+    panel = ramp3((0x33, 0x3A, 0x4A), (0x9C, 0x9F, 0xB0), (0xDD, 0xE4, 0xF0), 6)
+    facet = ramp3((0x22, 0x26, 0x33), (0x55, 0x59, 0x66), (0x88, 0x8E, 0x9C), 6)
+    R = {"9c9fb0": (panel, 0.0), "4c5060": (facet, -0.05)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox                              # specular glint, upper-left
+        for (fx, fy) in [(0.30, 0.26), (0.36, 0.20)]:
+            sx = int(x0 + (x1 - x0) * fx); sy = int(y0 + (y1 - y0) * fy)
+            if (sx, sy) in mask:
+                _dot(out, pal, sx, sy, (0xFF, 0xFF, 0xFF))
+    return _shade("spaceship_earth", R, extras, occlude=True,
+                  light_fn=_radial(0.34, 0.30, 1.9))
+
+
+def wave():
+    water = ramp3((0x0A, 0x44, 0x77), (0x1F, 0x6F, 0xD6), (0x66, 0xCC, 0xFF), 6)
+    foam = ramp((0xCC, 0xEE, 0xFF), (0xFF, 0xFF, 0xFF), 3)
+    R = {"1f6fd6": (water, 0.0), "eadfc4": (foam, 0.1)}
+
+    def extras(out, pal, mask, bbox):
+        for (sx, sy, c) in [(18, 2, (0xCC, 0xF0, 0xFF)), (24, 1, (0xFF, 0xFF, 0xFF)),
+                            (12, 4, (0x88, 0xDD, 0xFF))]:
+            if (sx, sy) not in mask:
+                _dot(out, pal, sx, sy, c)
+    return _shade("wave", R, extras, occlude=True, light_fn=_vertical)
+
+
 HEROES = {"space_mountain": space_mountain, "tron": tron,
-          "everest": everest, "castle": castle}
+          "everest": everest, "castle": castle,
+          "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,
+          "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave}
 
 
 def main():
