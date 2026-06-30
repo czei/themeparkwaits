@@ -5,7 +5,10 @@ The app shows an optional 64x32 silhouette before a ride's wait time (see
 ASCII-art grid (32 lines x 64 chars, one char per LED) — or a 64x32 PNG — into the
 exact on-device format:
 
-  * 64x32, **indexed** BMP (Pillow "P" mode), <= 16 colors (bit_depth=4 safe);
+  * 64x32, **indexed** BMP (Pillow "P" mode), up to 256 palette colors (the 8-bit
+    indexed-BMP ceiling). The panel renders bit_depth=4 (4096 colors = 16 levels per
+    channel), so author 4-bit-clean shades (multiples of 0x11) for what-you-see == the
+    device; ~16-32 well-chosen shades is the practical sweet spot for a 64x32 icon;
   * palette **index 0 = sky**, and the **top-left pixel is sky**, so
     ``palette.make_transparent(0)`` means "sky" on BOTH the device (reads the BMP's
     indexed palette) and the simulator (rebuilds the palette by top-left-first scan).
@@ -30,7 +33,11 @@ import os
 from PIL import Image, ImageDraw
 
 W, H = 64, 32
-MAX_COLORS = 16
+# Palette ceiling = the 8-bit indexed-BMP limit (NOT a hardware limit). The device's
+# OnDiskBitmap + the RideScreenContent palette-fade are palette-size-agnostic, and the
+# bit_depth=4 panel shows 4096 colors — so there is no reason to starve an icon of
+# shades. Author 4-bit-clean colors; ~16-32 per icon reads richly at 64x32.
+MAX_COLORS = 256
 SKY = " "
 
 # char -> RGB. ' ' (sky) is forced to palette index 0 and made transparent on device.
@@ -47,6 +54,8 @@ PALETTE = {
     "+": (0x18, 0x28, 0x60), # faint star
     "o": (255, 0xD2, 0x46),  # warm accent (gold)
     "r": (0xEB, 0x3C, 0x3C), # red accent
+    # NB: this char->color map is only for the simple ASCII-grid path; richly-shaded
+    # icons use full ramps via gen_rich_icons.py / the PNG path, not these chars.
     # --- extended palette for the broader ride set (added 2026-06-28) ---
     "w": (0xEA, 0xDF, 0xC4), # warm cream / sailcloth / fur
     "n": (0x9A, 0x5F, 0x2C), # wood / hull brown
@@ -102,8 +111,8 @@ def _from_png(path):
 
 def _build(grid, colors):
     if len(colors) > MAX_COLORS:
-        raise SystemExit("too many colors: %d (max %d) — simplify the design"
-                         % (len(colors), MAX_COLORS))
+        raise SystemExit("too many colors: %d (max %d, the 8-bit indexed-BMP ceiling) "
+                         "— merge near-identical shades" % (len(colors), MAX_COLORS))
     # Pillow encodes a <=2-color P image as a 1-bit BMP, which is not the indexed
     # format the device reads (and fails the P-mode round-trip). Pad with unused
     # palette slots so the encoder emits a 4-bit indexed BMP; sky stays index 0.
