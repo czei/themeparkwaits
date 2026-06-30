@@ -8,11 +8,14 @@ the base. A handful of hero rides get hand-tuned ramps + extras (neon, glows, li
 windows, sky sparkle); every other icon is shaded generically from its own region
 colors. Same icon, with depth and palette sophistication — not a redraw.
 
-Output is the exact device format (64x32 indexed BMP, sky=index 0, top-left sky), via
-make_ride_image._build/_save_preview. Desktop-only; never bundled to the board.
+Shades are ordered-dithered onto the bit_depth=4 grid by default, so gradients read
+smooth at LED viewing distance instead of banding (validated on hardware: this matches
+bit_depth=6 with no refresh cost). Output is the exact device format (64x32 indexed BMP,
+sky=index 0, top-left sky), via make_ride_image._build/_save_preview. Desktop-only.
 
-    python tools/gen_rich_icons.py            # rebuild EVERY icon from designs/originals/
+    python tools/gen_rich_icons.py            # rebuild EVERY icon (dithered) from originals
     python tools/gen_rich_icons.py tron       # just one
+    python tools/gen_rich_icons.py --no-dither   # flat-banded shades (no dithering)
 
 Copyright (c) 2024-2026 Michael Winslow Czeiszperger
 """
@@ -54,6 +57,41 @@ def ramp3(dark, mid, light, n=6):
     """An n-shade ramp passing through `mid` (dark -> mid -> light), all 4-bit-clean."""
     half = n // 2
     return ramp(dark, mid, half + 1)[:-1] + ramp(mid, light, n - half)
+
+
+def _gen_bayer(size):
+    m = [[0]]
+    s = 1
+    while s < size:
+        nm = [[0] * (s * 2) for _ in range(s * 2)]
+        for y in range(s):
+            for x in range(s):
+                v = m[y][x]
+                nm[y][x] = 4 * v
+                nm[y][x + s] = 4 * v + 2
+                nm[y + s][x] = 4 * v + 3
+                nm[y + s][x + s] = 4 * v + 1
+        m = nm
+        s *= 2
+    return m
+
+
+_BAYER = _gen_bayer(8)
+DITHER = True             # ordered-dither continuous shades to 4-bit (--no-dither turns off)
+
+
+def _dither_rgb(c, x, y):
+    """Ordered-dither a continuous RGB color onto the bit_depth=4 grid, per channel, so
+    a gradient that would band into ~6 steps reads smooth at LED viewing distance."""
+    t = (_BAYER[y % 8][x % 8] + 0.5) / 64.0
+    out = []
+    for v in c:
+        scaled = v / 255 * 15
+        lo = int(scaled)
+        idx = lo + (1 if (scaled - lo) > t else 0)
+        idx = 15 if idx > 15 else 0 if idx < 0 else idx
+        out.append(idx * 17)
+    return (out[0], out[1], out[2])
 
 
 def auto_ramp(base):
@@ -136,7 +174,18 @@ def _shade(name, region_ramps, extras=None, occlude=True, centered=False, light_
         if occlude and (bg(x + 1, y) or bg(x, y + 1) or bg(x + 1, y + 1)):
             L -= 0.20                                   # ambient occlusion (shadow edge)
         L = 0.0 if L < 0 else 1.0 if L > 1 else L
-        out[y][x] = pal.of(rmp[round(L * (len(rmp) - 1))])
+        if DITHER:
+            p = L * (len(rmp) - 1)
+            lo = int(p)
+            if lo >= len(rmp) - 1:
+                col = rmp[-1]
+            else:                                  # continuous along the ramp polyline
+                f = p - lo
+                a, b = rmp[lo], rmp[lo + 1]
+                col = tuple(a[i] + (b[i] - a[i]) * f for i in range(3))
+            out[y][x] = pal.of(_dither_rgb(col, x, y))
+        else:
+            out[y][x] = pal.of(rmp[round(L * (len(rmp) - 1))])
 
     if extras:
         extras(out, pal, mask, (x0, y0, x1, y1))
@@ -334,7 +383,11 @@ HEROES = {"space_mountain": space_mountain, "tron": tron,
 
 
 def main():
+    global DITHER
     want = sys.argv[1:]
+    if "--no-dither" in want:
+        DITHER = False
+    want = [a for a in want if a not in ("--dither", "--no-dither")]
     if not want:
         want = sorted(os.path.splitext(os.path.basename(p))[0]
                       for p in glob.glob(os.path.join(ORIG_DIR, "*.bmp")))
