@@ -95,13 +95,14 @@ def _dither_rgb(c, x, y):
 
 
 def auto_ramp(base):
-    """A 5-shade ramp CENTERED on a region's flat color (index 2 == the original), so
-    shading adds depth without washing the color out. The highlight brightens by VALUE
-    (x1.3), not toward white, to preserve saturation — punchy reds stay red, not pink."""
-    shadow = tuple(c * 0.5 for c in base)
-    hi = tuple(min(255, c * 1.3) for c in base)
-    return [q4(shadow), q4(_mix(shadow, base, 0.5)), q4(base),
-            q4(_mix(base, hi, 0.5)), q4(hi)]
+    """A 6-shade ramp CENTERED on a region's flat color (the original sits mid-ramp), so
+    shading adds depth without washing the color out. The shadow drops to 0.34x and the
+    highlight brightens by VALUE (x1.38), not toward white, to preserve saturation —
+    punchy reds stay red, not pink. Wider endpoints = visibly more shades on the panel."""
+    shadow = tuple(c * 0.34 for c in base)
+    hi = tuple(min(255, c * 1.38) for c in base)
+    return [q4(shadow), q4(_mix(shadow, base, 0.45)), q4(base),
+            q4(_mix(base, hi, 0.4)), q4(_mix(base, hi, 0.72)), q4(hi)]
 
 
 class Pal:
@@ -166,7 +167,7 @@ def _shade(name, region_ramps, extras=None, occlude=True, centered=False, light_
         if light_fn is not None:
             L = light_fn(x, y, (x0, y0, x1, y1)) + bias
         elif centered:
-            L = 0.5 + 0.30 * (left - 0.5) + 0.16 * (top - 0.5) + bias
+            L = 0.5 + 0.50 * (left - 0.5) + 0.24 * (top - 0.5) + bias
         else:
             L = 0.42 + 0.32 * left + 0.16 * top + bias
         if bg(x - 1, y) or bg(x, y - 1) or bg(x - 1, y - 1):
@@ -263,6 +264,16 @@ def everest():
             if (sx, sy) not in mask:
                 _dot(out, pal, sx, sy, c)
     return _shade("everest", R, extras)
+
+
+def big_thunder_goat():
+    # white goat with real contour (shadowed belly/legs -> lit back), standing on a
+    # Big-Thunder-Mountain red-rock/dirt mesa instead of the flat bluish stone it was.
+    goat = ramp3((0x6E, 0x68, 0x5A), (0xCC, 0xC4, 0xAE), (0xFF, 0xFF, 0xF4), 6)
+    rock = ramp3((0x5A, 0x2C, 0x16), (0xA8, 0x5E, 0x30), (0xDD, 0x9E, 0x5C), 6)
+    dirt = ramp((0x2E, 0x18, 0x0C), (0x5A, 0x32, 0x18), 3)   # the dark hoof/shadow specks
+    R = {"eadfc4": (goat, 0.08), "9c9fb0": (rock, 0.10), "4e2c12": (dirt, 0.0)}
+    return _shade("big_thunder_goat", R, occlude=True)
 
 
 def castle():
@@ -377,7 +388,7 @@ def wave():
 
 
 HEROES = {"space_mountain": space_mountain, "tron": tron,
-          "everest": everest, "castle": castle,
+          "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,
           "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave}
 
