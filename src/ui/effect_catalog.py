@@ -78,8 +78,8 @@ def _from_introspection():
     """Device-safe fallback: read ``PAIRS_WITH`` off the live effect classes."""
     transitions, scrollers, palettes, static_palettes = [], [], [], []
     try:
-        from scrollkit.effects.transitions import _TRANSITION_MAP
-        transitions = list(_TRANSITION_MAP.keys())
+        from scrollkit.effects.transitions import supported_names
+        transitions = list(supported_names())
     except Exception:
         pass
     try:

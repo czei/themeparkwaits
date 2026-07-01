@@ -57,7 +57,6 @@ The symbols below came from a source survey; these specific points MUST be re-ch
 
 ## Utils — `scrollkit.utils`
 - `from scrollkit.utils.error_handler import ErrorHandler` → `ErrorHandler(file_name, mode=None)`; `error(e, desc)`, `info(msg)`, `debug(msg)`; classmethods `set_mode/get_mode`
-- `from scrollkit.utils.timer import Timer` → `Timer(seconds)`; `finished()`, `reset(expired=False)`, `remaining()`
 - `from scrollkit.utils.color_utils import ColorUtils` → `to_rgb`, `from_rgb`, `scale_color`, `hex_str_to_rgb`, `colors`
 - `from scrollkit.utils.system_utils import set_system_clock` → async `set_system_clock(http_client, socket_pool=None, tz_offset=-5, http_date_hosts=None)`
 - `from scrollkit.utils.url_utils import url_decode, load_credentials`

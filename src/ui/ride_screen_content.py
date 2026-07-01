@@ -177,7 +177,7 @@ class _ScrollingNameContent(DisplayContent):
         # lighter-top/deeper-bottom derived purely from the ride colour.
         self._name_grad_bottom = (_to_int_color(name_grad_bottom)
                                   if name_grad_bottom is not None else None)
-        self._name_grad = None          # the _GradientTextLayer (built on 1st render)
+        self._name_grad = None          # the GradientTextLayer (built on 1st render)
         self._name_grad_failed = False  # build failed once -> stay flat (no retry/frame)
         # Optional embedded scrolling-effect content (chosen at random from the live
         # ScrollKit catalog) that renders the NAME in the top zone. When set it OWNS
@@ -384,7 +384,7 @@ class _ScrollingNameContent(DisplayContent):
     async def _render_name_gradient(self, display):
         """Draw the scrolling name as a vertical two-tone gradient.
 
-        The name is rasterised ONCE into the library's ``_GradientTextLayer`` (an
+        The name is rasterised ONCE into the library's ``GradientTextLayer`` (an
         indexed bitmap + TileGrid that the layer's own ``tile.y = y + 4 - ascent``
         baseline-aligns to the flat ``draw_text`` path), then SCROLLED by moving the
         TileGrid each frame — zero per-frame pixel writes, the same model
@@ -395,7 +395,7 @@ class _ScrollingNameContent(DisplayContent):
         """
         if self._name_grad is None and not self._name_grad_failed:
             try:
-                from scrollkit.display.gradient_text import _GradientTextLayer
+                from scrollkit.display.gradient_text import GradientTextLayer
                 if self._name_grad_bottom is not None:
                     # Multi-stop vertical ramp: the configured ride colour is HELD for
                     # _NAME_GRAD_HOLD equal stops from the top, then ramps to the
@@ -411,8 +411,8 @@ class _ScrollingNameContent(DisplayContent):
                                + (self._name_grad_bottom,))
                 else:
                     palette = _name_gradient_stops(self.name_color)   # (top, bottom)
-                grad = _GradientTextLayer(self.ride_name, _NAME_Y,
-                                          palette=palette, direction="vertical")
+                grad = GradientTextLayer(self.ride_name, _NAME_Y,
+                                         palette=palette, direction="vertical")
                 grad.build(display)
                 self._name_grad = grad
                 self._display = display          # for _detach_name_grad in stop()

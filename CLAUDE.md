@@ -34,7 +34,7 @@ flow, render-suspend, and palette-text completion now live in `scrollkit.*`
 
 ## Tech stack
 - **CircuitPython** (device) + **CPython 3.11+** (desktop simulation).
-- **ScrollKit library** at `../ScrollKit Library` → `scrollkit.*`: `app` (`ScrollKitApp`), `display` (`UnifiedDisplay`, `ContentQueue`, `ScrollingText`/`StaticText`/`DisplayContent`), `effects` (`RevealEffect`), `network` (`WiFiManager`, `HttpClient`), `config` (`SettingsManager`), `ota` (`OTAClient`), `web` (`SLDKWebServer`, handlers), `utils` (`ErrorHandler`, `Timer`, `ColorUtils`, `set_system_clock`, `url_decode`).
+- **ScrollKit library** at `../ScrollKit Library` → `scrollkit.*`: `app` (`ScrollKitApp`), `display` (`UnifiedDisplay`, `ContentQueue`, `ScrollingText`/`StaticText`/`DisplayContent`, `GradientTextLayer`), `effects` (`transition_factory`/`supported_names`, `SwarmReveal`), `network` (`WiFiManager`, `HttpClient`), `config` (`SettingsManager`), `ota` (`OTAClient`), `web` (`SettingsWebServer`), `utils` (`ErrorHandler`, `ColorUtils`, `set_system_clock`, `url_decode`).
 - Adafruit CircuitPython `.mpy` bundle vendored in `src/lib/`; `scrollkit/` copied to device `/lib/`.
 - Data: **themeparks.wiki** API (no auth) — `GET /v1/destinations` (catalog) + `GET /v1/entity/{parkId}/live` (wait times; `queue.STANDBY.waitTime`, status `OPERATING`/`DOWN`/`CLOSED`/`REFURBISHMENT`). Park ids are UUID strings. Per-park `/live` is ~90 KB, so selected parks are fetched **sequentially** with `gc.collect()` between them (one payload in RAM at a time). Settings in `settings.json`; WiFi creds in `secrets.py`.
 
