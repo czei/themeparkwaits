@@ -112,6 +112,14 @@ def _text_width(display, text, scale=1):
     return len(text) * _CHAR_W * scale
 
 
+# Ride-name severity-foot gradient: how many equal ride-colour stops to hold before
+# the single severity stop. The severity blend then occupies the bottom 1/HOLD of the
+# glyph band, so HOLD=4 keeps the ride colour across the top ~75% and confines the
+# severity to a ~1-2px underglow at the baseline (see _render_name_gradient). Raising
+# it thins the foot further; HOLD=1 would be a full-height two-stop blend.
+_NAME_GRAD_HOLD = 4
+
+
 def _name_gradient_stops(color):
     """Two distinct vertical-gradient stops (lighter TOP -> deeper BOTTOM) derived
     from the ride-name colour.
@@ -141,7 +149,7 @@ class _ScrollingNameContent(DisplayContent):
 
     def __init__(self, ride_name, *, name_color=0x0000FF, duration=4.0, scroll_step=1.0,
                  name_effect="plain", name_content=None, intro_image=None,
-                 name_gradient=False):
+                 name_gradient=False, name_grad_bottom=None):
         # We own completion (see is_complete), so the base never times us out
         # mid-scroll; duration becomes the minimum on-screen time.
         super().__init__(duration=None, priority=2)
@@ -161,6 +169,14 @@ class _ScrollingNameContent(DisplayContent):
         # descenders place correctly; if the gradient layer can't be built it falls
         # back to the flat path (see _render_name_gradient).
         self._name_gradient = bool(name_gradient)
+        # Optional override for the gradient's BOTTOM stop. When set (open ride screens
+        # pass their severity/wait colour), the name fades from the configured ride
+        # colour at the TOP down to this colour at the FOOT — so the bottom of the name
+        # matches the wait NUMBER just below it (green/amber/red by wait level),
+        # regardless of the ride's own colour. None -> the default two-tone
+        # lighter-top/deeper-bottom derived purely from the ride colour.
+        self._name_grad_bottom = (_to_int_color(name_grad_bottom)
+                                  if name_grad_bottom is not None else None)
         self._name_grad = None          # the _GradientTextLayer (built on 1st render)
         self._name_grad_failed = False  # build failed once -> stay flat (no retry/frame)
         # Optional embedded scrolling-effect content (chosen at random from the live
@@ -380,9 +396,23 @@ class _ScrollingNameContent(DisplayContent):
         if self._name_grad is None and not self._name_grad_failed:
             try:
                 from scrollkit.display.gradient_text import _GradientTextLayer
-                top, bottom = _name_gradient_stops(self.name_color)
+                if self._name_grad_bottom is not None:
+                    # Multi-stop vertical ramp: the configured ride colour is HELD for
+                    # _NAME_GRAD_HOLD equal stops from the top, then ramps to the
+                    # severity/wait colour across ONLY the bottom 1/HOLD of the glyph
+                    # band (full severity at the foot). The gradient index is normalised
+                    # over the whole name's vertical span, and lowercase (x-height)
+                    # letters sit low in that span — so a fat foot (e.g. bottom 50%)
+                    # turns most of a lowercase-heavy name the severity colour, and
+                    # bright green then dominates on the physical LEDs. Holding the ride
+                    # colour down to a thin foot keeps the name reading as its own colour
+                    # with just a severity underglow that matches the wait number below.
+                    palette = ((self.name_color,) * _NAME_GRAD_HOLD
+                               + (self._name_grad_bottom,))
+                else:
+                    palette = _name_gradient_stops(self.name_color)   # (top, bottom)
                 grad = _GradientTextLayer(self.ride_name, _NAME_Y,
-                                          palette=(top, bottom), direction="vertical")
+                                          palette=palette, direction="vertical")
                 grad.build(display)
                 self._name_grad = grad
                 self._display = display          # for _detach_name_grad in stop()
@@ -697,10 +727,14 @@ class RideScreenContent(_ScrollingNameContent):
                  wait_color=0xFDF5E6, duration=4.0, scroll_step=1.0, effect="Rain",
                  name_effect="plain", name_content=None, number_style=None,
                  drip_direction="top", intro_image=None, name_gradient=False):
+        # The scrolling name's gradient foot picks up the severity/wait colour, so the
+        # bottom of the ride name matches the big wait number below it (top of the name
+        # stays the configured ride colour). Closed rides have no wait colour and keep
+        # the default ride-colour gradient.
         super().__init__(ride_name, name_color=name_color, duration=duration,
                          scroll_step=scroll_step, name_effect=name_effect,
                          name_content=name_content, intro_image=intro_image,
-                         name_gradient=name_gradient)
+                         name_gradient=name_gradient, name_grad_bottom=wait_color)
         self.wait_minutes = wait_minutes
         self.wait_color = _to_int_color(wait_color)
         self._wait_str = str(wait_minutes)
