@@ -98,6 +98,20 @@ def _filter_rides(rides, skip_meet, skip_closed):
     return out
 
 
+def _park_has_open_rides(park):
+    """True if the park has at least one ride OPERATING with a real (positive) wait.
+
+    NOT the same as ``ThemePark.is_open``, which is True whenever ANY attraction is
+    OPERATING — but walkthrough galleries (EPCOT's Mexico Folk Art Gallery, ImageWorks,
+    SeaBase, Kidcot...) stay OPERATING with a null/zero wait long after every ride has
+    closed. Using that flag made a closed park look open and render a board full of
+    "0"/"Closed" screens. Basing the open/closed decision on ``ride.is_open()``
+    (OPERATING **and** wait > 0) makes a park read as closed once none of its rides
+    post a wait, so the existing "<park> is closed" message fires instead.
+    """
+    return any(ride.is_open() for ride in park.rides)
+
+
 def _scroll_speed(settings):
     """Scroll speed in px/sec from the Scroll Speed setting (1/delay); falls back
     to the library default (30) if unavailable."""
@@ -305,7 +319,7 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     ride_i = 0
     if group_by_park:
         for park in parks:
-            if park.is_open is False:
+            if not _park_has_open_rides(park):
                 queue.add(_random_content(park.name + " is closed",
                                           default_color, speed, cat, rng))
                 continue
@@ -319,22 +333,22 @@ def build_content_queue(queue, park_list, settings, vacation, *, include_splash=
     else:
         combined = []
         for park in parks:
-            if park.is_open:
+            if _park_has_open_rides(park):
                 for ride in _filter_rides(park.rides, skip_meet, skip_closed):
                     combined.append((park.id, ride))
-        # Non-grouped mode used to show a blank board when the selected park(s) were
-        # closed (no OPERATING rides). Surface a clear "closed" message instead — the
-        # grouped path above already does this per park.
-        if not combined:
-            closed_names = [p.name for p in parks if p.is_open is False]
-            if closed_names:
-                verb = " is closed" if len(closed_names) == 1 else " are closed"
-                queue.add(_random_content(", ".join(closed_names) + verb,
-                                          default_color, speed, cat, rng))
         for _park_id, ride in _sort_pairs(combined, sort_mode):
             _add_ride(queue, ride, name_color, wait_color, wait_color_mode, speed, cat, rng,
                       name_effect_on=(ride_i % 2 == 0), name_gradient=name_gradient)
             ride_i += 1
+        # After the wait times, announce any closed park(s) — even when other selected
+        # parks are open, so a closed park is never silently dropped from the combined
+        # list (the grouped path above already shows this per park). One message names
+        # all currently-closed parks.
+        closed_names = [p.name for p in parks if not _park_has_open_rides(p)]
+        if closed_names:
+            verb = " is closed" if len(closed_names) == 1 else " are closed"
+            queue.add(_random_content(", ".join(closed_names) + verb,
+                                      default_color, speed, cat, rng))
 
     # Vacation countdown.
     if vacation is not None and vacation.is_set():

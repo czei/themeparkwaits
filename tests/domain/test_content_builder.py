@@ -13,7 +13,7 @@ from src.ui.content_builder import build_content_queue
 from src.ui.effect_catalog import scrolling_catalog
 from src.ui.reveal_splash import SplashContent
 from src.ui.ride_screen_content import RideScreenContent, ClosedRideContent
-from tests.conftest import DESTINATIONS_JSON, LIVE_JSON, MAGIC_KINGDOM_ID
+from tests.conftest import DESTINATIONS_JSON, LIVE_JSON, MAGIC_KINGDOM_ID, EPCOT_ID
 
 
 def _park_list_with_rides(settings):
@@ -243,6 +243,58 @@ def test_closed_park_shows_closed_message_ungrouped(settings_factory):
     build_content_queue(q, _closed_park_list(sm), sm, Vacation(), rng=random.Random(0))
     assert any("Magic Kingdom Park is closed" in t for t in _texts(q)), _texts(q)
     assert not _rides(q)            # a fully-closed park has no ride screens to show
+
+
+def _gallery_only_park_list(settings, park_id=MAGIC_KINGDOM_ID):
+    """A park where the only OPERATING attractions are walkthrough galleries with no
+    wait (status OPERATING, empty queue) while every real ride is CLOSED — the state
+    that keeps ThemePark.is_open True even though the park is effectively closed."""
+    plist = ThemeParkList(json.loads(DESTINATIONS_JSON))
+    plist.load_settings(settings)
+    park = plist.get_park_by_id(park_id)
+    park.update({"liveData": [
+        {"id": "g1", "name": "Art Gallery", "entityType": "ATTRACTION",
+         "status": "OPERATING", "queue": {}},
+        {"id": "g2", "name": "Kidcot Fun Stop", "entityType": "ATTRACTION",
+         "status": "OPERATING", "queue": {}},
+        {"id": "r1", "name": "Space Mountain", "entityType": "ATTRACTION",
+         "status": "CLOSED", "queue": {}},
+    ]})
+    plist.selected_parks = [park]
+    return plist
+
+
+def test_gallery_only_park_reads_as_closed(settings_factory):
+    """A park whose only OPERATING attractions are 0-wait walkthrough galleries reads
+    as CLOSED: show '<park> is closed', not a board full of 0-wait ride screens. Guards
+    the ride-based check against the park attribute (which is True here)."""
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID], group_by_park=False,
+                          skip_closed=False)
+    plist = _gallery_only_park_list(sm)
+    assert plist.selected_parks[0].is_open is True   # the trap: the attribute says "open"
+    q = ContentQueue()
+    build_content_queue(q, plist, sm, Vacation(), rng=random.Random(0))
+    assert any("Magic Kingdom Park is closed" in t for t in _texts(q)), _texts(q)
+    assert not _rides(q)             # galleries must NOT render as 0-wait ride screens
+
+
+def test_ungrouped_announces_closed_park_alongside_open(settings_factory):
+    """Ungrouped mode shows the open park's rides AND still announces a closed park —
+    a closed park must never be silently dropped from the combined list."""
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID, EPCOT_ID],
+                          group_by_park=False, skip_closed=False)
+    plist = ThemeParkList(json.loads(DESTINATIONS_JSON))
+    plist.load_settings(sm)
+    mk = plist.get_park_by_id(MAGIC_KINGDOM_ID)
+    mk.update(json.loads(LIVE_JSON))                    # open: rides with real waits
+    ep = plist.get_park_by_id(EPCOT_ID)
+    ep.update({"liveData": [{"id": "e1", "name": "Test Track",
+                             "entityType": "ATTRACTION", "status": "CLOSED", "queue": {}}]})
+    plist.selected_parks = [mk, ep]
+    q = ContentQueue()
+    build_content_queue(q, plist, sm, Vacation(), rng=random.Random(0))
+    assert _rides(q)                                    # the open park's rides still show
+    assert any(ep.name in t and "is closed" in t for t in _texts(q)), (ep.name, _texts(q))
 
 
 def test_vacation_messages(settings_factory):
