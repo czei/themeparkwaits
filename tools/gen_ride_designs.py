@@ -1735,6 +1735,235 @@ def mountain_falls():
     write("mountain_falls", g)
 
 
+# ================================================================ BATCH 12 (Universal)
+# ---------------------------------------------------------------- MINION (Despicable Me)
+def minion():
+    g = grid()
+    cx = 32
+    for hx in (29, 32, 35):                        # a few stray hairs
+        vline(g, hx, 1, 3, "K")
+    line(g, 28, 3, 27, 1, "K"); line(g, 36, 3, 37, 1, "K")
+    # yellow capsule body (rounded top + straight sides + rounded bottom)
+    ellipse(g, cx, 11, 11, 7, "y", half="top")
+    rect(g, cx - 11, 11, cx + 11, 25, "y")
+    ellipse(g, cx, 25, 11, 6, "y", half="bottom")
+    # single big goggle: dark strap band, silver rim, black rim, white eye, iris, pupil
+    rect(g, cx - 12, 9, cx + 12, 12, "S")
+    ellipse(g, cx, 11, 7, 7, "S")
+    ellipse(g, cx, 11, 6, 6, "s")
+    ellipse(g, cx, 11, 5, 5, "K")
+    ellipse(g, cx, 11, 4, 4, "#")
+    ellipse(g, cx, 11, 2, 2, "n")
+    put(g, cx, 11, "K")
+    put(g, cx - 1, 10, "#")                        # catch-light
+    hline(g, cx - 3, cx + 3, 20, "K")              # smile
+    put(g, cx - 4, 19, "K"); put(g, cx + 4, 19, "K")
+    # blue overalls: bottom band + rounded hem + shoulder straps up the sides
+    ellipse(g, cx, 25, 11, 6, ":", half="bottom")
+    rect(g, cx - 11, 23, cx + 11, 25, ":")
+    line(g, cx - 7, 23, cx - 9, 13, ":"); line(g, cx + 7, 23, cx + 9, 13, ":")
+    put(g, cx - 1, 23, "K"); put(g, cx + 1, 23, "K")   # pocket studs
+    put(g, cx - 5, 31, "K"); put(g, cx - 4, 31, "K")   # feet
+    put(g, cx + 4, 31, "K"); put(g, cx + 5, 31, "K")
+    write("minion", g)
+
+
+# ---------------------------------------------------------------- DINOSAUR (Jurassic / T-rex)
+def dinosaur():
+    g = grid()
+    thick_line(g, 3, 27, 20, 20, "g", 4)           # tail up into the body
+    thick_line(g, 20, 20, 30, 18, "g", 8)
+    ellipse(g, 32, 18, 11, 8, "g")                 # body
+    for sx in range(22, 46, 4):                    # back-ridge spikes
+        fill_tri(g, (sx, 11), (sx + 3, 11), (sx + 1, 8), "G")
+    thick_line(g, 40, 15, 48, 9, "g", 6)           # neck
+    ellipse(g, 52, 9, 8, 5, "g")                   # head
+    rect(g, 50, 6, 61, 10, "g")                    # upper snout
+    rect(g, 50, 12, 60, 14, "g")                   # lower jaw
+    hline(g, 51, 60, 11, "r")                      # red mouth
+    for tx in range(51, 61, 2):
+        put(g, tx, 10, "#")                        # upper teeth
+    for tx in range(52, 60, 2):
+        put(g, tx, 12, "#")                        # lower teeth
+    put(g, 55, 7, "y"); put(g, 56, 7, "K")         # eye
+    put(g, 60, 8, "G")                             # nostril
+    line(g, 41, 19, 45, 22, "g"); put(g, 46, 23, "w")   # tiny arm
+    rect(g, 26, 24, 30, 30, "g"); rect(g, 36, 24, 40, 30, "g")   # legs
+    for fx in (24, 26, 28):
+        put(g, fx, 31, "w")                        # clawed feet
+    for fx in (36, 38, 40):
+        put(g, fx, 31, "w")
+    write("dinosaur", g)
+
+
+# ---------------------------------------------------------------- TRANSFORMERS (Optimus Prime head)
+def transformers():
+    g = grid()
+    cx = 32
+    fill_tri(g, (cx, 2), (cx - 2, 8), (cx + 2, 8), "s")   # crest fin
+    vline(g, cx, 2, 8, "#")
+    line(g, 24, 9, 21, 4, ":"); line(g, 25, 9, 22, 4, ":")   # antennae
+    line(g, 40, 9, 43, 4, ":"); line(g, 39, 9, 42, 4, ":")
+    ellipse(g, cx, 12, 11, 7, ":", half="top")     # blue helmet crown
+    rect(g, cx - 11, 12, cx + 11, 15, ":")
+    rect(g, cx - 12, 13, cx - 9, 22, "s")          # side head panels
+    rect(g, cx + 9, 13, cx + 12, 22, "s")
+    hline(g, cx - 9, cx + 9, 15, "S")              # brow shadow
+    rect(g, cx - 8, 16, cx - 3, 18, "~")           # glowing eyes
+    rect(g, cx + 3, 16, cx + 8, 18, "~")
+    put(g, cx - 6, 16, "#"); put(g, cx + 6, 16, "#")
+    rect(g, cx - 9, 19, cx + 9, 26, "s")           # silver faceplate / mouth guard
+    for gx in (cx - 5, cx, cx + 5):
+        vline(g, gx, 20, 25, "S")
+    hline(g, cx - 9, cx + 9, 22, "S")              # mouth line
+    ellipse(g, cx, 26, 9, 3, "s", half="bottom")   # chin
+    write("transformers", g)
+
+
+# ---------------------------------------------------------------- MUMMY (Revenge of the Mummy — sarcophagus)
+def mummy():
+    g = grid()
+    cx = 32
+    ellipse(g, cx, 8, 13, 6, "o", half="top")      # gold coffin, rounded top
+    for y in range(8, 30):
+        t = (y - 8) / 21.0
+        hw = int(13 - 3 * t)
+        hline(g, cx - hw, cx + hw, y, "o")
+    hline(g, cx - 11, cx + 11, 5, ":")             # headband
+    for y in range(6, 16):                         # nemes side lappets (blue/gold stripes)
+        put(g, cx - 10, y, ":"); put(g, cx - 9, y, "o"); put(g, cx - 8, y, ":")
+        put(g, cx + 10, y, ":"); put(g, cx + 9, y, "o"); put(g, cx + 8, y, ":")
+    ellipse(g, cx, 11, 6, 6, "w")                  # cream face
+    put(g, cx - 3, 10, "K"); put(g, cx + 3, 10, "K")           # eyes
+    line(g, cx - 3, 10, cx - 6, 10, "K"); line(g, cx + 3, 10, cx + 6, 10, "K")   # kohl tails
+    vline(g, cx, 11, 13, "n"); hline(g, cx - 2, cx + 2, 14, "r")   # nose + mouth
+    for y in range(16, 22):                        # striped false beard
+        put(g, cx - 1, y, ":"); put(g, cx, y, "o"); put(g, cx + 1, y, ":")
+    for r, ch in ((7, ":"), (6, "o"), (5, ":")):   # broad collar arcs
+        ring(g, cx, 17, r, ch, cond=lambda x, y: 17 <= y <= 24)
+    hline(g, cx - 9, cx + 9, 25, ":"); hline(g, cx - 8, cx + 8, 26, "r")   # crossed-arm bands
+    hline(g, cx - 9, cx + 9, 27, "o")
+    write("mummy", g)
+
+
+# ---------------------------------------------------------------- PANDA (Kung Fu Panda — Po)
+def panda():
+    g = grid()
+    cx, cy = 32, 16
+    ellipse(g, cx - 11, 6, 5, 5, "K"); ellipse(g, cx + 11, 6, 5, 5, "K")   # black ears
+    ellipse(g, cx, cy, 13, 12, "#")                # white face
+    ellipse(g, cx - 6, 15, 4, 5, "K"); ellipse(g, cx + 6, 15, 4, 5, "K")   # eye patches
+    ellipse(g, cx - 6, 15, 2, 2, "#"); ellipse(g, cx + 6, 15, 2, 2, "#")   # eyeballs
+    put(g, cx - 6, 16, "K"); put(g, cx + 6, 16, "K")           # pupils
+    ellipse(g, cx, 20, 2, 1, "K")                  # nose
+    line(g, cx, 21, cx - 3, 23, "K"); line(g, cx, 21, cx + 3, 23, "K")     # mouth
+    write("panda", g)
+
+
+# ---------------------------------------------------------------- DONUT (The Simpsons Ride)
+def donut():
+    g = grid()
+    cx, cy = 32, 16
+    outer, inner = 14, 5
+    for y in range(H):
+        for x in range(W):
+            d = math.hypot(x - cx, (y - cy) * 1.05)
+            if inner <= d <= outer:
+                drip = 3 + 2 * math.sin(x * 0.7)   # drippy lower edge of the frosting
+                put(g, x, y, "p" if y <= cy + drip else "n")
+    spr = [(24, 8, "r"), (30, 6, "y"), (37, 8, ":"), (41, 12, "g"),
+           (22, 13, "o"), (43, 16, "r"), (26, 18, ":"), (34, 9, "#"),
+           (39, 19, "y"), (20, 11, "g")]           # sprinkles
+    for sx, sy, ch in spr:
+        put(g, sx, sy, ch); put(g, sx + 1, sy, ch)
+    write("donut", g)
+
+
+# ---------------------------------------------------------------- SHARK (JAWS)
+def shark():
+    g = grid()
+    ellipse(g, 32, 16, 20, 7, "s")                 # torpedo body, head to the right
+    for y in range(16, 24):                        # white belly
+        for x in range(12, 52):
+            if g[y][x] == "s":
+                put(g, x, y, "w")
+    for y in range(9, 15):                          # darker back
+        for x in range(12, 52):
+            if g[y][x] == "s":
+                put(g, x, y, "S")
+    fill_tri(g, (26, 9), (34, 9), (30, 2), "S")    # dorsal fin
+    fill_tri(g, (30, 22), (38, 22), (30, 29), "s") # pectoral fin
+    fill_tri(g, (12, 16), (4, 8), (7, 16), "S")    # tail fin (upper lobe)
+    fill_tri(g, (12, 16), (4, 24), (7, 16), "s")   # tail fin (lower lobe)
+    for gx in (40, 42, 44):                         # gills
+        vline(g, gx, 13, 19, "S")
+    fill_tri(g, (50, 11), (62, 13), (52, 16), "s") # upper jaw
+    fill_tri(g, (51, 15), (61, 15), (53, 19), "r") # red mouth interior
+    fill_tri(g, (51, 19), (60, 17), (52, 21), "w") # lower jaw
+    for tx in range(52, 61, 2):
+        put(g, tx, 15, "#")                        # upper teeth
+    for tx in range(53, 60, 2):
+        put(g, tx, 17, "#")                        # lower teeth
+    put(g, 46, 12, "K"); put(g, 47, 12, "K")       # eye
+    write("shark", g)
+
+
+# ---------------------------------------------------------------- YOSHI (Yoshi's Adventure — egg)
+def yoshi():
+    g = grid()
+    cx, cy = 32, 17
+    rx, ry = 12, 14
+    ellipse(g, cx, cy, rx, ry, "#")                # white egg
+    spots = [(22, 20), (30, 22), (39, 21), (26, 26), (35, 27), (43, 24), (21, 15)]
+    for sx, sy in spots:                           # green diamond spots
+        put(g, sx, sy, "g")
+        put(g, sx - 1, sy, "g"); put(g, sx + 1, sy, "g")
+        put(g, sx, sy - 1, "g"); put(g, sx, sy + 1, "g")
+        put(g, sx - 1, sy + 1, "G"); put(g, sx + 1, sy + 1, "G")
+    for y in range(H):                             # clip spots that fell outside the egg
+        for x in range(W):
+            if g[y][x] in ("g", "G"):
+                dx = (x - cx) / rx; dy = (y - cy) / ry
+                if dx * dx + dy * dy > 1.0:
+                    put(g, x, y, " ")
+    write("yoshi", g)
+
+
+# ---------------------------------------------------------------- MOTORCYCLE + SIDECAR (Hagrid's)
+def motorcycle():
+    g = grid()
+
+    def wheel(cx, cy, r):
+        # hollow spoked wheel in visible grey (a solid black tire vanishes on the panel)
+        ring(g, cx, cy, r, "s"); ring(g, cx, cy, r - 1, "S")     # 2-px tire
+        for a in range(0, 360, 45):                             # spokes
+            line(g, cx, cy, cx + round((r - 2) * math.cos(math.radians(a))),
+                 cy + round((r - 2) * math.sin(math.radians(a))), "S")
+        ellipse(g, cx, cy, 1, 1, "s")                           # hub
+
+    rear, front = (15, 22), (44, 22)
+    wheel(*rear, 8); wheel(*front, 8)
+    # thin frame tubes between the hubs (kept clear of the wheel centres)
+    thick_line(g, 15, 22, 27, 13, "S", 2)          # seat/rear tube
+    thick_line(g, 44, 22, 36, 13, "S", 2)          # steering-head tube
+    thick_line(g, 25, 22, 38, 22, "S", 2)          # bottom tube
+    # compact engine block (between the wheels) with cooling fins
+    rect(g, 26, 17, 34, 22, "s")
+    for ex in range(27, 34, 2):
+        vline(g, ex, 17, 22, "S")
+    thick_line(g, 26, 21, 17, 25, "s", 2)          # exhaust sweeping to the rear
+    # fuel tank (deep red) + glint
+    ellipse(g, 25, 12, 5, 3, "r"); rect(g, 22, 12, 28, 14, "r")
+    put(g, 23, 10, "#")
+    # seat + tail
+    rect(g, 29, 11, 38, 13, "K"); ellipse(g, 39, 12, 1, 1, "K")
+    # fork + handlebars at the front
+    thick_line(g, 44, 22, 48, 10, "S", 2)
+    line(g, 47, 10, 52, 8, "S"); put(g, 52, 7, "S"); line(g, 47, 10, 44, 8, "S")
+    ellipse(g, 50, 14, 2, 2, "o"); put(g, 51, 13, "y")          # headlight
+    write("motorcycle", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -1817,3 +2046,13 @@ if __name__ == "__main__":
     tower_of_terror()
     indiana_hat()
     mountain_falls()
+    # batch 12 (Universal)
+    minion()
+    dinosaur()
+    transformers()
+    mummy()
+    panda()
+    donut()
+    shark()
+    yoshi()
+    motorcycle()

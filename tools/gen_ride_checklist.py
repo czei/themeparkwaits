@@ -21,7 +21,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(REPO, "docs", "ride-icons.md")
 MANIFEST = os.path.join(REPO, "src", "images", "rides", "manifest.json")
 
-# US Disney THEME parks only (water parks intentionally excluded).
+# THEME parks only (water parks intentionally excluded).
 PARKS = [
     ("Magic Kingdom", "75ea578a-adc8-4116-a54d-dccb60765ef9"),
     ("EPCOT", "47f90d2c-e191-4239-a466-5892ef59a88b"),
@@ -29,6 +29,14 @@ PARKS = [
     ("Animal Kingdom", "1c84a229-8862-4648-9c71-378ddd2c7693"),
     ("Disneyland Park", "7340550b-c14d-4def-80bb-acdb51d49a66"),
     ("Disney California Adventure", "832fcd51-ea19-4e77-85c7-75d5843b127c"),
+    # Universal (non-water parks)
+    ("Universal Studios Florida", "eb3f4560-2383-4a36-9152-6b3e5ed6bc57"),
+    ("Universal Islands of Adventure", "267615cc-8943-4c2a-ae2c-5da728ca591f"),
+    ("Universal Epic Universe", "12dbb85b-265f-44e6-bccf-f1faa17211fc"),
+    ("Universal Studios Hollywood", "bc4005c5-8c7e-41d7-b349-cdddf1796427"),
+    ("Universal Studios Japan", "47f61fac-7586-41ac-ae80-61c9257cf33e"),
+    ("Universal Studios Singapore", "f95d7f76-2024-4510-b799-26e122d0e448"),
+    ("Universal Studios Beijing", "68e1d8f0-ed42-4351-af25-160421e37ce0"),
 ]
 
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")

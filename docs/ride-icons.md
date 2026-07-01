@@ -1,6 +1,6 @@
 # Ride Icon Ideas
 
-_171 rides across 6 theme parks · 79 with images · 73 representations filled in._
+_312 rides across 13 theme parks · 208 with images · 73 representations filled in._
 
 Fill in **Representation** with a SIMPLE visual for each ride (e.g. Jungle Cruise = a small boat; Haunted Mansion = a ghost; Space Mountain = the spired cone). Then draw it and ship the BMP — see `docs/ride-intro-images.md`. The **Image** column auto-fills from the manifest. Avoid `|` in your notes (it breaks the table merge).
 
@@ -36,14 +36,14 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | The Hall of Presidents |  |  | `2ebfb38c-5cb5-4de1-86c0-f7af14188022` |
 | The Magic Carpets of Aladdin | Magic Carpet | magic_carpet.bmp | `96455de6-f4f1-403c-9391-bf8396979149` |
 | The Many Adventures of Winnie the Pooh | Honey Pot | honey_pot.bmp | `0d94ad60-72f0-4551-83a6-ebaecdd89737` |
-| Tiana's Bayou Adventure | Wave | wave.bmp | `73cb9445-0695-47a3-87ce-d08ae36b5f3c` |
+| Tiana's Bayou Adventure | Wave | mountain_falls.bmp | `73cb9445-0695-47a3-87ce-d08ae36b5f3c` |
 | Tomorrowland Speedway | Gocart | race_car.bmp | `f163ddcd-43e1-488d-8276-2381c1db0a39` |
 | Tomorrowland Transit Authority PeopleMover |  |  | `ffcfeaa2-1416-4920-a1ed-543c1a1695c4` |
 | TRON Lightcycle / Run | Tron Motorcycle | tron.bmp | `5a43d1a7-ad53-4d25-abfe-25625f0da304` |
 | Under the Sea - Journey of The Little Mermaid | Shell | seashell.bmp | `3cba0cb4-e2a6-402c-93ee-c11ffcb127ef` |
 | Walt Disney World Railroad - Fantasyland | Locomotive Engine | locomotive.bmp | `e40ac396-cbac-43f4-8752-764ed60ccceb` |
 | Walt Disney World Railroad - Main Street, U.S.A. | Locomotive Engine | locomotive.bmp | `e39b831b-7731-49bb-815b-289b4f49a9fd` |
-| Walt Disney's Carousel of Progress |  |  | `8183f3f2-1b59-4b9c-b634-6a863bdf8d84` |
+| Walt Disney's Carousel of Progress |  | carousel_horse.bmp | `8183f3f2-1b59-4b9c-b634-6a863bdf8d84` |
 | Walt Disney's Enchanted Tiki Room | Bird | tiki_bird.bmp | `6fd1e225-53a0-4a80-a577-4bbc9a471075` |
 
 ## EPCOT
@@ -58,7 +58,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Bruce's Shark World |  |  | `2ecc4fff-2994-476f-9926-24a4af173838` |
 | Canada Far and Wide in Circle-Vision 360 |  |  | `61fb49f8-e62f-4e1c-ae0e-8ab9929037bc` |
 | Disney and Pixar Short Film Festival |  |  | `35ed719b-f7f0-488f-8346-4fbf8055d373` |
-| Frozen Ever After |  |  | `8d7ccdb1-a22b-4e26-8dc8-65b1938ed5f0` |
+| Frozen Ever After |  | snowflake.bmp | `8d7ccdb1-a22b-4e26-8dc8-65b1938ed5f0` |
 | Gallery of Arts and History |  |  | `07dbeaea-85fa-45f2-872f-02f9e7510419` |
 | Gran Fiesta Tour Starring The Three Caballeros |  |  | `22f48b73-01df-460e-8969-9eb2b4ae836c` |
 | Guardians of the Galaxy: Cosmic Rewind |  |  | `e3549451-b284-453d-9c31-e3b1207abd79` |
@@ -92,10 +92,10 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Mickey & Minnie's Runaway Railway |  |  | `6e118e37-5002-408d-9d88-0b5d9cdb5d14` |
 | Millennium Falcon: Smugglers Run |  | falcon.bmp | `34c4916b-989b-4ff1-a7e3-a6a846a3484f` |
 | Rock ’n’ Roller Coaster Starring The Muppets |  |  | `e516f303-e82d-4fd3-8fbf-8e6ab624cf89` |
-| Slinky Dog Dash |  |  | `399aa0a1-98e2-4d2b-b297-2b451e9665e1` |
+| Slinky Dog Dash |  | slinky_dog.bmp | `399aa0a1-98e2-4d2b-b297-2b451e9665e1` |
 | Star Tours – The Adventures Continue |  |  | `3b290419-8ca2-44bc-a710-a6c83fca76ec` |
 | Star Wars: Rise of the Resistance |  |  | `1a2e70d9-50d5-4140-b69e-799e950f7d18` |
-| The Twilight Zone™ Tower of Terror |  |  | `6f6998e8-a629-412c-b964-2cb06af8e26b` |
+| The Twilight Zone™ Tower of Terror |  | tower_of_terror.bmp | `6f6998e8-a629-412c-b964-2cb06af8e26b` |
 | Toy Story Mania! | Jack in the Box Toy | jack_in_box.bmp | `20b5daa8-e1ea-436f-830c-2d7d18d929b5` |
 | Vacation Fun - An Original Animated Short with Mickey & Minnie |  |  | `9211adc9-b296-4667-8e97-b40cf76108e4` |
 | Walt Disney Presents |  |  | `d7669edc-eaa1-4af2-bbb5-6e98df564166` |
@@ -143,7 +143,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Goofy's How-to-Play Yard |  |  | `b0eca3d3-a519-47f9-a5a7-9911126da2df` |
 | Great Moments with Mr. Lincoln |  |  | `1b23667a-d8fb-436d-8952-c3e3f2e56d13` |
 | Haunted Mansion | Ghost | haunted_mansion.bmp | `ff52cb64-c1d5-4feb-9d43-5dbd429bac81` |
-| Indiana Jones™ Adventure |  |  | `2aedc657-1ee2-4545-a1ce-14753f28cc66` |
+| Indiana Jones™ Adventure |  | indiana_hat.bmp | `2aedc657-1ee2-4545-a1ce-14753f28cc66` |
 | Jungle Cruise | Boat | jungle_cruise.bmp | `1b83fda8-d60e-48e4-9a3d-90ddcbcd1001` |
 | King Arthur Carrousel | Horse | carousel_horse.bmp | `f7904912-3f08-4563-b99e-fd59f43cc9f2` |
 | Mad Tea Party | Tea Cup | tea_cup.bmp | `e0cfed11-96d7-40f3-907f-5cfed172592a` |
@@ -172,7 +172,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Storybook Land Canal Boats |  |  | `cb929138-d77a-4dd2-983c-f651bbd1bd92` |
 | The Disney Gallery |  |  | `37858b2a-9c11-4ac6-9f8d-db7fa9088703` |
 | The Many Adventures of Winnie the Pooh | Honey Pot | honey_pot.bmp | `52a8ef64-d54c-4974-883f-027c3026e3f1` |
-| Tiana's Bayou Adventure |  | wave.bmp | `a9076acd-7630-4bad-a8da-e6bd689ddcac` |
+| Tiana's Bayou Adventure |  | mountain_falls.bmp | `a9076acd-7630-4bad-a8da-e6bd689ddcac` |
 | Walt Disney - A Magical Life |  |  | `05b17c11-fd4c-4b85-ab45-3e269dc56559` |
 | Walt Disney's Enchanted Tiki Room | Toucan Bird | tiki_bird.bmp | `106c1e5a-a5e7-42d7-96ab-bc100d8faf71` |
 
@@ -206,3 +206,179 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Toy Story Midway Mania! |  |  | `86ab3069-110d-49c5-a7e7-29ddf28695a6` |
 | Turtle Talk with Crush | Turtle | turtle.bmp | `7561bcd8-18ea-4e3f-89d5-c905b7ba3d42` |
 | WEB SLINGERS: A Spider-Man Adventure |  |  | `2295351d-ce6b-4c04-92d5-5b416372c5b5` |
+
+## Universal Studios Florida
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Despicable Me Minion Mayhem™ |  | minion.bmp | `7288f24a-396e-4eeb-bb3b-4a90e65269f2` |
+| E.T. Adventure™ |  | hang_glider.bmp | `1e16afdd-15e3-4e4a-b3af-8aeebd7534f8` |
+| Fast & Furious - Supercharged™ |  | race_car.bmp | `6a3ffac7-bef4-4a22-8ba6-f2963aac7f70` |
+| Harry Potter and the Escape from Gringotts™ |  | dragon.bmp | `70ac72a3-9675-4c41-a1b1-e4801072927a` |
+| Hogwarts Express™ - King's Cross Station |  | locomotive.bmp | `f0750e5e-7629-4c53-99d2-e0924a8afeed` |
+| Hogwarts™ Express - First Train |  | locomotive.bmp | `f44a531c-09cf-40c4-b2d4-236e8a9285dc` |
+| Hogwarts™ Express - Last Train |  | locomotive.bmp | `2122adff-52a3-49ca-9d20-5a6faafc8c77` |
+| Illumination's Villain-Con Minion Blast |  | minion.bmp | `25d47d04-a917-405a-9904-9be2b499b2dd` |
+| Kang & Kodos' Twirl 'n' Hurl |  | rocket.bmp | `96e71193-49f0-40b2-9bba-644e530d8115` |
+| MEN IN BLACK™ Alien Attack!™ |  | laser_blaster.bmp | `91cae293-64f8-48b6-88ec-02dcfcdd1f91` |
+| Race Through New York Starring Jimmy Fallon™ |  |  | `625a3cc3-7d7e-468b-96fe-1ec00df7b739` |
+| Revenge of the Mummy™ |  | mummy.bmp | `ec25d9a7-b4d4-4ebf-a6c4-c18389351764` |
+| The Simpsons Ride™ |  | donut.bmp | `7e70bc9e-7dce-4dd2-8823-57b8d6ec7570` |
+| TRANSFORMERS™ The Ride-3D |  | transformers.bmp | `750939c5-a69e-408a-8d55-66c272fa265e` |
+| Trolls Trollercoaster |  | coaster_car.bmp | `37989fb7-5576-4247-bd6e-e981bc70cca2` |
+
+## Universal Islands of Adventure
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Camp Jurassic™ |  | dinosaur.bmp | `f6dba1c6-6f5a-4743-8470-f741ecac555d` |
+| Caro-Seuss-el™ |  | carousel_horse.bmp | `3cb52134-e9d6-4212-83c8-3ce1321dcb05` |
+| Doctor Doom's Fearfall® |  | tower_of_terror.bmp | `2f95b213-daaa-4370-8349-c2cd57be470e` |
+| Dudley Do-Right's Ripsaw Falls® |  | splash.bmp | `905d7888-b866-4e74-90d1-07fc6ef6706f` |
+| Flight of the Hippogriff™ |  | bird.bmp | `23b613e0-ae83-455b-9163-231bdbd5c427` |
+| Hagrid's Magical Creatures Motorbike Adventure™ |  | race_car.bmp | `578bbd12-1975-4ec3-9879-ea641c780342` |
+| Harry Potter and the Forbidden Journey™ |  | castle.bmp | `6af80308-647d-4d8b-bcf6-37517a93bdbc` |
+| Hogwarts Express™ - Hogsmeade™ Station |  | locomotive.bmp | `144450b9-4574-46be-abdf-4b1ca8974d9d` |
+| If I Ran The Zoo™ |  | elephant.bmp | `391dea99-303d-42a1-aa86-a846d1c1fa1f` |
+| Jurassic Park Discovery Center™ |  | dinosaur.bmp | `22dcd29e-d76a-45cd-b44a-dd6350dc3f8a` |
+| Jurassic Park River Adventure |  | dinosaur.bmp | `db5b2165-15c2-4e51-8bd1-611e9c351866` |
+| Jurassic World VelociCoaster |  | dinosaur.bmp | `61079a31-4165-4fb0-b36f-c01c5971f80a` |
+| Me Ship, The Olive® |  | riverboat.bmp | `8babd50d-c570-423b-bd53-d040cad3e087` |
+| One Fish, Two Fish, Red Fish, Blue Fish™ |  | fish.bmp | `b1e94e05-b360-4e3f-be8a-2a3744a97f97` |
+| Popeye & Bluto's Bilge-Rat Barges® |  | canoe.bmp | `b4445a1c-4d5c-4fca-a04a-f8867f1b6619` |
+| Pteranodon Flyers |  | dinosaur.bmp | `3daca54f-50f0-44e9-a993-d706ce7520a0` |
+| Skull Island: Reign of Kong™ |  | skull.bmp | `370ba4d1-f199-4dc2-be6d-6bb09b442891` |
+| Storm Force Accelatron® |  | tea_cup.bmp | `b694d5a5-155e-4796-af7e-5dbdcf3deba4` |
+| The Amazing Adventures of Spider-Man® |  | iron_man.bmp | `6be23178-7d00-4884-9e88-76787da1df86` |
+| The Cat in The Hat™ |  | tea_cup.bmp | `2365495a-790b-4a41-831e-65592c8a4359` |
+| The High in the Sky Seuss Trolley Train Ride!™ |  | locomotive.bmp | `b73e3256-9ee0-439e-9a3b-ffed287e10bb` |
+| The Incredible Hulk Coaster® |  | coaster_car.bmp | `fa743143-281b-4b5b-b87b-d49fcb006772` |
+
+## Universal Epic Universe
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Bowser Jr. Challenge |  | mushroom.bmp | `0c6a9af8-c006-4849-8475-1a6925e8f7d4` |
+| Constellation Carousel |  | carousel_horse.bmp | `07143999-bacd-475f-a00b-8cc476204aff` |
+| Curse of the Werewolf |  | bat.bmp | `eaca831d-bcbb-4a1e-9bf0-6ea97ccc88e0` |
+| Dragon Racer's Rally |  | dragon.bmp | `76caa8d0-f54b-4601-9d57-a7f1ddc02af4` |
+| Fyre Drill |  | firetruck.bmp | `281bc9e6-b208-4a70-85d2-0fb749c7658b` |
+| Harry Potter and the Battle at the Ministry™ |  | big_ben.bmp | `dbc4f0d8-fdef-4dfc-a1c2-33917f742f40` |
+| Hiccup's Wing Gliders |  | dragon.bmp | `c6b1b8cf-55ef-416c-b00d-e469993617b0` |
+| Mario Kart™: Bowser's Challenge |  | race_car.bmp | `43df71bf-aa7c-46c0-925c-46f69d8bf23f` |
+| Mine-Cart Madness™ |  | coaster_car.bmp | `dd8c015d-511f-47d4-b98b-18ce15735588` |
+| Monsters Unchained: The Frankenstein Experiment |  | skull.bmp | `1fda5e1f-8712-4165-a81d-ad74eef3e8ee` |
+| Stardust Racers |  | coaster_car.bmp | `447033ce-ee1f-4cca-bb12-47d22583ac12` |
+| Yoshi's Adventure™ |  | yoshi.bmp | `00feb57b-4fcc-48bc-9490-c9af71f30c1c` |
+
+## Universal Studios Hollywood
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Despicable Me Minion Mayhem |  | minion.bmp | `9e507da6-9427-4d7f-b315-250a2b2dde97` |
+| DinoPlay |  | dinosaur.bmp | `7254c0aa-f0ec-4964-8a44-5c959f786616` |
+| Flight of the Hippogriff™ |  | bird.bmp | `e7c69919-d73f-4418-9059-5b30495f3af1` |
+| Harry Potter and the Forbidden Journey™ |  | castle.bmp | `9a706e7e-1e52-4603-b170-86c9b8243fc6` |
+| Jurassic World — The Ride |  | dinosaur.bmp | `73cc9242-3eea-4a34-8553-9aded86329dc` |
+| Kung Fu Panda Adventure |  | panda.bmp | `bc53c39c-7d8b-4f28-958d-f3a077d887cd` |
+| Mario Kart™: Bowser’s Challenge |  | race_car.bmp | `da1191d8-63b0-45eb-bccf-968b0ea4c5d8` |
+| Ollivanders™ |  |  | `6a04b16b-7d9f-4a92-bcef-b8e17b800a34` |
+| Revenge of the Mummy – The Ride |  | mummy.bmp | `8215f2cf-6356-421d-80fa-0e9b26f57bcd` |
+| Silly Swirly |  | tea_cup.bmp | `07e20279-c553-49dc-b6e0-8b4e099e958b` |
+| Studio Tour |  | old_car.bmp | `513ae5d3-477d-4d95-82a1-f4ac99678a8d` |
+| The Secret Life of Pets: Off the Leash |  |  | `cc17465b-4ee2-49ef-b0bc-3065ecae28f7` |
+| The Simpsons Ride™ |  | donut.bmp | `225f5fbf-3e7e-4fca-a94a-4a3a747c5103` |
+| TRANSFORMERS™: The Ride-3D |  | transformers.bmp | `2f6f1b8f-d420-4096-8975-fcccfd7fc74c` |
+
+## Universal Studios Japan
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Abby's Magical Party |  | fairy.bmp | `fdbc4473-d7e2-42be-a162-7845ad738876` |
+| Abby's Magical Tree |  | tree.bmp | `86e6a653-41a3-48c1-97b4-e16fdb41a1f4` |
+| Amity Boardwalk Games |  | shark.bmp | `56a99f82-5b69-4c7f-ba11-05f15a59dce4` |
+| Banana Cabana |  | monkey.bmp | `d523475f-7077-4969-b3ea-9bdc7bfb3966` |
+| Bert & Ernie Prop Shop Game Place |  |  | `6253895e-0836-4f2e-978f-57b0458f35b5` |
+| Bert and Ernie's Wonder: The Sea |  | submarine.bmp | `14916a00-8528-4001-9c7b-4767d95fec86` |
+| Big Bird's Big Nest |  | bird.bmp | `e2803d1b-9814-4a4c-9982-ee061efd6464` |
+| Big Bird's Big Top Circus |  | bird.bmp | `d32f7dac-a847-47f0-8abc-8e88aa1245b6` |
+| Cookie Monster Slide |  |  | `7861f0f8-87ec-4ddb-a90b-3ad7d4e7d3f0` |
+| Despicable Me: Minion Mayhem |  | minion.bmp | `a5fd26f6-ef34-4606-9c70-e23355d8a9b9` |
+| Detective Conan 4-D Live Show: Jewel Under the Starry Sky |  |  | `fa2f7e51-5e6b-4743-b0af-fd9a7bc4fb84` |
+| Elmo's Bubble Bubble |  |  | `1564465f-8084-4a9a-b40f-07f738b1a47a` |
+| Elmo's Go-Go Skateboard |  |  | `a94fd0c0-8d76-4b01-a165-7eeb8b991bdb` |
+| Elmo's Little Drive |  | old_car.bmp | `b6dad124-d2fd-4ba1-ba04-f97e1223cd7d` |
+| Ernie's Rubber Duckie Race |  | bird.bmp | `9bc9cd80-c8d7-4bb1-9baf-87f89171d47f` |
+| Festival In The Park |  |  | `098ea2d3-b9c1-4db5-a99f-d06f64de0698` |
+| Flight of the Hippogriff™ |  | bird.bmp | `7c98a4dd-cc2a-4c0b-8d70-e825a33dc55b` |
+| Freeze Ray Sliders |  | minion.bmp | `9d976da6-2881-401b-b660-c691698cf912` |
+| Grover's Construction Company |  |  | `4f80e6ca-5c47-49bd-a419-95dd4208c59d` |
+| Harry Potter and the Forbidden Journey™ |  | castle.bmp | `7fb500a9-0716-4b1b-b905-0b3b0e3b174a` |
+| Hello Kitty's Cupcake Dream |  | tea_cup.bmp | `8a494b8b-1d33-4c90-acaf-df3d30df5060` |
+| Hollywood Dream - The Ride |  | coaster_car.bmp | `568847eb-f470-44c8-bd67-33bd95bf205f` |
+| Hollywood Dream - The Ride: Backdrop |  | coaster_car.bmp | `644bb2aa-6882-488b-b8c7-d758be2dde45` |
+| Illumination’s Villain-Con Minion Blast |  | minion.bmp | `cdc1d6c1-99d6-4385-9754-bc7ea8b8a306` |
+| JAWS |  | shark.bmp | `1158df36-8506-4d7c-97ff-143194d71060` |
+| JUJUTSU KAISEN: The Real 4-D — Clock Tower of Recurrence |  |  | `df003200-9692-44f7-bb87-bb8d8eb30824` |
+| Jurassic Park - The Ride |  | dinosaur.bmp | `2cffef69-0e7c-4eb5-92bb-cd7610ce2544` |
+| Mario Kart: Koopa's Challenge™ |  | race_car.bmp | `50b48b8f-975f-480e-9c77-0cb8d8d85dda` |
+| Mine Cart Madness™ |  | coaster_car.bmp | `e1bee688-c11a-477a-bec3-866037d2601d` |
+| Moppy's Balloon Trip |  | hang_glider.bmp | `3aa8cc1c-ffaa-4d36-96c2-711d74bb4a56` |
+| Power-Up Band™ Key Challenges |  |  | `32124c04-0910-4da5-8068-84106593d872` |
+| Sesame's Big Drive |  | old_car.bmp | `72a00388-e489-4834-89a1-669b8bce9200` |
+| Snoopy's Flying Ace Adventure |  | airplane.bmp | `1a01f6d5-7149-41a6-a4d8-ba0a37a8a22e` |
+| Space Fantasy - The Ride |  | rocket.bmp | `8859bb42-55e6-4e70-9847-2e06fc452273` |
+| Space Fantasy - The Ride: CLUB ZEDD REMIX |  | rocket.bmp | `950a9854-ac00-4878-8d96-14ade2d57a1d` |
+| Space Killer |  | laser_blaster.bmp | `c4316644-995c-48cc-a4dc-e32b746eca6f` |
+| The Flying Dinosaur |  | dinosaur.bmp | `9fcbfbff-3212-42d4-83ce-02912477037d` |
+| The Flying Snoopy |  | airplane.bmp | `b0b9b5b7-dabf-4f1f-a56d-39c9842f4ecb` |
+| Water Garden |  | wave.bmp | `f4972dab-a9e8-453d-86c1-8c4c9ad49c60` |
+| Yoshi's Adventure™ |  | yoshi.bmp | `dfce9bc6-a057-4589-b694-8015a858e9a8` |
+
+## Universal Studios Singapore
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Accelerator™ |  | tea_cup.bmp | `39d7d964-4ff7-4803-ba95-83a48c49a4b4` |
+| Battlestar Galactica: CYLON™ |  | coaster_car.bmp | `ccab7e24-6848-4f71-9b2e-459bba5831a0` |
+| Battlestar Galactica: HUMAN™ |  | coaster_car.bmp | `7b8c7a5b-a4fa-4c74-ac85-6ba72fd653bb` |
+| Buggie Boogie |  | tea_cup.bmp | `13eb38c8-ff64-4548-b277-50aba0f9bdea` |
+| Canopy Flyer™ |  | hang_glider.bmp | `2014ed10-907c-426c-9a69-71b28420fb96` |
+| Despicable Me Minion Mayhem |  | minion.bmp | `7e68487b-1e1c-4b90-be83-dc78ce8cfc6d` |
+| Dino-Soarin™ |  | dinosaur.bmp | `392eb505-ec76-4718-8de3-2603b2392d45` |
+| Enchanted Airways |  | dragon.bmp | `21921461-3184-496e-9987-2efb8bce4464` |
+| Jurassic Park Rapids Adventure™ |  | dinosaur.bmp | `eb4e5014-f24f-4864-bc47-59c0b7c1a850` |
+| Lights, Camera, Action!™ Hosted by Steven Spielberg |  |  | `2e8372cb-8c1a-417b-87a1-6ade55fec7ab` |
+| Magic Potion Spin |  | tea_cup.bmp | `fe5a953a-12c2-4c78-b1a3-1ed37bf554a2` |
+| Puss In Boots’ Giant Journey |  | coaster_car.bmp | `afdbc8da-c4bd-42bf-9aa6-1180e4535c04` |
+| Revenge of the Mummy™ |  | mummy.bmp | `723c05c0-acbd-4349-b155-445721bc9611` |
+| Sesame Street Spaghetti Space Chase |  | rocket.bmp | `3beb3629-aa85-44d4-93f1-139e736e57f4` |
+| Shrek 4-D Adventure |  |  | `03fa4f1d-6e4e-4117-91da-9a1e1c43c28b` |
+| Silly Swirly |  | tea_cup.bmp | `addb6c1d-b1f2-4f28-ae02-5e163559705c` |
+| TRANSFORMERS The Ride: The Ultimate 3D Battle |  | transformers.bmp | `64e694d0-521a-4ac9-9c00-6687b630f1fd` |
+| Treasure Hunters™ |  | old_car.bmp | `a9ec697f-3224-452b-8402-f446228776a2` |
+
+## Universal Studios Beijing
+
+| Ride | Representation | Image | UUID |
+|------|----------------|-------|------|
+| Bumblebee Boogie |  | transformers.bmp | `41f4b65b-a27b-4a26-86f1-447ba0ba3724` |
+| Camp Jurassic |  | dinosaur.bmp | `c6218fc4-97f3-472a-bf1a-7e0436669ea8` |
+| Carousel of Kung Fu Heroes |  | carousel_horse.bmp | `9f170ad3-032d-4a54-a601-82d867229091` |
+| Decepticoaster |  | transformers.bmp | `e6ea7bbf-92ca-414a-8112-c473c20f04c3` |
+| Despicable Me Minion Mayhem |  | minion.bmp | `cbe1cb52-0264-4bc8-993c-e59b5bdb1ffc` |
+| Flight of the Hippogriff™ |  | bird.bmp | `f28218da-e74e-4979-b781-b3e6ebc7c461` |
+| Harry Potter and the Forbidden Journey™ |  | castle.bmp | `c4119cf9-5383-423c-834c-94217ebb6435` |
+| Jurassic Flyers |  | dinosaur.bmp | `d651ced3-5c24-4bda-b496-f082da00b018` |
+| Jurassic World Adventure |  | dinosaur.bmp | `276268df-b9a1-42f3-bca0-3bce263aafa2` |
+| Kung Fu Games |  | panda.bmp | `292ec81b-41ee-4337-9fcf-190bf8ee46e4` |
+| Kung Fu Panda Journey of the Dragon Warrior |  | panda.bmp | `557d7e1b-48ea-4d1f-9e3a-e9baa9b7780b` |
+| Lanterns of Legendary Legends |  |  | `67dfbe42-1452-47e4-be57-087f8f5894d0` |
+| Lights Camera Action! |  |  | `4671257c-fa62-4cd8-88b8-eb8c466e4858` |
+| Loop-Dee Doop-Dee |  | coaster_car.bmp | `b7f731e5-d72c-4227-a8e3-89ff662b3e05` |
+| MINION GAMES |  | minion.bmp | `8bef9380-953a-4add-8fe8-420b7038d50b` |
+| Ollivanders™ |  |  | `f6375650-a586-44c6-b481-1cf3941ded3c` |
+| Po's Kung Fu Training Camp |  | panda.bmp | `0380a1cb-4f71-402d-886a-88dd3e7f3395` |
+| Raptor Encounter |  | dinosaur.bmp | `4880520f-6c3a-49e1-9ac0-85ab9efdf2d4` |
+| Super Swirly |  | tea_cup.bmp | `f0e70954-da09-4a65-9ae7-805e82728363` |
+| Transformers: Battle for the AllSpark |  | transformers.bmp | `bcf1ef30-09fe-48e1-9d82-522a36940285` |

@@ -1,0 +1,32 @@
+
+                           K K  K  K K
+                           K K  K  K K
+                            KK  K  KK
+                                S
+                           yySSSsSSSyy
+                         yyySsssKsssSyyy
+                       yyyySsKKK#KKKsSyyyy
+                       yyySsKK#####KKsSyyy
+                    SSSSSSSsK###n###KsSSSSSSS
+                    SSSSSSSsK###nn##KsSSSSSSS
+                    SSSSSSsK##nnKnn##KsSSSSSS
+                    SSSSSSSsK##nnn##KsSSSSSSS
+                     yy:yySsK###n###KsSyy:yy
+                     yy:yySsKK#####KKsSyy:yy
+                     yy:yyySsKKK#KKKsSyyy:yy
+                     yyy:yyySsssKsssSyyy:yyy
+                     yyy:yyyySSSsSSSyyyy:yyy
+                     yyy:yyyyyyySyyyyyyy:yyy
+                     yyy:yyyKyyyyyyyKyyy:yyy
+                     yyy:yyyyKKKKKKKyyyy:yyy
+                     yyyy:yyyyyyyyyyyyy:yyyy
+                     yyyy:yyyyyyyyyyyyy:yyyy
+                     ::::::::::K:K::::::::::
+                     :::::::::::::::::::::::
+                     :::::::::::::::::::::::
+                      :::::::::::::::::::::
+                      :::::::::::::::::::::
+                       :::::::::::::::::::
+                        :::::::::::::::::
+                          :::::::::::::
+                           KK   :   KK

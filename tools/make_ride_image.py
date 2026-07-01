@@ -67,6 +67,10 @@ PALETTE = {
     "S": (0x4C, 0x50, 0x60), # dark grey
     "R": (0xC0, 0x5A, 0x2E), # rust-red rock (Big Thunder / Everest)
     "y": (0xFF, 0xE0, 0x44), # bright yellow
+    # --- extended palette for the Universal batch (added 2026-07-01) ---
+    "K": (0x11, 0x11, 0x11), # near-black outline / detail (minion goggle, panda, shark eye)
+    "p": (0xFF, 0x88, 0xBB), # pink (Simpsons donut frosting)
+    "O": (0xFF, 0x88, 0x22), # orange (Yoshi boots, accents)
 }
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

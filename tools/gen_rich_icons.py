@@ -596,7 +596,36 @@ def snake():
     return _shade("snake", R, occlude=True)
 
 
-HEROES = {"space_mountain": space_mountain, "tron": tron,
+# ---- Universal hero icons ---------------------------------------------------------
+# On this panel sky = LEDs off (black), so a pure-black fill is invisible. These lift
+# "black" regions to a visible dark grey and give signature parts (goggle, glowing
+# eyes) a brighter bias so they read at LED distance.
+_INK = ramp((0x22, 0x22, 0x22), (0x66, 0x66, 0x66), 4)   # visible "black" (fur, rims)
+
+
+def minion():
+    body = ramp3((0xaa, 0x77, 0x11), (0xff, 0xe0, 0x44), (0xff, 0xf6, 0xaa), 6)
+    R = {"ffe044": (body, 0.05), "2a50c0": (_BLUE, 0.0), "9c9fb0": (_STEEL, 0.0),
+         "4c5060": (_DKSTEEL, 0.0), "111111": (_INK, 0.0), "ffffff": (_WHITE, 0.1),
+         "9a5f2c": (_WOOD, 0.0)}
+    return _shade("minion", R, occlude=True)
+
+
+def panda():
+    R = {"111111": (_INK, 0.1), "ffffff": (_WHITE, 0.05)}
+    return _shade("panda", R, occlude=False)
+
+
+def transformers():
+    blue = ramp3((0x1e, 0x2a, 0x70), (0x2a, 0x50, 0xc0), (0x9a, 0xc0, 0xff), 6)
+    eye = ramp((0x33, 0x88, 0xff), (0xcc, 0xf0, 0xff), 4)
+    R = {"2a50c0": (blue, 0.0), "9c9fb0": (_STEEL, 0.0), "4c5060": (_DKSTEEL, 0.0),
+         "1f6fd6": (eye, 0.4), "ffffff": (_WHITE, 0.1)}
+    return _shade("transformers", R, occlude=True)
+
+
+HEROES = {"minion": minion, "panda": panda, "transformers": transformers,
+          "space_mountain": space_mountain, "tron": tron,
           "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,
           "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave,

@@ -122,6 +122,16 @@ RIDES_WITH_INTRO = [
     ("Indiana Jones",    "5d0ce227-7ad0-4402-a95b-6cf56f25a8ec"),
     # Tiana's Bayou Adventure (above) now renders mountain_falls; keep a wave sample:
     ("Aquatopia (wave)", "2159960b-4f42-4974-93be-7519816de45d"),
+    # batch 12 (Universal) — one per new image
+    ("Minion Mayhem",    "7288f24a-396e-4eeb-bb3b-4a90e65269f2"),
+    ("VelociCoaster (dino)", "61079a31-4165-4fb0-b36f-c01c5971f80a"),
+    ("Transformers",     "750939c5-a69e-408a-8d55-66c272fa265e"),
+    ("Revenge of the Mummy", "ec25d9a7-b4d4-4ebf-a6c4-c18389351764"),
+    ("Kung Fu Panda",    "bc53c39c-7d8b-4f28-958d-f3a077d887cd"),
+    ("The Simpsons Ride (donut)", "7e70bc9e-7dce-4dd2-8823-57b8d6ec7570"),
+    ("JAWS (shark)",     "1158df36-8506-4d7c-97ff-143194d71060"),
+    ("Yoshi's Adventure (egg)", "00feb57b-4fcc-48bc-9490-c9af71f30c1c"),
+    ("Hagrid's Motorbike", "578bbd12-1975-4ec3-9879-ea641c780342"),
 ]
 
 

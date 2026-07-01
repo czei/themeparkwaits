@@ -1,8 +1,8 @@
 # Ride Intro Images — Project Guide
 
 **Goal:** create a 64×32 LED "intro image" (a recognizable silhouette) for as many
-US Disney rides as possible. Each plays before that ride's wait-time screen on the
-Matrix Portal S3.
+rides as possible (US Disney, Universal, and other parks). Each plays before that
+ride's wait-time screen on the Matrix Portal S3.
 
 **Status (2026-06-29):** framework DONE + verified on hardware. **All 49 ride icons are
 drawn + registered** — every filled-in representation in `docs/ride-icons.md` now maps to a
@@ -93,8 +93,25 @@ top-left-first scan, so both make `make_transparent(0)` mean "sky".
 | Disneyland Park | `7340550b-c14d-4def-80bb-acdb51d49a66` |
 | Disney California Adventure | `832fcd51-ea19-4e77-85c7-75d5843b127c` |
 
-**Scope:** theme parks only — the water parks (Blizzard Beach, Typhoon Lagoon) are
-intentionally excluded; no intro images for them.
+**Scope:** theme parks only — the water parks (Blizzard Beach, Typhoon Lagoon,
+Volcano Bay) are intentionally excluded; no intro images for them.
+
+## Universal park UUIDs (for `--park`)
+
+| Park | UUID |
+|------|------|
+| Universal Studios Florida | `eb3f4560-2383-4a36-9152-6b3e5ed6bc57` |
+| Universal Islands of Adventure | `267615cc-8943-4c2a-ae2c-5da728ca591f` |
+| Universal Epic Universe | `12dbb85b-265f-44e6-bccf-f1faa17211fc` |
+| Universal Studios Hollywood | `bc4005c5-8c7e-41d7-b349-cdddf1796427` |
+| Universal Studios Japan | `47f61fac-7586-41ac-ae80-61c9257cf33e` |
+| Universal Studios Singapore | `f95d7f76-2024-4510-b799-26e122d0e448` |
+| Universal Studios Beijing | `68e1d8f0-ed42-4351-af25-160421e37ce0` |
+
+Universal added 2026-07-01: **8 new icons** (`minion`, `dinosaur`, `transformers`,
+`mummy`, `panda`, `donut`, `shark`, `yoshi`) + 124 UUID→file mappings across the 7
+non-water parks (most reuse existing silhouettes). Shows/interactive/kiddie
+attractions with no good silhouette are left unmapped (they render the normal screen).
 
 Shipped so far: **Space Mountain** → `space_mountain.bmp`
 (MK `b2260923-9315-40fd-9c6b-44dd811dbe64`, DLR `9167db1d-e5e7-46da-a07f-ae30a87bc4c4`).

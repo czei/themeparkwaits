@@ -1,0 +1,32 @@
+
+
+
+
+
+
+
+                                                    S
+                                            S      SS
+                         r                   SS  SS
+                      r#rrrrr                  SS
+                     rrrrrrrrKKKKKKKKKKK        S
+                    rrrrrrrrrKKKKKKKKKKKK      S  o
+                     rrrrrrrrKKKKKKKKKKK       S ooy
+            sssssss   rrrrrrr        S   ssssssSooooo
+          sssSSSSSsss   Sr            SsssSSSSSssooo
+         ssSS  S  SSss S              sSSS  S SSSso
+        ssSS   S   SSSS   sSsSsSsSs  ssSS   S S SSss
+        sSSS   S   SSSs   sSsSsSsSs  sSSS   SS  SSSs
+       ssS  S  S  SS Sss  sSsSsSsSs ssS  S  SS S  Sss
+       sS    S S SS   Ss  sSsSsSsSs sS    S SSS    Ss
+       sS     SsS     Ss ssSsSsSsSs sS     SSS     Ss
+       sSSSSSSsSsSSSSSSssSsSsSsSsSsSSSSSSSSsSsSSSSSSs
+       sS     SsS    sss            sS     SsS     Ss
+       sS    S S S ss Ss            sS    S S S    Ss
+       ssS  S  S ss  Sss            ssS  S  S  S  Sss
+        sSSS   S   SSSs              sSSS   S   SSSs
+        ssSS   S   SSss              ssSS   S   SSss
+         ssSS  S  SSss                ssSS  S  SSss
+          sssSSSSSsss                  sssSSSSSsss
+            sssssss                      sssssss
+
