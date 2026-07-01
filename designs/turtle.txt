@@ -3,30 +3,30 @@
 
 
 
-
-
-
-
-                                 g
-                        G  ggggggggggggg   G
-                      GGGggggggGGGGGggggggGGGG
-                     GGggggggGGggGggGGggggggGGG
-                    GGggggggGGgggGgggGGggggggGGG
-                     ggggggGGggggGggggGGggggggG     g
-                    gggggggGgggggGgggggGggggggg   ggggg
-                    ggggggGggggggGggggggGgggggg  gggggNg
-                    ggggggGggggggGggggggGgggggg ggggggggg
-                   gggGGGGGGGGGGGGGGGGGGGGGGGggg ggggggg
-                    ggggggGggggggGggggggGgggggg   ggggg
-                    ggggggGggggggGggggggGgggggg     g
-                    gggggggGgggggGgggggGggggggg
-                   GGggggggGGggggGggggGGggggggGG
-                  GGGGggggggGGgggGgggGGggggggGGGG
-                 GGGGGGggggggGGggGggGGggggggGGGGGG
-                  GGGGGGGggggggGGGGGggggggGGGGGGG
-                   GGGGGGG ggggggggggggg GGGGGGG
-                      G          g          G
-
-
-
-
+                              g
+                       GggggggGggggggG
+                     ggGggggggGggggggGgg
+                    gggGggLgggGggLgggGggg
+                  gLgggGggggggGggggggGggLgg           g
+                 ggggggGggggggGggggggGgggggg       ggggggg
+                gggggggGggggggGggggggGggggggg     ggggggggg
+               gGGGGGGGGGGGGGGGGGGGGGGGGGGGGGgggggggggNN#ggg
+               ggggggggGggggggGggggggGggggggggggggggggNNNgggg
+              gggggggggGggLgggGggLgggGggggggggggggggggNNNggggg
+              gggggLgggGggggggGggggggGggLggggggggggggggggggg
+              gggggggggGggggggGggggggGggggggggggggggggggggGGGG
+              gggggggggGggggggGggggggGggggggggggggggggggggg
+             gGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGggggggggggg
+               wgwwwwwwwwwwwwwwwwwwwwwwwwwwgggggggg   g
+               ggwwwwwwwwwwwwwwwwwwwwwwwwwwwwgw
+             ggggwwwwwwwwwwwwwwwwwwwwwwwwwwgggw
+           ggggggwwwwwwwwwwwwwwwwwwwwwwwwgggggw
+          gggggggwwwwwwwwwwwwwwwwwwwwwggggggggw
+        ggggggggg                   gggggggggg
+      gggggggggggg             ggggggggggggggg
+    g                        ggggggggggggggggg
+                           ggggggggggggg
+                         gggggggggg
+                       ggggggg
+                     gggg
+                   g

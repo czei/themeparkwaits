@@ -430,21 +430,34 @@ def tiki_bird():
 
 # ---------------------------------------------------------------- TURTLE (Crush)
 def turtle():
+    # side-profile swimming sea turtle (Crush), head to the right. Per art-direction:
+    # domed shell + cream belly band for value separation, big swept front flipper drawn
+    # OVER the belly, enlarged head w/ catch-light eye, negative space under the flipper.
     g = grid()
-    # flippers
-    ellipse(g, 22, 24, 5, 3, "G")
-    ellipse(g, 44, 24, 5, 3, "G")
-    ellipse(g, 24, 13, 4, 3, "G")
-    ellipse(g, 43, 13, 4, 3, "G")
-    # shell (green dome)
-    ellipse(g, 33, 18, 14, 9, "g")
-    # shell plates (darker outline scutes)
-    ring(g, 33, 18, 7, "G")
-    hline(g, 22, 44, 18, "G")
-    vline(g, 33, 11, 25, "G")
-    # head
-    ellipse(g, 52, 17, 4, 3, "g")
-    put(g, 54, 16, "N")                   # eye
+    # cream belly band (laid down first; the green flipper crosses it for edge separation)
+    rect(g, 15, 19, 46, 23, "w")
+    # neck + enlarged head (right) with a blunt beak
+    rect(g, 43, 12, 50, 19, "g")
+    ellipse(g, 54, 14, 6, 5, "g")
+    put(g, 60, 13, "g"); put(g, 60, 14, "g"); put(g, 61, 14, "g")     # beak
+    # rear flipper (left/back) — small paddle
+    fill_tri(g, (16, 19), (4, 26), (17, 25), "g")
+    # front flipper — massive, swept down-left over the belly (leaves top row of belly cream)
+    fill_tri(g, (45, 20), (45, 26), (19, 31), "g")
+    fill_tri(g, (45, 23), (31, 25), (19, 31), "g")
+    # domed carapace (mid green) on top
+    ellipse(g, 30, 18, 17, 13, "g", half="top")
+    # dark shadow under the shell overhang (separates shell from belly)
+    hline(g, 14, 46, 18, "G")
+    # scute seams (dark green) + light-green bevel highlights (no black lines)
+    hline(g, 16, 44, 12, "G")
+    for sx in (23, 30, 37):
+        vline(g, sx, 6, 17, "G")
+    for hx, hy in ((19, 9), (26, 8), (33, 8), (40, 9), (19, 15), (26, 14), (33, 14), (40, 15)):
+        put(g, hx, hy, "L")
+    # eye (dark block + white catch-light) + mouth line
+    rect(g, 54, 12, 56, 14, "N"); put(g, 56, 12, "#")
+    hline(g, 58, 61, 16, "G")
     write("turtle", g)
 
 
@@ -2058,6 +2071,23 @@ def cassette():
     write("cassette", g)
 
 
+# ---------------------------------------------------------------- AMERICAN FLAG (The American Adventure)
+def flag():
+    g = grid()
+    vline(g, 6, 2, 31, "s"); ellipse(g, 6, 2, 1, 1, "o")       # pole + gold finial
+    x0, x1, top = 8, 57, 4
+    star_cols = {11, 15, 19, 23, 27}
+    star_rows = {1, 4, 7}
+    for x in range(x0, x1 + 1):
+        wv = int(round(2 * math.sin((x - x0) * 0.32)))         # ripple = "waving"
+        for row in range(18):
+            col = "r" if (row // 2) % 2 == 0 else "#"          # 2-row stripes, starts/ends red
+            if x <= 28 and row < 10:                           # blue canton (upper-left)
+                col = "#" if (x in star_cols and row in star_rows) else ":"
+            put(g, x, top + row + wv, col)
+    write("flag", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -2155,3 +2185,4 @@ if __name__ == "__main__":
     clownfish()
     light_bulb()
     cassette()
+    flag()

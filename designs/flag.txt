@@ -1,0 +1,32 @@
+
+      o
+     ooo             ::::                rrrr
+      o            ::::#:::            rrrrrrrr
+      s :         :#:::::::::        rrrr####rrrr        r
+      s :::     :::::::::::#:rr    rrrr########rrr     rrr
+      s :::::::::::::::#:::::rrrrrrrr####rrrr####rrrrrrrr#
+      s :::#:::#:::#:::::::::##rrrr####rrrrrrrr###rrrrr###
+      s :::::::::::::::::::#:########rrrr####rrrr########r
+      s :::::::::::::::#:::::rr####rrrr########rrr#####rrr
+      s :::#:::#:::#:::::::::rrrrrrrr####rrrr####rrrrrrrr#
+      s :::::::::::::::::::#:##rrrr####rrrrrrrr###rrrrr###
+      s :::::::::::::####::::########rrrr####rrrr########r
+      s :::#:::#:::########::rr####rrrr########rrr#####rrr
+      s #:::::::::###rrrr####rrrrrrrr####rrrr####rrrrrrrr#
+      s ###:::::###rrrrrrrr####rrrr####rrrrrrrr###rrrrr###
+      s r#########rrr####rrrr########rrrr####rrrr########r
+      s rrr#####rrr########rrrr####rrrr########rrr#####rrr
+      s #rrrrrrrrr###rrrr####rrrrrrrr####rrrr####rrrrrrrr#
+      s ###rrrrr###rrrrrrrr####rrrr####rrrrrrrr###rrrrr###
+      s r#########rrr    rrrr########rrrr    rrrr########r
+      s rrr#####rrr        rrrr####rrrr        rrr#####rrr
+      s  rrrrrrrrr           rrrrrrrr            rrrrrrrr
+      s    rrrrr               rrrr               rrrrr
+      s
+      s
+      s
+      s
+      s
+      s
+      s
+      s
