@@ -1,0 +1,32 @@
+
+
+
+
+                               #
+                              ###
+                             #####
+                           OK#####K
+                          OOK#####KO                  O
+                       #KOOOK#####KOOO               OO
+                     ###KOOOK#####KOOOOK           OOOO
+                   OK###KOOOK#####KOOOOK##        OOOOO
+                  OOK###KOOOK#####KOOOOK###     OOOOOOO
+                 O#OK###KOOOK#####KOOOOK###K  OOOOOOOOO
+                O###K###KOOOK#####KOOOOK###KOOOOOOOOOOO
+                ##K#####KOOOK#####KOOOOK###KOOOOOOOOO O
+               OO###K###KOOOK#####KOOOOK###KOOOOOOOOO O
+                OO#OK###KOOOK#####KOOOOK###KOOOOOOOOO O
+              nnnnOOK###KOOOK#####KOOOOK###KOOOOOOOOOOO
+                 OOOK###KOOOK#####KOOOOK###K  OOOOOOOOO
+                  OOK###KOOOK#####KOOOOK###     OOOOOOO
+                   OK###KOOOK#####KOOOOK##        OOOOO
+                     ###KOOOK#####KOOOOK           OOOO
+                     ###KOOOK#####KOOO               OO
+                     #      K#####KO                  O
+                             #####K
+                               ###
+                                #
+
+
+
+

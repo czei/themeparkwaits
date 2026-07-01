@@ -71,6 +71,7 @@ PALETTE = {
     "K": (0x11, 0x11, 0x11), # near-black outline / detail (minion goggle, panda, shark eye)
     "p": (0xFF, 0x88, 0xBB), # pink (Simpsons donut frosting)
     "O": (0xFF, 0x88, 0x22), # orange (Yoshi boots, accents)
+    "T": (0xCC, 0xAA, 0x66), # sandstone tan (Mesoamerican pyramid stone)
 }
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

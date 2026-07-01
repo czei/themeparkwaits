@@ -24,7 +24,8 @@ with `ls src/images/rides/*.bmp`. Find a park's rides + UUIDs with
    `hline`/`vline`, `rect`, `line`, `thick_line`, `ring`, `ellipse(…, half="top"|"bottom")`,
    `fill_tri`, then `write("<name>", g)`. Colors are single chars from
    `make_ride_image.PALETTE` (e.g. `#`=white, `r`=red, `g`/`G`=green, `s`/`S`=grey,
-   `K`=near-black, `o`=gold, `y`=yellow, `p`=pink, `O`=orange, `~`=cyan). Add a new char to
+   `K`=near-black, `o`=gold, `y`=yellow, `p`=pink, `O`=orange, `~`=cyan, `T`=sandstone).
+   Add a new char to
    that PALETTE if you need a colour — keep every channel a multiple of `0x11` (4-bit clean).
    Run `python tools/gen_ride_designs.py`.
 2. **Flatten** to the pre-shade "original":
@@ -57,6 +58,16 @@ with `ls src/images/rides/*.bmp`. Find a park's rides + UUIDs with
   invisible on the panel. For black subjects/parts (panda ears, tyres, outlines) either draw
   them in a **visible dark grey** (`S`) or add a hero ramp mapping `111111` up to grey — see
   `_INK = ramp((0x22,0x22,0x22),(0x66,0x66,0x66),4)` and the panda/minion heroes.
+- **Don't outline the silhouette in black.** A black outer contour against sky vanishes and
+  leaves GAPS — the clownfish tail detached from its body this way. Build the subject as ONE
+  connected fill (draw fins/limbs overlapping the body so they merge) and let the fill colour
+  be the edge. Reserve `K`/dark only for INTERNAL detail lines (between two visible colours).
+- **Sanity-check the aspect ratio.** Match the subject's real proportions to its bbox — the
+  cassette first came out too wide (~2.4:1) and had to be narrowed to ~1.5:1. Compare the
+  preview to how the real object actually looks.
+- **Paint detail onto an existing fill** so stripes/bands/patches follow a curved body:
+  recolour only pixels currently the body colour (`if g[y][x]=="O": g[y][x]="#"`), and the
+  marking auto-conforms to the silhouette (clownfish bands).
 - **64×32 is tiny — keep the composition simple.** A motorcycle *with sidecar* crowded out
   the front wheel and read as a blob; the clean two-wheeler read instantly. Prefer one bold,
   legible subject over a busy accurate one. Wheels read best as **hollow spoked rings** in

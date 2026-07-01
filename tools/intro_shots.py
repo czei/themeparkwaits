@@ -132,6 +132,11 @@ RIDES_WITH_INTRO = [
     ("JAWS (shark)",     "1158df36-8506-4d7c-97ff-143194d71060"),
     ("Yoshi's Adventure (egg)", "00feb57b-4fcc-48bc-9490-c9af71f30c1c"),
     ("Hagrid's Motorbike", "578bbd12-1975-4ec3-9879-ea641c780342"),
+    # batch 13 (EPCOT / misc)
+    ("Gran Fiesta Tour (pyramid)", "22f48b73-01df-460e-8969-9eb2b4ae836c"),
+    ("The Seas with Nemo (clownfish)", "fb076275-0570-4d62-b2a9-4d6515130fa3"),
+    ("Journey Into Imagination (light_bulb)", "75449e85-c410-4cef-a368-9d2ea5d52b58"),
+    ("Cosmic Rewind (cassette)", "e3549451-b284-453d-9c31-e3b1207abd79"),
 ]
 
 

@@ -1964,6 +1964,100 @@ def motorcycle():
     write("motorcycle", g)
 
 
+# ================================================================ BATCH 13 (EPCOT / misc)
+# ---------------------------------------------------------------- PYRAMID (Gran Fiesta Tour — Mexico pavilion)
+def pyramid():
+    g = grid()
+    cx = 32
+    # stepped stone tiers, narrowing upward (bottom -> top)
+    tiers = [(26, 29, 23), (23, 26, 19), (20, 23, 15), (17, 20, 11), (14, 17, 8)]
+    for (y0, y1, hw) in tiers:
+        rect(g, cx - hw, y0, cx + hw, y1, "T")
+        hline(g, cx - hw, cx + hw, y0, "n")        # setback shadow ledge under each step
+    # temple on the summit: body, cornice, roof comb, dark doorway
+    rect(g, cx - 6, 8, cx + 6, 14, "T")
+    hline(g, cx - 7, cx + 7, 8, "n")               # cornice
+    vline(g, cx, 6, 8, "n"); put(g, cx - 2, 7, "n"); put(g, cx + 2, 7, "n")   # roof comb
+    rect(g, cx - 2, 10, cx + 2, 14, "N")           # temple doorway
+    # grand central staircase down the front (lighter stone + step lines + balustrades)
+    rect(g, cx - 3, 14, cx + 3, 29, "w")
+    for sy in range(15, 29, 2):
+        hline(g, cx - 3, cx + 3, sy, "n")
+    vline(g, cx - 4, 14, 29, "S"); vline(g, cx + 4, 14, 29, "S")   # balustrade walls
+    # jungle ground line
+    hline(g, 3, 60, 30, "g"); rect(g, 3, 31, 60, 31, "G")
+    write("pyramid", g)
+
+
+# ---------------------------------------------------------------- CLOWNFISH (The Seas with Nemo)
+def clownfish():
+    g = grid()
+    bcx, bcy = 30, 16                              # head to the left, tail to the right
+    # tail fin (right) — overlaps the body so it reads as one silhouette
+    fill_tri(g, (41, 16), (54, 8), (54, 24), "O")
+    put(g, 53, 15, " "); put(g, 53, 16, " "); put(g, 53, 17, " ")   # forked notch
+    # dorsal + anal fins
+    fill_tri(g, (24, 9), (37, 9), (31, 4), "O")
+    fill_tri(g, (26, 23), (37, 23), (32, 27), "O")
+    # body
+    ellipse(g, bcx, bcy, 15, 8, "O")
+    # pectoral fin near the head
+    fill_tri(g, (20, 18), (28, 18), (21, 24), "O")
+    # three white bands with thin dark edges, painted onto the orange body
+    def band(bx, w):
+        for y in range(H):
+            for x in range(bx - w, bx + w + 1):
+                if 0 <= x < W and g[y][x] == "O":
+                    g[y][x] = "#" if abs(x - bx) < w else "K"
+    band(22, 2); band(31, 3); band(41, 2)
+    # eye + mouth (head end, far left)
+    ellipse(g, 18, 15, 2, 2, "#"); put(g, 18, 15, "K"); put(g, 17, 14, "#")
+    hline(g, 14, 17, 18, "n")
+    write("clownfish", g)
+
+
+# ---------------------------------------------------------------- LIGHT BULB (Journey Into Imagination)
+def light_bulb():
+    g = grid()
+    cx, cy = 32, 13
+    for a in range(0, 360, 45):                    # radiating "idea" glow
+        dx, dy = math.cos(math.radians(a)), math.sin(math.radians(a))
+        line(g, int(cx + 11 * dx), int(cy + 11 * dy),
+             int(cx + 14 * dx), int(cy + 14 * dy), "y")
+    ellipse(g, cx, cy, 9, 9, "y")                  # glass globe
+    ellipse(g, cx, cy, 3, 3, "w")                  # white-hot core
+    put(g, cx - 3, cy - 3, "#")                    # highlight
+    fil = [(28, 16), (30, 11), (32, 15), (34, 11), (36, 16)]   # filament (orange M)
+    for i in range(len(fil) - 1):
+        line(g, fil[i][0], fil[i][1], fil[i + 1][0], fil[i + 1][1], "O")
+    rect(g, 29, 21, 35, 22, "s")                   # neck
+    rect(g, 28, 22, 36, 27, "s")                   # screw base
+    for ty in (23, 25):
+        hline(g, 28, 36, ty, "S")                  # threads
+    rect(g, 30, 28, 34, 29, "S")                   # contact tip
+    write("light_bulb", g)
+
+
+# ---------------------------------------------------------------- CASSETTE (Guardians: Cosmic Rewind — Awesome Mix)
+def cassette():
+    g = grid()
+    rect(g, 15, 4, 49, 28, "S")                    # dark-plastic body (compact ~1.5:1)
+    for cxx, cyy in ((15, 4), (49, 4), (15, 28), (49, 28)):
+        put(g, cxx, cyy, " ")                      # rounded corners
+    rect(g, 19, 6, 45, 13, "w")                    # label panel
+    hline(g, 19, 45, 7, "r"); hline(g, 19, 45, 12, ":")   # two colour stripes
+    for wx in (26, 38):                            # two reel windows
+        rect(g, wx - 5, 16, wx + 5, 24, "K")       # dark window
+        ellipse(g, wx, 20, 4, 3, "n")              # brown tape spool
+        ellipse(g, wx, 20, 2, 2, "s")              # hub
+        for a in range(0, 360, 60):                # spindle teeth
+            put(g, wx + round(2 * math.cos(math.radians(a))),
+                20 + round(2 * math.sin(math.radians(a))), "S")
+    hline(g, 26, 38, 25, "n")                      # exposed tape between the reels
+    put(g, 18, 26, "s"); put(g, 46, 26, "s")       # screws
+    write("cassette", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -2056,3 +2150,8 @@ if __name__ == "__main__":
     shark()
     yoshi()
     motorcycle()
+    # batch 13 (EPCOT / misc)
+    pyramid()
+    clownfish()
+    light_bulb()
+    cassette()
