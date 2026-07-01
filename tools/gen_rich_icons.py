@@ -214,6 +214,24 @@ def _dot(out, pal, x, y, rgb):
 
 # ---- hand-tuned hero icons --------------------------------------------------------
 
+# Shared material ramps (dark -> flat -> light, 4-bit-clean), reused across the Efteling
+# hero set at the bottom of this section so common materials (wood, water, gold, steel,
+# greenery) read with consistent depth. Signature elements (dragon fire, fairy wings,
+# snake scales) still get bespoke ramps inside their own functions.
+_RED     = ramp3((0x88, 0x14, 0x14), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x66), 6)
+_GOLD    = ramp3((0x88, 0x55, 0x11), (0xff, 0xd2, 0x46), (0xff, 0xf4, 0xaa), 6)
+_CREAM   = ramp3((0x8a, 0x7a, 0x55), (0xea, 0xdf, 0xc4), (0xff, 0xff, 0xf0), 6)
+_WOOD    = ramp3((0x4a, 0x2a, 0x12), (0x9a, 0x5f, 0x2c), (0xd6, 0x96, 0x54), 6)
+_DKWOOD  = ramp((0x24, 0x12, 0x08), (0x5a, 0x34, 0x1c), 4)
+_STEEL   = ramp3((0x36, 0x3c, 0x4c), (0x9c, 0x9f, 0xb0), (0xe8, 0xee, 0xff), 6)
+_DKSTEEL = ramp3((0x1c, 0x20, 0x2c), (0x4c, 0x50, 0x60), (0x88, 0x90, 0xa4), 6)
+_WATER   = ramp3((0x0a, 0x44, 0x88), (0x1f, 0x6f, 0xd6), (0x88, 0xdd, 0xff), 6)
+_BLUE    = ramp((0x1e, 0x30, 0x80), (0x7a, 0xa0, 0xf0), 5)
+_GREEN   = ramp3((0x0e, 0x3a, 0x14), (0x36, 0xb0, 0x3e), (0x9a, 0xf0, 0x66), 6)
+_DKGREEN = ramp((0x08, 0x24, 0x0e), (0x2c, 0x6a, 0x30), 5)
+_WHITE   = ramp((0xcc, 0xcc, 0xdd), (0xff, 0xff, 0xff), 3)
+
+
 def space_mountain():
     structure = ramp((0x44, 0x55, 0x99), (0xFF, 0xFF, 0xFF), 6)
     ribs = ramp((0x22, 0x33, 0x77), (0x66, 0x88, 0xEE), 5)
@@ -387,10 +405,205 @@ def wave():
     return _shade("wave", R, extras, occlude=True, light_fn=_vertical)
 
 
+# ---- Efteling hero icons ----------------------------------------------------------
+# These 15 silhouettes drive Efteling's marquee rides (Joris en de Draak, Python,
+# Droomvlucht, Piraña, Pagode, Fata Morgana, ...). They were previously auto-shaded (a
+# mild 6-shade ramp CENTERED on the flat colour, so only edges swung). Here each gets
+# hand-tuned material ramps + accents so the gradients actually read on the panel. Shared
+# with every other park that uses the same silhouette.
+
+def bird():
+    feather = ramp3((0x22, 0x2a, 0x3a), (0x4c, 0x50, 0x60), (0x9a, 0xaa, 0xc8), 6)
+    R = {"4c5060": (feather, 0.0), "ffffff": (_WHITE, 0.05),
+         "ffd246": (_GOLD, 0.0), "9c9fb0": (_STEEL, 0.0), "4e2c12": (_DKWOOD, 0.0)}
+    return _shade("bird", R, occlude=True)
+
+
+def canoe():
+    R = {"1f6fd6": (_WATER, 0.0), "9a5f2c": (_WOOD, 0.0),
+         "eadfc4": (_CREAM, 0.05), "4e2c12": (_DKWOOD, 0.0)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        for fx in (0.2, 0.5, 0.8):                      # foam flecks along the waterline
+            sx = int(x0 + (x1 - x0) * fx)
+            if (sx, y1) not in mask:
+                _dot(out, pal, sx, y1, (0xcc, 0xf0, 0xff))
+    return _shade("canoe", R, extras, occlude=True)
+
+
+def carousel_horse():
+    horse = ramp3((0x8a, 0x82, 0x6a), (0xea, 0xdf, 0xc4), (0xff, 0xff, 0xf6), 6)
+    R = {"eadfc4": (horse, 0.06), "2a50c0": (_BLUE, 0.0),
+         "ffd246": (_GOLD, 0.05), "eb3c3c": (_RED, 0.05)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cx = (x0 + x1) // 2
+        if (cx, y0) not in mask:
+            _dot(out, pal, cx, y0, (0xff, 0xff, 0xcc))   # brass-pole top sparkle
+    return _shade("carousel_horse", R, extras, occlude=True)
+
+
+def child():
+    dress = ramp3((0x99, 0x18, 0x18), (0xeb, 0x3c, 0x3c), (0xff, 0x86, 0x74), 6)
+    hair = ramp3((0x4a, 0x2a, 0x12), (0x9a, 0x5f, 0x2c), (0xd6, 0x9a, 0x58), 6)
+    skin = ramp3((0xb0, 0x82, 0x5e), (0xea, 0xdf, 0xc4), (0xff, 0xf2, 0xe2), 6)
+    R = {"eb3c3c": (dress, 0.05), "9a5f2c": (hair, 0.05),
+         "eadfc4": (skin, 0.08), "2a50c0": (_BLUE, 0.0)}
+    return _shade("child", R, occlude=True)
+
+
+def coaster_car():
+    car = ramp3((0x99, 0x18, 0x18), (0xeb, 0x3c, 0x3c), (0xff, 0x86, 0x6a), 6)
+    R = {"eb3c3c": (car, 0.05), "4c5060": (_DKSTEEL, 0.0),
+         "9c9fb0": (_STEEL, 0.0), "eadfc4": (_CREAM, 0.05), "ffd246": (_GOLD, 0.0)}
+    return _shade("coaster_car", R, occlude=True)
+
+
+def dragon():
+    scale = ramp3((0x0e, 0x3a, 0x14), (0x36, 0xb0, 0x3e), (0x9a, 0xf0, 0x66), 6)
+    fire = [q4(c) for c in [(0xcc, 0x22, 0x11), (0xee, 0x44, 0x11), (0xff, 0x77, 0x11),
+                            (0xff, 0xaa, 0x22), (0xff, 0xcc, 0x33), (0xff, 0xee, 0x66)]]
+    tooth = ramp((0xbb, 0xaa, 0x88), (0xff, 0xff, 0xee), 4)
+    R = {"36b03e": (scale, 0.0), "1c6228": (_DKGREEN, 0.0), "eb3c3c": (fire, 0.15),
+         "eadfc4": (tooth, 0.0), "ffd246": (_GOLD, 0.1), "ffe044": (_GOLD, 0.15),
+         "4e2c12": (_DKWOOD, 0.0)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cy = (y0 + y1) // 2
+        for dx in range(1, 5):                          # fire glow trailing off the muzzle
+            gx = x0 - dx
+            if (gx, cy) not in mask:
+                t = 1.0 - dx / 5.0
+                _dot(out, pal, gx, cy, (int(0xff * t), int(0xaa * t), int(0x22 * t)))
+    return _shade("dragon", R, extras, occlude=True)
+
+
+def fairy():
+    wing1 = ramp3((0x11, 0x22, 0x66), (0x2a, 0x50, 0xc0), (0x9a, 0xd6, 0xff), 6)
+    wing2 = ramp3((0x11, 0x44, 0x99), (0x1f, 0x6f, 0xd6), (0xa0, 0xe4, 0xff), 6)
+    body = ramp3((0x99, 0x18, 0x18), (0xeb, 0x3c, 0x3c), (0xff, 0x86, 0x74), 6)
+    star = ramp((0xcc, 0x99, 0x22), (0xff, 0xff, 0xbb), 5)
+    R = {"2a50c0": (wing1, 0.1), "1f6fd6": (wing2, 0.1), "eb3c3c": (body, 0.05),
+         "eadfc4": (_CREAM, 0.05), "ffd246": (star, 0.15), "ffe044": (star, 0.2),
+         "ffffff": (_WHITE, 0.1)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cx = (x0 + x1) // 2
+        if (cx, y0) not in mask:
+            _dot(out, pal, cx, y0, (0xff, 0xff, 0xdd))   # crown-star glint
+    return _shade("fairy", R, extras, occlude=False)
+
+
+def fish():
+    body = ramp3((0x33, 0x3a, 0x4a), (0x9c, 0x9f, 0xb0), (0xe8, 0xee, 0xff), 6)
+    belly = ramp3((0x99, 0x18, 0x18), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x66), 6)
+    R = {"9c9fb0": (body, 0.0), "eb3c3c": (belly, 0.05),
+         "ffffff": (_WHITE, 0.05), "4c5060": (_DKSTEEL, -0.05), "4e2c12": (_DKWOOD, 0.0)}
+    return _shade("fish", R, occlude=True, light_fn=_radial(0.6, 0.34, 1.9))
+
+
+def locomotive():
+    boiler = ramp3((0x0a, 0x2a, 0x10), (0x1c, 0x62, 0x28), (0x5a, 0xc0, 0x5c), 6)
+    R = {"1c6228": (boiler, 0.0), "4c5060": (_DKSTEEL, 0.0), "2a50c0": (_BLUE, 0.0),
+         "eb3c3c": (_RED, 0.05), "9a5f2c": (_WOOD, 0.0), "9c9fb0": (_STEEL, 0.0),
+         "ffd246": (_GOLD, 0.0)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        sx = int(x0 + (x1 - x0) * 0.28)                 # steam puffs off the stack
+        for i, dy in enumerate((3, 5, 7)):
+            px, py = sx + i, y0 - dy
+            if py >= 0 and (px, py) not in mask:
+                g = 0xdd - i * 0x22
+                _dot(out, pal, px, py, (g, g, g))
+    return _shade("locomotive", R, extras, occlude=True)
+
+
+def magic_carpet():
+    weave = ramp3((0x88, 0x14, 0x14), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x62), 6)
+    R = {"eb3c3c": (weave, 0.0), "ffd246": (_GOLD, 0.05), "2a50c0": (_BLUE, 0.1),
+         "ffe044": (_GOLD, 0.1)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+        if (cx, cy) in mask:
+            _dot(out, pal, cx, cy, (0x99, 0xcc, 0xff))   # jewel-medallion glint
+    return _shade("magic_carpet", R, extras, occlude=True)
+
+
+def mushroom():
+    cap = ramp3((0x88, 0x14, 0x14), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x5a), 6)
+    stem = ramp3((0x8a, 0x7a, 0x55), (0xea, 0xdf, 0xc4), (0xff, 0xff, 0xf0), 6)
+    grass = ramp3((0x0a, 0x2a, 0x10), (0x1c, 0x62, 0x28), (0x4a, 0xb0, 0x4a), 6)
+    R = {"eb3c3c": (cap, 0.05), "eadfc4": (stem, 0.05),
+         "1c6228": (grass, 0.0), "36b03e": (grass, 0.1), "ffffff": (_WHITE, 0.1)}
+    return _shade("mushroom", R, occlude=True)
+
+
+def old_car():
+    body = ramp3((0x88, 0x14, 0x14), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x66), 6)
+    chrome = ramp3((0x44, 0x4a, 0x5a), (0x9c, 0x9f, 0xb0), (0xee, 0xf2, 0xff), 6)
+    tire = ramp((0x1e, 0x14, 0x0e), (0x5a, 0x3a, 0x2a), 4)
+    R = {"eb3c3c": (body, 0.05), "9c9fb0": (chrome, 0.0), "4e2c12": (tire, 0.0),
+         "2a50c0": (_BLUE, 0.0), "eadfc4": (_CREAM, 0.05), "ffd246": (_GOLD, 0.0)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        hx, hy = x1, int(y0 + (y1 - y0) * 0.55)         # headlamp glint at the front
+        if (hx, hy) in mask:
+            _dot(out, pal, hx, hy, (0xff, 0xff, 0xcc))
+    return _shade("old_car", R, extras, occlude=True)
+
+
+def pagoda():
+    roof = ramp3((0x88, 0x14, 0x14), (0xeb, 0x3c, 0x3c), (0xff, 0x7a, 0x5a), 6)
+    body = ramp3((0x8a, 0x7a, 0x55), (0xea, 0xdf, 0xc4), (0xff, 0xff, 0xf0), 6)
+    R = {"eb3c3c": (roof, 0.05), "eadfc4": (body, 0.05), "2a50c0": (_BLUE, 0.0),
+         "ffd246": (_GOLD, 0.1), "ffe044": (_GOLD, 0.15)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        cx = (x0 + x1) // 2
+        if (cx, y0) not in mask:
+            _dot(out, pal, cx, y0, (0xff, 0xf0, 0x99))   # gold finial sparkle
+    return _shade("pagoda", R, extras, occlude=True, light_fn=_vertical)
+
+
+def pirates():
+    sail = ramp3((0x88, 0x7a, 0x55), (0xea, 0xdf, 0xc4), (0xff, 0xff, 0xf0), 6)
+    hull = ramp3((0x4a, 0x2a, 0x12), (0x9a, 0x5f, 0x2c), (0xd6, 0x96, 0x54), 6)
+    R = {"eadfc4": (sail, 0.05), "1f6fd6": (_WATER, 0.0), "9a5f2c": (hull, 0.0),
+         "4e2c12": (_DKWOOD, 0.0), "eb3c3c": (_RED, 0.1)}
+
+    def extras(out, pal, mask, bbox):
+        x0, y0, x1, y1 = bbox
+        for fx in (0.25, 0.55, 0.8):                    # whitecaps on the waterline
+            sx = int(x0 + (x1 - x0) * fx)
+            if (sx, y1) in mask:
+                _dot(out, pal, sx, y1, (0xcc, 0xf0, 0xff))
+    return _shade("pirates", R, extras, occlude=True)
+
+
+def snake():
+    scale = ramp3((0x0e, 0x3a, 0x14), (0x36, 0xb0, 0x3e), (0x9a, 0xf0, 0x62), 6)
+    R = {"36b03e": (scale, 0.0), "1c6228": (_DKGREEN, 0.0),
+         "eb3c3c": (_RED, 0.1), "ffe044": (_GOLD, 0.2), "4e2c12": (_DKWOOD, 0.0)}
+    return _shade("snake", R, occlude=True)
+
+
 HEROES = {"space_mountain": space_mountain, "tron": tron,
           "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,
-          "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave}
+          "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave,
+          "bird": bird, "canoe": canoe, "carousel_horse": carousel_horse, "child": child,
+          "coaster_car": coaster_car, "dragon": dragon, "fairy": fairy, "fish": fish,
+          "locomotive": locomotive, "magic_carpet": magic_carpet, "mushroom": mushroom,
+          "old_car": old_car, "pagoda": pagoda, "pirates": pirates, "snake": snake}
 
 
 def main():
