@@ -32,6 +32,19 @@ class ThemeParkApp(ScrollKitApp):
     HEIGHT = 32
     BIT_DEPTH = 4
 
+    # --- WiFi onboarding policy (boot-time; hardware only) --------------------
+    # When a boot-time join fails with KNOWN credentials, retry as a station this
+    # many times (each a full WiFiManager.connect() = 3 radio attempts) with a
+    # growing grace between them BEFORE flipping the radio into setup-AP mode.
+    # This is the power-outage self-heal: when mains returns, the sign boots
+    # faster than the router's AP, so the first join fails; waiting the router out
+    # here reconnects with no portal and no reboot. Tests override to () / (0,).
+    WIFI_RECONNECT_BACKOFF_S = (10, 20, 30)
+    # How long to hold the setup portal's AP open for a physically-present user to
+    # fix a wrong password before rebooting (a slow-to-return router then
+    # reconnects on the next boot instead of the sign sitting in setup mode).
+    WIFI_PORTAL_TIMEOUT_S = 300
+
     def __init__(self, *, enable_web: bool = True, update_interval: int = 300,
                  http_client=None, settings=None) -> None:
         # enable_watchdog=True: opt this app into the hardware watchdog (CircuitPython
@@ -170,8 +183,9 @@ class ThemeParkApp(ScrollKitApp):
         # in self._boot_splash and detached by the first transitioned _status().
         await self._play_boot_splash()
 
-        # Network bring-up (T017/T018). Dev mode auto-connects and skips NTP/mDNS;
-        # the AP first-boot onboarding path (no creds) is hardware-only — TODO finish + verify.
+        # Network bring-up. Dev mode auto-connects and skips NTP/mDNS; on hardware
+        # a failed join runs onboarding (first-boot setup portal, or retry-then-
+        # portal-then-reboot for known creds) — see _init_network/_run_wifi_onboarding.
         await self._init_network()
 
         # Install a pending OTA update before fetching (reboots if one is staged).
@@ -506,7 +520,9 @@ class ThemeParkApp(ScrollKitApp):
         misfire if a stray ``wifi`` package is importable on desktop and would then
         make ``setup()`` block on failing NTP/network calls before the window ever
         renders). On desktop the HttpClient uses urllib directly — no WiFi/NTP/mDNS
-        needed. First-boot AP onboarding (no creds) is device-only and still TODO.
+        needed. First-boot AP onboarding (no creds) and bad-credential recovery
+        run here via _connect_wifi/_run_wifi_onboarding (device-only — the guard
+        above means the setup portal never fires on desktop).
         """
         import sys
         if not (hasattr(sys, "implementation") and sys.implementation.name == "circuitpython"):
@@ -515,9 +531,11 @@ class ThemeParkApp(ScrollKitApp):
             from scrollkit.network.wifi_manager import WiFiManager
             self.wifi = WiFiManager(self.settings)
             await self._status("Wi-Fi", transition=True)
-            # connect() reports per-attempt status ("Attempt n/3") on the step row
-            # via this callback, so a slow/retrying join shows instead of black.
-            connected = await self.wifi.connect(display_callback=self._status)
+            # Join the network; on failure fall through to onboarding (the setup
+            # portal for a first boot, or retry-then-portal-then-reboot for known
+            # creds). connect() reports per-attempt status ("Attempt n/3") on the
+            # step row via the callback threaded through in _connect_wifi.
+            connected = await self._connect_wifi(self.wifi)
             if connected:
                 try:
                     session = self.wifi.create_http_session()
@@ -555,6 +573,69 @@ class ThemeParkApp(ScrollKitApp):
                     logger.error(e, "mDNS advertise failed")
         except Exception as e:
             logger.error(e, "network init failed")
+
+    async def _connect_wifi(self, wm) -> bool:
+        """Join WiFi, falling back to onboarding on failure. Returns True if online.
+
+        Factored out of _init_network() as a platform-agnostic seam (no hardware
+        guard, no NTP/mDNS) so the connect->onboarding decision is unit-testable
+        with a mock WiFiManager.
+        """
+        if await wm.connect(display_callback=self._status):
+            return True
+        return await self._run_wifi_onboarding(wm)
+
+    async def _run_wifi_onboarding(self, wm) -> bool:
+        """Bring a device online after the initial WiFi join fails (hardware only).
+
+        Failure policy, keyed on whether credentials exist (``wm.ssid``):
+
+        * **No credentials (first boot).** There is nothing to retry, so hold the
+          library's no-file-editing setup portal open indefinitely
+          (``timeout_s=None``) until the user picks a network + password from a
+          phone. The library saves to settings.json (never a code file) and
+          REBOOTS on save — so on hardware this call never returns; on desktop
+          ``run_setup_portal()`` just returns (but the platform guard in
+          _init_network means we never get here off-device in production).
+
+        * **Credentials exist but the join failed.** Most often transient — after
+          a power blip the router is still rebooting and the sign, which boots
+          faster, comes up first. Retry as a STATION a few times with growing
+          grace (WIFI_RECONNECT_BACKOFF_S) BEFORE disturbing the radio with AP
+          mode, so a returning router self-heals with no portal and no reboot. If
+          it's still down (a wrong password, or an outage longer than our grace),
+          open the portal for a bounded window (WIFI_PORTAL_TIMEOUT_S) so a
+          present user can fix the password; if nobody does, reboot via
+          ``wm.reset()`` so a slow-to-return router reconnects on the next boot
+          instead of the sign sitting in setup mode forever.
+
+        This runs inside _init_network()'s try/except and before the watchdog is
+        armed (the library arms it only after setup() returns), so a blocking
+        portal here is safe. Returns True only if a station retry reconnected
+        (the caller then sets up the HTTP session / NTP / mDNS).
+        """
+        if not wm.ssid:
+            # First boot: no creds to retry — wait in the portal until configured.
+            await wm.run_setup_portal(display=self.display, timeout_s=None)
+            return False  # unreachable on hardware (the library reboots on save)
+
+        # Known creds that didn't connect: give a rebooting router time to return
+        # before flipping to AP mode. A healthy boot never reaches here (the first
+        # connect() succeeded), so these grace sleeps only cost time when offline.
+        rounds = self.WIFI_RECONNECT_BACKOFF_S
+        for i, backoff in enumerate(rounds, 1):
+            await self._status("Wi-Fi %d/%d" % (i, len(rounds)))
+            await asyncio.sleep(backoff)
+            if await wm.connect(display_callback=self._status):
+                return True
+
+        # Still offline with known creds. Offer the portal to a present user, then
+        # reboot so a router that's merely slow to return reconnects next boot.
+        saved = await wm.run_setup_portal(
+            display=self.display, timeout_s=self.WIFI_PORTAL_TIMEOUT_S)
+        if not saved:
+            await wm.reset()  # HW reboot; desktop/dev: a harmless ~4s no-op
+        return False
 
     async def update_data(self) -> None:
         """Refresh wait times for the selected park(s) and rebuild the content queue.

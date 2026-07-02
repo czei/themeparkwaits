@@ -7,7 +7,9 @@ CircuitPython app for a Matrix Portal S3 (64×32 RGB LED matrix) that shows live
 
 **Prior: 001 — Port to the refactored ScrollKit library** (`specs/001-this-project-is/`). Re-platform every subsystem the library provides onto `scrollkit.*`; keep only theme-park domain code.
 
-**Status (simulator-complete):** Milestone A done on the desktop simulator — boots, fetches live data, reveal splash, ride screens (scrolling name + 2× number), config web UI (:8080), OTA glue, resilience guards. 26 tests pass; dead code removed; hardware feasibility ~135 FPS / 1 KB RAM, no warnings. **Remaining: on-device verification (hardware checklist T035–T043), first-boot AP onboarding (device-only), and the boot-state-machine reboot branches.**
+**Status (simulator-complete):** Milestone A done on the desktop simulator — boots, fetches live data, reveal splash, ride screens (scrolling name + 2× number), config web UI (:8080), OTA glue, resilience guards. 26 tests pass; dead code removed; hardware feasibility ~135 FPS / 1 KB RAM, no warnings. **Remaining: on-device verification (hardware checklist T035–T043; incl. the WiFi setup portal below) and the boot-state-machine reboot branches.**
+
+WiFi onboarding is wired: a failed boot-time join runs the library's no-file-editing setup portal (`_init_network`→`_connect_wifi`→`_run_wifi_onboarding` in `src/app.py`). First boot with no creds holds the portal open indefinitely; known creds that fail retry as a station (power-outage self-heal) then fall back to the portal-with-timeout and reboot. Device-only (guarded off desktop); needs on-hardware verification.
 
 ### Final source layout (everything else runs on `scrollkit.*`)
 ```
@@ -36,7 +38,7 @@ flow, render-suspend, and palette-text completion now live in `scrollkit.*`
 - **CircuitPython** (device) + **CPython 3.11+** (desktop simulation).
 - **ScrollKit library** at `../ScrollKit Library` → `scrollkit.*`: `app` (`ScrollKitApp`), `display` (`UnifiedDisplay`, `ContentQueue`, `ScrollingText`/`StaticText`/`DisplayContent`, `GradientTextLayer`), `effects` (`transition_factory`/`supported_names`, `SwarmReveal`), `network` (`WiFiManager`, `HttpClient`), `config` (`SettingsManager`), `ota` (`OTAClient`), `web` (`SettingsWebServer`), `utils` (`ErrorHandler`, `ColorUtils`, `set_system_clock`, `url_decode`).
 - Adafruit CircuitPython `.mpy` bundle vendored in `src/lib/`; `scrollkit/` copied to device `/lib/`.
-- Data: **themeparks.wiki** API (no auth) — `GET /v1/destinations` (catalog) + `GET /v1/entity/{parkId}/live` (wait times; `queue.STANDBY.waitTime`, status `OPERATING`/`DOWN`/`CLOSED`/`REFURBISHMENT`). Park ids are UUID strings. Per-park `/live` is ~90 KB, so selected parks are fetched **sequentially** with `gc.collect()` between them (one payload in RAM at a time). Settings in `settings.json`; WiFi creds in `secrets.py`.
+- Data: **themeparks.wiki** API (no auth) — `GET /v1/destinations` (catalog) + `GET /v1/entity/{parkId}/live` (wait times; `queue.STANDBY.waitTime`, status `OPERATING`/`DOWN`/`CLOSED`/`REFURBISHMENT`). Park ids are UUID strings. Per-park `/live` is ~90 KB, so selected parks are fetched **sequentially** with `gc.collect()` between them (one payload in RAM at a time). Settings in `settings.json` (incl. `wifi_ssid`/`wifi_password`, saved by the setup portal — the primary WiFi path, which beat a stale `secrets.py`); `secrets.py` is the developer fallback.
 
 ## Key migration facts
 - The app's old `settings_manager`/`wifi_manager`/`http_client`/`unified_display`/`utils`/`ota`/`web_server` are **hand-rolled copies that diverged from the old library** — the refactor extracted clean versions into `scrollkit.*`. Port = replace app-local subsystem with the `scrollkit` import.
@@ -53,6 +55,12 @@ Device reads a **fixed public `live` channel branch**: `scrollkit.ota.OTAClient.
 - Simulator: `PYTHONPATH="../ScrollKit Library/src:src" python -m src.themeparkwaits --dev`
 - Device-speed estimate: prefix `SCROLLKIT_HW_SIM=1` (feel the crawl: `SCROLLKIT_HW_THROTTLE=1`).
 - Tests: `pytest tests/` (domain, mocked `HttpClient`) + `scrollkit.dev.run_headless/validate/capabilities`.
+
+## Device filesystem write-mode (boot.py buttons)
+`boot.py` decides who can write the CIRCUITPY flash via `storage.remount("/", drive_state)` — host and device can NOT both write:
+- **Hold DOWN (`board.BUTTON_DOWN`) at boot** → device read-only → **Mac can write** (deploy mode; serial prints `Drive mount logic is: True`). Required for `scripts/deploy.sh` or copying any file to `/Volumes/CIRCUITPY`.
+- **No button** → device writable → **Mac read-only** (normal runtime; lets the WiFi setup portal save `settings.json` and the app write `error_log`). A Mac `cp` failing with `Read-only file system` means you're in this mode — reboot holding DOWN to deploy.
+- **Hold UP (`board.BUTTON_UP`) at boot** → deletes `secrets.py`, `settings.json`, `error_log` (WiFi + settings factory reset).
 
 ## Conventions
 - `scrollkit/__init__.py` does no eager imports — import submodules on demand (RAM).

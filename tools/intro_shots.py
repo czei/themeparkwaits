@@ -138,6 +138,7 @@ RIDES_WITH_INTRO = [
     ("Journey Into Imagination (light_bulb)", "75449e85-c410-4cef-a368-9d2ea5d52b58"),
     ("Cosmic Rewind (cassette)", "e3549451-b284-453d-9c31-e3b1207abd79"),
     ("The American Adventure (flag)", "1f542745-cda1-4786-a536-5fff373e5964"),
+    ("Bilge-Rat Barges (waves)", "b4445a1c-4d5c-4fca-a04a-f8867f1b6619"),
 ]
 
 

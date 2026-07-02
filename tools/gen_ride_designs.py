@@ -2088,6 +2088,23 @@ def flag():
     write("flag", g)
 
 
+# ---------------------------------------------------------------- WAVES (generic water ride)
+def waves():
+    g = grid()
+    # three stacked wavy ribbons, lighter at the top -> darker below, phase-shifted so
+    # they read as a series of rolling waves (a generic "water ride" mark).
+    for col, ph, base in (("~", 0.0, 8), (":", 1.2, 16), ("+", 2.4, 24)):
+        for x in range(2, W - 2):
+            y = base + int(round(2.0 * math.sin(x / 4.0 + ph)))
+            put(g, x, y, col); put(g, x, y + 1, col)          # 2-px ribbon
+    # white foam caps on the crests of the top wave
+    for x in range(2, W - 2):
+        s = math.sin(x / 4.0)
+        if s < -0.8:
+            put(g, x, 8 + int(round(2.0 * s)) - 1, "#")
+    write("waves", g)
+
+
 if __name__ == "__main__":
     ghost()
     pirate_ship()
@@ -2186,3 +2203,4 @@ if __name__ == "__main__":
     light_bulb()
     cassette()
     flag()
+    waves()
