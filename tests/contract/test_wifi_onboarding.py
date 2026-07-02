@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Boot-time WiFi onboarding policy (_connect_wifi / _run_wifi_onboarding).
 
 The library owns the setup portal (AP + phone page + settings.json write); the

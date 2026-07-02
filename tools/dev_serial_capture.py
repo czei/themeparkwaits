@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Capture the CircuitPython serial console for a while, reconnecting across resets.
 
 Usage: python capture_serial.py [seconds] [--reload]

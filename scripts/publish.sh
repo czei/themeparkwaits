@@ -35,7 +35,7 @@
 #   PUBLISH_REMOTE   git URL to push to (default: this repo's `origin` URL)
 #   DRY_RUN=1        same as --dry-run
 #
-# Copyright 2024 3DUPFitters LLC
+# Copyright (c) 2024-2026 Michael Czeiszperger
 set -euo pipefail
 
 # --- locate repo / script ---------------------------------------------------

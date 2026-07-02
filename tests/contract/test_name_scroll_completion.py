@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Regression: a palette-effect ride NAME completes when the text has scrolled fully
 across (one FRAME-based pass), not on a wall-clock timer.
 

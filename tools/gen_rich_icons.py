@@ -17,7 +17,7 @@ sky=index 0, top-left sky), via make_ride_image._build/_save_preview. Desktop-on
     python tools/gen_rich_icons.py tron       # just one
     python tools/gen_rich_icons.py --no-dither   # flat-banded shades (no dithering)
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import glob
 import math

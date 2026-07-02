@@ -18,7 +18,7 @@ fixed public `live` channel branch as `manifest.json` + `files/<device-path>`
   * on next boot ``setup()`` -> ``install_pending()`` applies the staged update
     (backup -> install -> reboot) with "Installing… do not unplug" on the display.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 from __future__ import annotations
 

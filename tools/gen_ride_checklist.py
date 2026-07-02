@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Generate docs/ride-icons.md — a per-park ride checklist to fill in with a SIMPLE
 visual representation for each ride (e.g. Jungle Cruise = a small boat; Haunted
 Mansion = a ghost), which then drives drawing the intro images.

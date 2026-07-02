@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Sim e2e for the per-ride intro image: build a REAL content queue, render the
 actual ``RideScreenContent`` through the simulator, and assert the intro flow
 (HOLD -> FADE+scroll -> wait-number reveal) for every ride that has an image.

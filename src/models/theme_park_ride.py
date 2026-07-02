@@ -1,6 +1,6 @@
 """
 ThemeParkRide model to represent a ride at a theme park.
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 
 

@@ -24,7 +24,7 @@
 #   CIRCUITPY       mount point (default: /Volumes/CIRCUITPY)
 #   SCROLLKIT_SRC   path to the scrollkit package (default: ../ScrollKit Library/src/scrollkit)
 #
-# Copyright 2024 3DUPFitters LLC
+# Copyright (c) 2024-2026 Michael Czeiszperger
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Ride-name vertical gradient (re-enabled after the library baseline-align fix).
 
 The gradient was reverted because the old top-aligning rasteriser clipped cap tops

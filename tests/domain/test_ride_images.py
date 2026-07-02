@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Per-ride intro-image lookup: reads the manifest, matches by id, degrades to None."""
 import json
 import os

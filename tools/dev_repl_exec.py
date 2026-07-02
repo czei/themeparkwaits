@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Run a diagnostic code block on the CircuitPython board via the raw REPL."""
 import time
 import serial

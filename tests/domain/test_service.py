@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """ThemeParkService fetch + parse on themeparks.wiki via scrollkit HttpClient."""
 import pytest
 

@@ -14,7 +14,7 @@ and RANDOMIZED per item — never a hardcoded list:
     overlay-safe Horizontal Wipe; message scrollers get a random catalog transition).
 Info messages are single scrolling lines presented by a random scroller/palette.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 from __future__ import annotations
 

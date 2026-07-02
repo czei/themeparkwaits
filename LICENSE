@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,31 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This repository vendors third-party components that retain their own licenses
+and copyright notices; this MIT license does not supersede them:
+
+  - Adafruit CircuitPython libraries under src/lib/ (the compiled .mpy bundle:
+    adafruit_requests, adafruit_matrixportal, adafruit_display_text,
+    adafruit_httpserver, asyncio, neopixel, and their dependencies) — copyright
+    Adafruit Industries and contributors, MIT License. These are redistributed
+    unmodified so the device has its runtime dependencies on board.
+
+  - src/fonts/tom-thumb.bdf — the Tom Thumb 4×6 monospace bitmap font by Robey
+    Pointer, released as free for any use (public-domain-style).
+
+  - src/fonts/Teeny-Tiny-Pixls-5.bdf and src/fonts/teeny-tiny-pixls-font/ —
+    "Teeny Tiny Pixls" by Chequered Ink Ltd. Free for all use; per its bundled
+    license the font file itself may not be redistributed without permission
+    from Chequered Ink Ltd. See src/fonts/teeny-tiny-pixls-font/misc/License.txt.
+
+ThemeParkWaits runs on the separate ScrollKit library
+(https://github.com/czei/scrollkit), which is not vendored in this repository
+and is independently licensed under the MIT License by the same author.
+
+Live wait-time and park data are provided by the themeparks.wiki API
+(https://themeparks.wiki). The application displays "ThemeParks.wiki"
+attribution on the device as required; the data itself is not part of this
+Software and is subject to that project's terms.

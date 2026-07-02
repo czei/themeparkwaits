@@ -11,7 +11,7 @@ CircuitPython-safe: only ``json`` + ``OSError``/``ValueError``; the manifest is 
 once and cached. ``_IMAGES_DIR`` is module-level (cwd-relative, like
 ``ride_types._DATA_DIR`` and ``config_server``'s static dir) so tests can repoint it.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import json
 

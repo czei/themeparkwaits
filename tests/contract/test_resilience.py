@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Field-reliability regressions for the "goes black" failures.
 
 1. A FAILED refresh must keep showing last-good content — never empty the queue

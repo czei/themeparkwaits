@@ -1,6 +1,6 @@
 """
 Vacation model to represent a vacation plan.
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 try:
     from adafruit_datetime import datetime  # CircuitPython

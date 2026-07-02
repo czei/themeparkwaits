@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Repo-root pytest shim (loads before pytest configures its plugins).
 
 CircuitPython requires a ``code.py`` at the project root. On desktop, pytest

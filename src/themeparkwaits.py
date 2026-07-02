@@ -5,7 +5,7 @@ On CircuitPython, the device's vendored libraries live in ``/src/lib`` and
 the sibling ``../ScrollKit Library/src`` and this repo are added so
 ``python -m src.themeparkwaits --dev`` runs without a manual PYTHONPATH.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import os
 import sys

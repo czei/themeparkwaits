@@ -1,6 +1,6 @@
 """
 ThemeParkList model to manage a collection of theme parks.
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 
 from scrollkit.utils.error_handler import ErrorHandler

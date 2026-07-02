@@ -14,7 +14,7 @@ Used to match user-supplied references (e.g. the glass-slipper pump). Desktop-on
     python tools/trace_ref_outline.py ref.jpg --name glass_slipper \
         --crop 180,175,590,480 --thresh 120 --edge '~'
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
 import os

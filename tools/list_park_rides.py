@@ -9,7 +9,7 @@ Usage:
     python tools/list_park_rides.py --park <parkUUID> --grep "space"
     python tools/list_park_rides.py --list-parks            # dump all park UUIDs + names
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
 import os

@@ -6,7 +6,7 @@ WiFi/onboarding/OTA/NTP land in T018/T027), the data process calls
 ``update_data()`` every ``update_interval`` to refresh wait times and rebuild the
 content queue, and the display process renders the queue.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 from __future__ import annotations
 

@@ -21,7 +21,7 @@ Usage:
     # cheaper model for the bulk pass (default is the most capable, claude-opus-4-8)
     python tools/classify_rides.py --all --model claude-sonnet-4-6
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
 import json

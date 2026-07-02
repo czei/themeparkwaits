@@ -16,7 +16,7 @@ settings, logs, caches. Run on desktop as part of the release pipeline:
     python3 scripts/make_manifest.py src/ out/ --root /src --version 1.96
     python3 scripts/make_manifest.py code.py out/ --root / --version 1.96   # add top-level files
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
 import hashlib

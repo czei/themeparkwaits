@@ -5,7 +5,7 @@ auto-detects platform (Matrix Portal S3 hardware vs. desktop simulator) via
 the library's UnifiedDisplay, so ``--dev`` is accepted for compatibility but
 no longer selects an implementation.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import asyncio
 import sys

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Compatibility shim — NVM boot/crash diagnostics moved into ScrollKit.
 
 The implementation now lives in ``scrollkit.utils.diagnostics`` (it is generic

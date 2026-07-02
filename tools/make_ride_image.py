@@ -25,7 +25,7 @@ Usage:
     # from a 64x32 PNG (quantized to <=16 colors; top-left pixel becomes sky)
     python tools/make_ride_image.py art.png --name space_mountain --uuid <uuid>
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
 import os

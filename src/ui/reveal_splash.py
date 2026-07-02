@@ -9,7 +9,7 @@ that it takes the ``display`` and calls ``await display.show()`` each step, so i
 animates while running inside ``setup()`` (before the main display loop starts).
 The pixel map + shuffle are verbatim from reveal_animation.py.
 
-Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import asyncio
 import random

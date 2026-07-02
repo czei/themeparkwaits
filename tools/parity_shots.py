@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Render the unverified visual-parity cases to PNGs + print their queues.
 
 Closed ride / closed-park message, vacation countdown (3 variants), and multi-park

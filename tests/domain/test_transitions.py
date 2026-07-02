@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Michael Winslow Czeiszperger
+# Copyright (c) 2024-2026 Michael Czeiszperger
 """Per-item screen transitions: every scrolling screen is tagged with a transition
 chosen from the live catalog; the splash is not. Plus app._get_transition selection."""
 import json
