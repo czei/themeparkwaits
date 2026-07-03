@@ -31,14 +31,6 @@ and copyright notices; this MIT license does not supersede them:
     Adafruit Industries and contributors, MIT License. These are redistributed
     unmodified so the device has its runtime dependencies on board.
 
-  - src/fonts/tom-thumb.bdf — the Tom Thumb 4×6 monospace bitmap font by Robey
-    Pointer, released as free for any use (public-domain-style).
-
-  - src/fonts/Teeny-Tiny-Pixls-5.bdf and src/fonts/teeny-tiny-pixls-font/ —
-    "Teeny Tiny Pixls" by Chequered Ink Ltd. Free for all use; per its bundled
-    license the font file itself may not be redistributed without permission
-    from Chequered Ink Ltd. See src/fonts/teeny-tiny-pixls-font/misc/License.txt.
-
 ThemeParkWaits runs on the separate ScrollKit library
 (https://github.com/czei/scrollkit), which is not vendored in this repository
 and is independently licensed under the MIT License by the same author.

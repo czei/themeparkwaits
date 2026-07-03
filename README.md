@@ -70,7 +70,7 @@ src/ui/ride_screen_content.py   # the dual-zone ride screen (scrolling name + 2�
 src/ui/reveal_splash.py         # the opening reveal
 src/web/config_server.py        # the browser configuration form
 src/ota_glue.py                 # the GitHub OTA channel config
-src/images/, src/fonts/         # per-ride LED icons + bitmap fonts
+src/images/                     # per-ride LED intro icons
 ```
 
 The scrolling effects, in-place number reveals, and screen transitions are chosen at runtime from ScrollKit's live effect catalog and randomized per screen, so the motion varies instead of looping the same animation.
@@ -84,8 +84,7 @@ Live wait-time and park data come from the **[themeparks.wiki](https://themepark
 - **[ScrollKit](https://github.com/czei/scrollkit)** — the LED-matrix library this app is built on (over-the-air updates, effects, the web config server, and the desktop simulator). Same author, separately MIT-licensed.
 - **[themeparks.wiki](https://themeparks.wiki)** — the wait-time and park catalog API.
 - **[Adafruit](https://www.adafruit.com/)** — the Matrix Portal S3, the LED panels, and the CircuitPython libraries vendored in `src/lib/`.
-- Bundled bitmap fonts: **Tom Thumb** (Robey Pointer) and **Teeny Tiny Pixls** (Chequered Ink). See [LICENSE](LICENSE) for third-party notices.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). ThemeParkWaits vendors third-party components (Adafruit CircuitPython libraries and bitmap fonts) that retain their own licenses; those are listed in the LICENSE file.
+MIT — see [LICENSE](LICENSE). ThemeParkWaits vendors the Adafruit CircuitPython libraries (`src/lib/`), which retain their own MIT license; that notice is in the LICENSE file.
