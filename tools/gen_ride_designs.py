@@ -239,6 +239,11 @@ def goat():
     # beard hanging under the chin
     vline(g, 14, 15, 19, "w")
     put(g, 15, 18, "w"); put(g, 13, 17, "w")
+    # the FAMOUS stick of dynamite clenched in his teeth (fuse curling up-left;
+    # the intro animation chews the head — and the stick — up and down, with
+    # fuse sparks from an emitter overlay)
+    rect(g, 7, 13, 12, 14, "r")
+    put(g, 6, 12, "N"); put(g, 5, 11, "N")
     # one bold backward-curving horn (thick)
     line(g, 21, 10, 26, 9, "w"); line(g, 22, 11, 27, 10, "w")
     line(g, 26, 9, 28, 12, "w"); line(g, 27, 10, 29, 13, "w")

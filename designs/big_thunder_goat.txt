@@ -9,10 +9,10 @@
 
                         www
                    w www www
-                 wwwwwwww  ww
-                wwwwwwww    w     w           w
-             wwwwwwwwwwww   wwwwwwwwwwwww    w
-             wwwwwwwwwwwwwwwwwwwwwwwwwwwwww w
+     N           wwwwwwww  ww
+      N         wwwwwwww    w     w           w
+       rrrrrrwwwwwwwwwwww   wwwwwwwwwwwww    w
+       rrrrrrwwwwwwwwwwwwwwwwwwwwwwwwwwwwww w
              wwwwwwwww wwwwwwwwwwwwwwwwwwwww
               w    w    wwwwwwwwwwwwwwwwwwww
              ww         wwwwwwwwwwwwwwwwwwwww
