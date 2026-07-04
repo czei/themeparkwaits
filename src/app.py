@@ -69,9 +69,14 @@ class ThemeParkApp(ScrollKitApp):
             # Reuse the app's HttpClient session for OTA GETs (adafruit_requests is
             # Session-based on CircuitPython — no module-level get).
             self.ota = OTAGlue(http_client=self.http_client)
+            self.ota_error = None
         except Exception as e:  # OTA is optional; never block construction
+            # This print lands in the first seconds of boot — BEFORE a serial
+            # monitor can usually attach — so also keep the reason for the
+            # diagnostics web panel (the field-visible surface).
             print("OTA unavailable:", e)
             self.ota = None
+            self.ota_error = str(e)
         # The first data refresh happens at boot while setup()'s "Updating / Parks"
         # frame is still up; later refreshes paint their own indicator (see
         # update_data) since they hit the internet with no boot context on screen.

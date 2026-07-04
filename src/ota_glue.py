@@ -83,12 +83,31 @@ class OTAGlue:
     def has_pending(self):
         return self._progress.has_pending()
 
+    @property
+    def last_error(self):
+        """Why the last schedule_update() did not stage (None after success)."""
+        return getattr(self._progress, "last_error", None)
+
     def schedule_update(self):
         # Pick up the HttpClient's CURRENT session (created during WiFi connect,
         # and possibly rebuilt since this glue was constructed) so the OTA GET uses
         # a live socket pool rather than the None captured at construction time.
         if self._http_client is not None:
             self.client.session = getattr(self._http_client, "session", None)
+        # The OTA GET opens a SECOND TLS context (raw.githubusercontent) while the
+        # data session still holds its own; on the device that double allocation
+        # failed the handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). Free the pooled
+        # data sockets first — adafruit_requests transparently reconnects on the
+        # next fetch — and collect, so the handshake gets its contiguous block.
+        import sys
+        if getattr(sys.implementation, "name", "") == "circuitpython":
+            try:
+                import adafruit_connection_manager
+                adafruit_connection_manager.connection_manager_close_all()
+            except Exception as e:
+                print("OTA socket pre-free skipped:", e)
+            import gc
+            gc.collect()
         return self._progress.schedule_update()
 
     async def install_pending(self):

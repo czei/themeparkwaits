@@ -244,20 +244,55 @@ def _schedule_refresh(app) -> None:
         print("schedule refresh failed:", e)
 
 
-def schedule_update(app) -> bool:
-    """Ask the OTA glue to check + stage an update (POST /update). Never raises."""
+def schedule_update(app) -> str:
+    """Run the OTA check+stage (POST /update). Returns a status string, never raises.
+
+    "staged" means a newer release was downloaded and the device should reboot to
+    install it. Anything else is the reason nothing happened — surfaced to the
+    browser because OTA failures used to be serial-only and invisible in the field.
+    """
     ota = getattr(app, "ota", None)
-    if ota is not None and hasattr(ota, "schedule_update"):
+    if ota is None or not hasattr(ota, "schedule_update"):
+        return "OTA unavailable: %s" % (getattr(app, "ota_error", None) or "not constructed")
+    try:
+        staged = bool(ota.schedule_update())
+    except Exception as e:
+        return "OTA check failed: %s" % e
+    if staged:
+        return "staged"
+    return getattr(ota, "last_error", None) or "no update available"
+
+
+def _schedule_reboot(app, delay=2.0):
+    """Reboot shortly AFTER the response flushes, so a staged OTA installs on the
+    next boot (the library contract: schedule_update stages, the caller reboots)."""
+    import asyncio
+
+    async def _reboot():
+        await asyncio.sleep(delay)
         try:
-            return bool(ota.schedule_update())
+            import supervisor
+            supervisor.reload()
         except Exception:
-            return False
-    return False
+            print("reboot skipped (desktop) — staged OTA would install on next boot")
+    try:
+        asyncio.get_running_loop().create_task(_reboot())
+    except RuntimeError:
+        pass  # no running loop (tests) — staged update installs on next manual boot
 
 
 # --------------------------------------------------------------------------- #
 # Page rendering (GET / and GET /settings)
 # --------------------------------------------------------------------------- #
+def _read_version() -> str:
+    """The shipped app version (src/.version, stamped by deploy/OTA)."""
+    try:
+        with open("src/.version") as f:
+            return f.read().strip() or "?"
+    except OSError:
+        return "?"
+
+
 def _diagnostics_html(app) -> str:
     """Read-only health panel so a field user can see WHY the device misbehaved
     (last reset reason, last crash, fetch failures) without a serial cable — the
@@ -281,6 +316,9 @@ def _diagnostics_html(app) -> str:
         ("Boot count", summary.get("boot_count", 0)),
         ("Reboot streak", summary.get("reboot_streak", 0)),
         ("Last error", summary.get("last_error", "") or "(none)"),
+        ("App version", _read_version()),
+        ("OTA", ("ready" if getattr(app, "ota", None) is not None
+                 else "unavailable: %s" % (getattr(app, "ota_error", None) or "?"))),
     )
     items = "".join(
         '<div class="form-group"><label>%s</label><div>%s</div></div>'
@@ -429,8 +467,16 @@ class ThemeParkConfigServer:
 
         @server.route("/update", [POST])
         def _update(request):  # noqa: ANN001
-            schedule_update(app)
-            return Redirect(request, "/", status=_SEE_OTHER)
+            status = schedule_update(app)
+            if status == "staged":
+                _schedule_reboot(app)
+                body = ("<h3>Update staged</h3><p>Installing now — the sign will "
+                        "reboot and show <b>Installing&hellip; do not unplug!</b>. "
+                        "Give it a minute, then <a href='/'>reload</a>.</p>")
+            else:
+                body = ("<h3>No update installed</h3><p>%s</p>"
+                        "<p><a href='/'>Back</a></p>" % _esc(status))
+            return Response(request, body, content_type="text/html")
 
         return server
 
