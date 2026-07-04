@@ -85,6 +85,14 @@ def _get(base, path):
         return r.status, r.read().decode("utf-8", "replace")
 
 
+def _post_body(base, path, data):
+    """POST and return (status, decoded body) — for routes that answer inline."""
+    import urllib.request
+    req = urllib.request.Request(base + path, data=data.encode(), method="POST")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return r.status, r.read().decode()
+
+
 def _post(base, path, body, follow=True):
     """POST urlencoded ``body``. Returns (status, final_url). When follow=False,
     returns the redirect's status code + Location header instead of following it."""
@@ -233,11 +241,14 @@ async def test_post_url_encoded_color_is_decoded(mock_http_client, settings_fact
     assert app.content_queue.get_content_count() > 0
 
 
-async def test_post_update_is_handled(mock_http_client, settings_factory):
+async def test_post_update_reports_outcome(mock_http_client, settings_factory):
+    """POST /update answers with the OTA outcome (200 + reason), not a blind
+    redirect — failures used to be serial-only and undiagnosable in the field."""
     app = await _app(mock_http_client, settings_factory)
     with _RunningServer(app, _PORT + 3) as srv:
-        code, location = _post(srv.base, "/update", "", follow=False)
-        assert code == 303 and location == "/"
+        code, body = _post_body(srv.base, "/update", "")
+        assert code == 200
+        assert ("No update installed" in body) or ("Update staged" in body)
 
 
 async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):
