@@ -199,6 +199,9 @@ class _ScrollingNameContent(DisplayContent):
         self._intro_palette = None
         self._intro_base_colors = None
         self._intro_odb = None
+        # Optional per-ride motion during HOLD (twinkle / swim), looked up by image name
+        # in _load_intro. None = a plain still hold. See src.ui.ride_animations.
+        self._intro_animator = None
         self._display = None
 
     async def start(self):
@@ -243,8 +246,18 @@ class _ScrollingNameContent(DisplayContent):
                 self._load_intro(display)            # lazy: load on the first hold frame
                 if self._intro_phase is None:        # load failed -> normal screen now
                     return False
+            # Animate this frame if the ride has motion; any error settles to the still
+            # image so an animation degrades to a plain hold rather than blanking.
+            if self._intro_animator is not None:
+                try:
+                    self._intro_animator.step(self._intro_frame)
+                except Exception:
+                    self._settle_animator()
+            hold_limit = (self._intro_animator.HOLD_FRAMES
+                          if self._intro_animator is not None else _INTRO_HOLD_FRAMES)
             self._intro_frame += 1
-            if self._intro_frame >= _INTRO_HOLD_FRAMES:
+            if self._intro_frame >= hold_limit:
+                self._settle_animator()              # rest pose + free overlays before fade
                 self._intro_phase = "fade"
                 self._intro_frame = 0
             return True
@@ -293,12 +306,29 @@ class _ScrollingNameContent(DisplayContent):
             # CircuitPython: the OnDiskBitmap IS the bitmap. Simulator: the Bitmap is
             # at odb.bitmap (the OnDiskBitmap shim isn't subscriptable).
             bmp = getattr(odb, "bitmap", odb)
+            # Optional per-ride motion (twinkle / swim); additive + defensive. Looked up
+            # BEFORE the tile so an animator that rewrites pixels gets a writable copy of
+            # the read-only OnDiskBitmap.
+            animator = None
+            try:
+                from src.ui.ride_animations import for_image, copy_to_writable
+                animator = for_image(self._intro_image)
+                if animator is not None and animator.wants_writable_bitmap:
+                    bmp = copy_to_writable(bmp, display.width, display.height, len(pal))
+            except Exception:
+                animator = None
             tile = displayio.TileGrid(bmp, pixel_shader=pal)
             display.add_layer(tile)
             self._display = display
             self._intro_odb = odb
             self._intro_tile = tile
             self._intro_palette = pal
+            if animator is not None:
+                try:
+                    animator.attach(display, tile, bmp, pal, self._intro_base_colors)
+                    self._intro_animator = animator
+                except Exception:
+                    self._intro_animator = None
         except Exception:
             self._detach_intro()
             self._intro_phase = None
@@ -313,6 +343,7 @@ class _ScrollingNameContent(DisplayContent):
 
     def _detach_intro(self):
         """Remove the overlay layer and drop refs (idempotent)."""
+        self._settle_animator()
         if self._intro_tile is not None and self._display is not None:
             try:
                 self._display.remove_layer(self._intro_tile)
@@ -322,6 +353,15 @@ class _ScrollingNameContent(DisplayContent):
         self._intro_palette = None
         self._intro_base_colors = None
         self._intro_odb = None
+
+    def _settle_animator(self):
+        """Stop any intro animation, restoring the still image (idempotent)."""
+        if self._intro_animator is not None:
+            try:
+                self._intro_animator.detach()
+            except Exception:
+                pass
+            self._intro_animator = None
 
     async def _render_name(self, display):
         """Draw + advance the scrolling name; mark complete after one full pass."""

@@ -1,19 +1,19 @@
 
-         y                   wwwwwww
-          y                  wwwwwww          *
-           y                 wwwwwww
-            y             wwwwwwwwwwwww           *
-             y            wwwwwwwwwwwww
-              y           wwwwwwwwwwwww
-              yy       y  wwwwwwwwwwwww
-            yy        yoooooooooooooooooooo
-             y       ywwwwwwwwwwwwwwwwwwwsw
-              y     y wwwwwwwwwwwwwwwwwwwsw             *
-               y    y wwwSSwwyywwSSwwSSwwsw
-                y  y  wwwSSwwyywwSSwwSSwwsw
-            *    yy   wwwwwwwwwwwwwwwwwwwsw
-                 yy   wwwSSwwSSwwSSwwyywwsw
-                yyyy  wwwSSwwSSwwSSwwyywwsw
+                             wwwwwww
+                             wwwwwww          *
+                             wwwwwww
+                          wwwwwwwwwwwww           *
+                          wwwwwwwwwwwww
+                          wwwwwwwwwwwww
+                          wwwwwwwwwwwww
+                      ooooooooooooooooooooo
+                      wwwwwwwwwwwwwwwwwwwsw
+                      wwwwwwwwwwwwwwwwwwwsw             *
+                      wwwSSwwyywwSSwwSSwwsw
+                      wwwSSwwyywwSSwwSSwwsw
+            *         wwwwwwwwwwwwwwwwwwwsw
+                      wwwSSwwSSwwSSwwyywwsw
+                      wwwSSwwSSwwSSwwyywwsw
                       wwwwwwwwwwwwwwwwwwwsw
                       wwwyywwSSwwSSwwSSwwsw
                       wwwyywwSSwwSSwwSSwwsw

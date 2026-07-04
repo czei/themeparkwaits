@@ -1,32 +1,32 @@
 
 
 
-
-
-         s
-       swwwwwwwwww
-      sswwwwwwwwww
-       swwwwwwwwww
-         w    w
-          w    w
-          w    w
-           w    w
-           w    w
-     ww     w    w                            ww
-       ww   wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-         ww wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-           wwwww:ww:ww:ww:ww:ww:ww:ww:ww:ww:wwwwwwwwww
-            wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-            wwwwwwwwsssssssssssssssssswwwwwwwwwwwwwww
-                      ssssssssssssssss        ww
-                        ssssssssssssss                 s
-                          ssssssssssss               sssss
-                            ssssssssss              sssssss
-                              ssssssss               sssss
-                                ssssss                 s
-                                  ssss
-                                    ss
-
-
+                  ssss
+                  sssss
+                   sssss
+                   ssssss
+                    ssssss
+                     ssssss
+                     sssssss
+      ssss            ssossss
+       ssss           ssssssss
+        ssss           ssssssss
+         ssss           ssssssss
+        wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+        wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww:wwwwww
+    SSSSSSSwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww:wwwwwww
+        wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww:wwwwww
+        wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+         ssss           ssssssss
+        ssss           ssssssss
+       ssss           ssssssss
+      ssss            ssossss
+                     sssssss
+                     ssssss
+                    ssssss
+                   ssssss
+                   sssss
+                  sssss
+                  ssss
 
 

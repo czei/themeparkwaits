@@ -457,7 +457,8 @@ def child():
 def coaster_car():
     car = ramp3((0x99, 0x18, 0x18), (0xeb, 0x3c, 0x3c), (0xff, 0x86, 0x6a), 6)
     R = {"eb3c3c": (car, 0.05), "4c5060": (_DKSTEEL, 0.0),
-         "9c9fb0": (_STEEL, 0.0), "eadfc4": (_CREAM, 0.05), "ffd246": (_GOLD, 0.0)}
+         "9c9fb0": (_STEEL, 0.0), "eadfc4": (_CREAM, 0.05), "ffd246": (_GOLD, 0.0),
+         "9a5f2c": (_WOOD, 0.0), "4e2c12": (_DKWOOD, 0.0)}   # trestle lattice
     return _shade("coaster_car", R, occlude=True)
 
 

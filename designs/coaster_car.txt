@@ -7,26 +7,26 @@
                         w w w ww w
   SSSS                  w w w ww w
   ssssSSSSSSS            w   w  w
-      sssssssSSSS
-             sssSSS   rrrrrrrrrrrrr
-                SssSS rrrrrrrrrrrrrr
-                S  ssSrrrrrrrrrrrrr r
-                S    srrrrrrrrrrrrr  r
-                S     rrrrrrrrrrrrr   r
-                S     rrrrrrrrrrrrr
-                S       o  ssS  o
-                S            sSS
-                S             ssS
-                S               sS
-                S                sSS
-                S                 ssS
-                S                   sS
-                S                    sSS
-                S                     ssSSS
-                S                       SssSSSSS
-                S                       S  sssssSSSSSS
-                S                       S       ssssssSSSSS
-                S                       S             sssssSSS
-                S                       S                  sss
-                S                       S
+      ssnssssSSSS
+        n    ssssSS     rrrrrrrrrr
+        n       nssSS  rrrrrrrrrrrrr
+        n       n  ssSrrrrrrrrrrrrrrr
+        n       n    srrrrrrrrrrrrrrrr
+        n       n      rrrrrrrrrrrrrrr
+        n       n       rrrrrrrrrrrrr
+        n       n       o  ssS  o
+        n       n       n    sSS
+        n       n       n     ssn
+        n       n       n       nS
+        n       n       n       nsSS
+        n       n       n       n ssS
+        nnnnnnnnNnnnnnnnNnnnnnnnNn  sS
+        n      Nn      Nn      Nn    sSS
+        n     N n     N n     N n     ssSSS
+        n    N  n    N  n    N  n       sssSSSSS
+        n   N   n   N   n   N   n       n  sssssSSSSSS
+        n  N    n  N    n  N    n       n       nsssssSSSSS
+        nnNnnnnnnnNnnnnnnnNnnnnnnnnnnnNNNnnnnnnnnnnnn sssssSSS
+        nN      nN      nN      n NNNN  n       n       n  sss
+        N       N       N       NN      n       n       n
 

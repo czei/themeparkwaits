@@ -388,18 +388,15 @@ def bear():
 # ---------------------------------------------------------------- LASER BLASTER (Buzz)
 def laser_blaster():
     g = grid()
-    # ray-gun body pointing right (green/white, Buzz palette)
-    rect(g, 14, 14, 40, 20, "g")          # body
-    rect(g, 40, 15, 50, 18, "w")          # barrel
-    rect(g, 14, 14, 40, 15, "w")          # top highlight
-    # fin / sight
-    line(g, 20, 13, 26, 9, "g"); line(g, 21, 13, 27, 9, "g")
-    rect(g, 22, 9, 28, 11, "G")
-    # grip
-    rect(g, 16, 20, 22, 28, "G")
-    # laser bolt firing right
-    hline(g, 51, 62, 16, "r"); hline(g, 51, 62, 17, "y")
-    put(g, 57, 14, "y"); put(g, 60, 19, "y")   # spark
+    # ray-gun pointing right — COMPACT and CENTERED; no drawn bolt (the intro's
+    # emitter fires the beam, so painting one both elongated and double-drew it).
+    rect(g, 20, 13, 38, 19, "g")          # body
+    rect(g, 38, 14, 46, 17, "w")          # barrel
+    rect(g, 20, 13, 38, 14, "w")          # top highlight
+    line(g, 24, 12, 29, 8, "g"); line(g, 25, 12, 30, 8, "g")
+    rect(g, 26, 8, 31, 10, "G")           # sight fin
+    rect(g, 22, 19, 28, 27, "G")          # grip
+    put(g, 46, 15, "y"); put(g, 46, 16, "y")   # muzzle glow
     write("laser_blaster", g)
 
 
@@ -539,6 +536,11 @@ def locomotive():
     for wx in (16, 28, 40):
         ellipse(g, wx, 26, 4, 4, "S"); ellipse(g, wx, 26, 1, 1, "o")
     hline(g, 14, 44, 26, "n")
+    # railroad track under the wheels: railhead + ties (stays FIXED; the train is
+    # lifted over it by the intro animation)
+    hline(g, 0, 63, 30, "s")
+    for tx in range(1, 63, 4):
+        put(g, tx, 31, "n")
     write("locomotive", g)
 
 
@@ -1135,10 +1137,19 @@ def coaster_car():
     for i in range(len(pts) - 1):
         line(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], "S")
         line(g, pts[i][0], pts[i][1] + 1, pts[i + 1][0], pts[i + 1][1] + 1, "s")
-    for sx, sy in ((16, 9), (40, 24)):             # supports
-        vline(g, sx, sy, 30, "S")
-    rect(g, 22, 10, 34, 15, "r")                   # red coaster car at the crest
-    line(g, 34, 10, 38, 14, "r")                   # nose
+    # wooden trestle: posts under the rail + stringers + cross-braces (classic woodie)
+    posts = ((8, 9), (16, 11), (24, 14), (32, 18), (40, 26), (48, 27), (56, 29))
+    for px, py in posts:
+        vline(g, px, py, 30, "n")
+    hline(g, 8, 33, 22, "n")                       # upper stringer (under the drop)
+    hline(g, 8, 52, 28, "n")                       # lower stringer
+    line(g, 8, 30, 16, 22, "N"); line(g, 16, 30, 24, 22, "N")   # cross-braces
+    line(g, 24, 30, 32, 22, "N"); line(g, 32, 30, 40, 28, "N")
+    # red coaster car at the crest — ROUNDED body (scooped tub, curved nose),
+    # not a hard-cornered box
+    for y, (xa, xb) in ((10, (24, 33)), (11, (23, 35)), (12, (22, 36)),
+                        (13, (22, 37)), (14, (23, 37)), (15, (24, 36))):
+        hline(g, xa, xb, y, "r")
     for hx in (25, 29, 32):                        # riders + raised arms
         put(g, hx, 8, "w"); line(g, hx, 8, hx - 1, 6, "w"); line(g, hx, 8, hx + 1, 6, "w")
     put(g, 24, 16, "o"); put(g, 32, 16, "o")       # wheels
@@ -1148,18 +1159,29 @@ def coaster_car():
 # ---------------------------------------------------------------- AIRPLANE (Soarin' EPCOT)
 def airplane():
     g = grid()
-    ellipse(g, 9, 7, 3, 2, "s"); ellipse(g, 55, 23, 3, 2, "s")             # clouds
-    rect(g, 12, 15, 46, 19, "w")                   # fuselage tube
-    line(g, 46, 14, 53, 17, "w"); line(g, 46, 20, 53, 17, "w"); rect(g, 46, 15, 52, 19, "w")  # nose cone
-    # TALL vertical tail fin at the back (the clearest plane cue)
-    line(g, 12, 15, 8, 6, "w"); line(g, 17, 15, 13, 6, "w"); rect(g, 8, 6, 17, 8, "w")
-    line(g, 11, 17, 5, 14, "w")                    # horizontal stabiliser
-    # swept main wing as a filled triangle below the belly
-    for x in range(20, 38):
-        y0 = 19 + (x - 20) // 2
-        vline(g, x, 19, min(y0, 27), "s")
-    for wx in range(16, 44, 3):
-        put(g, wx, 17, ":")                        # window row
+    # TOP-DOWN airliner, nose RIGHT (its traverse direction) — from above the swept
+    # wings are unmistakable, which the old side view never managed at 64x32.
+    cy = 16
+    rect(g, 8, cy - 2, 50, cy + 2, "w")            # fuselage tube
+    for i in range(7):                             # tapered nose to x56
+        hw = 2 if i < 3 else (1 if i < 5 else 0)
+        for y in range(cy - hw, cy + hw + 1):
+            put(g, 50 + i, y, "w")
+    # big swept main wings, mirrored above/below the fuselage
+    for d in range(11):
+        span = 7 - (d * 4) // 10                   # chord narrows toward the tip
+        xr = 31 - d                                # trailing sweep
+        hline(g, xr - span, xr, cy - 3 - d, "s")
+        hline(g, xr - span, xr, cy + 3 + d, "s")
+    # swept tailplane pair at the rear
+    for d in range(4):
+        xr = 12 - d
+        hline(g, xr - 3, xr, cy - 3 - d, "s")
+        hline(g, xr - 3, xr, cy + 3 + d, "s")
+    hline(g, 4, 10, cy, "S")                       # dorsal fin seen edge-on
+    # engines on the wings + cockpit windshield
+    put(g, 24, cy - 6, "o"); put(g, 24, cy + 6, "o")
+    put(g, 48, cy - 1, ":"); put(g, 49, cy, ":"); put(g, 48, cy + 1, ":")
     write("airplane", g)
 
 
@@ -1674,10 +1696,31 @@ def tower_of_terror():
             wx, wy = 25 + c * 4, 11 + r * 3
             rect(g, wx, wy, wx + 1, wy + 1, "y" if (r, c) in lit else "S")
     ellipse(g, 32, 30, 3, 2, "N"); rect(g, 30, 28, 34, 31, "N")  # entrance arch
-    bolt = ((9, 1), (15, 7), (12, 8), (19, 15), (16, 15), (23, 7))  # lightning strike
-    for i in range(len(bolt) - 1):
-        line(g, bolt[i][0], bolt[i][1], bolt[i + 1][0], bolt[i + 1][1], "y")
+    # (the old left-side lightning bolt never read at LED scale — removed; the
+    # pulsing lit windows carry the Twilight Zone menace on their own)
     write("tower_of_terror", g)
+
+
+# ---------------------------------------------------------------- POISON APPLE (Snow White)
+def poison_apple():
+    g = grid()
+    cx, cy = 32, 18
+    # apple body with the classic top dimple
+    ellipse(g, cx, cy, 10, 8, "r")
+    for dx in (-1, 0, 1):
+        put(g, cx + dx, cy - 8, " ")
+        put(g, cx + dx, cy - 7, " ")
+    # stem into the dimple + leaf
+    vline(g, cx, 7, 11, "N")
+    ellipse(g, cx + 5, 8, 3, 1, "g")
+    hline(g, cx + 3, cx + 7, 9, "G")
+    # specular gleam upper-left (glassy skin)
+    put(g, cx - 6, 13, "#"); put(g, cx - 5, 12, "#"); put(g, cx - 5, 13, "#")
+    # the POISON: sickly light-green ooze running down the right side, dripping off
+    put(g, cx + 4, 21, "L"); put(g, cx + 5, 21, "L")
+    vline(g, cx + 5, 22, 27, "L")
+    put(g, cx + 5, 29, "L")                        # falling drop below the skin
+    write("poison_apple", g)
 
 
 # ---------------------------------------------------------------- INDIANA JONES (fedora + whip)
@@ -2204,3 +2247,5 @@ if __name__ == "__main__":
     cassette()
     flag()
     waves()
+    # batch 14 (art-direction round 4)
+    poison_apple()
