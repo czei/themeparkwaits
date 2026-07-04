@@ -54,7 +54,7 @@ async def test_registry_entry_attaches_and_steps(display, fname):
     tile = displayio.TileGrid(bmp, pixel_shader=pal)
     display.add_layer(tile)
     try:
-        anim.attach(display, tile, bmp, pal, base)
+        anim.start(display, tile, bmp, pal, base)
         for frame in range(0, anim.HOLD_FRAMES, max(1, anim.HOLD_FRAMES // 16)):
             anim.step(frame)
     finally:

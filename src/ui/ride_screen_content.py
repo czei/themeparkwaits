@@ -325,7 +325,7 @@ class _ScrollingNameContent(DisplayContent):
             self._intro_palette = pal
             if animator is not None:
                 try:
-                    animator.attach(display, tile, bmp, pal, self._intro_base_colors)
+                    animator.start(display, tile, bmp, pal, self._intro_base_colors)
                     self._intro_animator = animator
                 except Exception:
                     self._intro_animator = None
