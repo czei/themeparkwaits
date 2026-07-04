@@ -311,10 +311,22 @@ class _ScrollingNameContent(DisplayContent):
             # the read-only OnDiskBitmap.
             animator = None
             try:
-                from src.ui.ride_animations import for_image, copy_to_writable
+                from src.ui.ride_animations import (for_image, copy_to_writable,
+                                                    read_indexed_bmp)
                 animator = for_image(self._intro_image)
-                if animator is not None and animator.wants_writable_bitmap:
-                    bmp = copy_to_writable(bmp, display.width, display.height, len(pal))
+                if animator is not None:
+                    # Animators READ (some rewrite) image pixels, but CircuitPython's
+                    # OnDiskBitmap is not subscriptable — bmp[x, y] raises TypeError.
+                    # Probe FUNCTIONALLY (never hasattr on native types); on the
+                    # device, decode the BMP into a real Bitmap instead (which is
+                    # also writable, covering wants_writable_bitmap in one step).
+                    try:
+                        bmp[0, 0]
+                        if animator.wants_writable_bitmap:
+                            bmp = copy_to_writable(bmp, display.width,
+                                                   display.height, len(pal))
+                    except TypeError:
+                        bmp = read_indexed_bmp(self._intro_image)
             except Exception:
                 animator = None
             tile = displayio.TileGrid(bmp, pixel_shader=pal)

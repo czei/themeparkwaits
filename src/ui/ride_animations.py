@@ -33,6 +33,7 @@ from scrollkit.effects.image_animators import (       # noqa: F401 — re-export
     ComboAnimator,
 )
 from scrollkit.effects.image_animators import copy_to_writable as _lib_copy_to_writable
+from scrollkit.effects.image_animators import read_indexed_bmp as _lib_read_indexed_bmp
 import math
 
 # The library builds bitmaps via display.gfx; this app's platform displayio module
@@ -43,6 +44,12 @@ from scrollkit.display.unified import displayio as _displayio
 def copy_to_writable(src, width, height, ncolors):
     """Historical 4-arg wrapper over the library's gfx-first copy (see module doc)."""
     return _lib_copy_to_writable(_displayio, src, width, height, ncolors)
+
+
+def read_indexed_bmp(path):
+    """Decode a ride intro BMP into a writable Bitmap (CircuitPython's OnDiskBitmap
+    is not subscriptable, so animators cannot read pixels through it on-device)."""
+    return _lib_read_indexed_bmp(_displayio, path)
 
 
 class SwimAnimator(IntroAnimator):
