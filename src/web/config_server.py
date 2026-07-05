@@ -326,8 +326,19 @@ def _diagnostics_html(app) -> str:
     return "<h3>Diagnostics</h3>" + items
 
 
-def render_page(app) -> str:
-    """Render the settings form, pre-filled, with the live park list."""
+def render_page_chunks(app):
+    """Yield the settings page in small pieces (a ``ChunkedResponse`` body).
+
+    The full page is ~50 KB (four park ``<select>``s of ~140 options each).
+    Building it as ONE string needs a ~50 KB contiguous allocation, which
+    fails with MemoryError once a few 90 KB park fetches have fragmented the
+    heap — seen live as ``config server poll error: memory allocation failed,
+    allocating 50552 bytes`` with 1.5 MB total free, i.e. a dead settings
+    site on a healthy device. Streaming keeps the peak allocation to ~3 KB.
+    """
+    import gc
+    gc.collect()
+
     sm = app.settings
     svc = getattr(app, "service", None)
     parks = sorted(getattr(getattr(svc, "park_list", None), "park_list", []) or [],
@@ -344,16 +355,6 @@ def render_page(app) -> str:
         if name_counts.get(p.name, 0) > 1 and getattr(p, "destination_name", ""):
             return "%s - %s" % (p.name, p.destination_name)
         return p.name
-
-    def park_select(i):
-        cur = selected[i - 1] if i - 1 < len(selected) else None
-        opts = ['<option value="">(none)</option>']
-        for p in parks:
-            sel = " selected" if cur == p.id else ""
-            opts.append('<option value="%s"%s>%s</option>' % (_esc(p.id), sel, _esc(park_label(p))))
-        return ('<div class="form-group"><label>Park %d</label>'
-                '<select class="form-control" name="park_%d">%s</select></div>'
-                % (i, i, "".join(opts)))
 
     def select(name, options, current):
         opts = []
@@ -382,14 +383,12 @@ def render_page(app) -> str:
                 '<select class="form-control" name="%s">%s</select></div>'
                 % (_esc(SettingsLabel(name)), name, "".join(opts)))
 
-    park_html = "".join(park_select(i) for i in range(1, MAX_PARKS + 1))
     try:
         brightness = float(sm.get("brightness_scale", "0.5"))
     except (TypeError, ValueError):
         brightness = 0.5
 
-    return PAGE_TEMPLATE.format(
-        park_selectors=park_html,
+    fields = dict(
         sort=select("sort_mode", SORT_MODES, sm.get("sort_mode", "alphabetical")),
         scroll=select("scroll_speed", SCROLL_SPEEDS, sm.get("scroll_speed", "Medium")),
         wait_effect=select("wait_time_effect", WAIT_EFFECTS,
@@ -411,6 +410,37 @@ def render_page(app) -> str:
         vac_day=_esc(sm.get("next_visit_day", "") or ""),
         diagnostics=_diagnostics_html(app),
     )
+
+    # Everything except the park selectors is small; the selectors are streamed
+    # option-batch by option-batch between the two template halves.
+    head, tail = PAGE_TEMPLATE.split("{park_selectors}")
+    yield head.format(**fields)
+
+    for i in range(1, MAX_PARKS + 1):
+        cur = selected[i - 1] if i - 1 < len(selected) else None
+        yield ('<div class="form-group"><label>Park %d</label>'
+               '<select class="form-control" name="park_%d">'
+               '<option value="">(none)</option>' % (i, i))
+        batch = []
+        for p in parks:
+            sel = " selected" if cur == p.id else ""
+            batch.append('<option value="%s"%s>%s</option>'
+                         % (_esc(p.id), sel, _esc(park_label(p))))
+            if len(batch) >= 25:
+                yield "".join(batch)
+                batch = []
+        if batch:
+            yield "".join(batch)
+        yield '</select></div>'
+
+    yield tail.format(**fields)
+    gc.collect()
+
+
+def render_page(app) -> str:
+    """Render the settings form as one string (desktop/tests convenience —
+    on-device requests stream ``render_page_chunks`` instead)."""
+    return "".join(render_page_chunks(app))
 
 
 # --------------------------------------------------------------------------- #
@@ -438,7 +468,8 @@ class ThemeParkConfigServer:
         self._server = None
 
     def _build_server(self):
-        from adafruit_httpserver import Server, Response, Redirect, GET, POST
+        from adafruit_httpserver import (Server, Response, ChunkedResponse,
+                                         Redirect, GET, POST)
 
         pool = self.socket_pool
         if pool is None:
@@ -448,9 +479,14 @@ class ThemeParkConfigServer:
         server = Server(pool, self.static_dir, debug=False)
         app = self.app
 
+        # The settings page is streamed (ChunkedResponse): as ONE string it
+        # needs a ~50 KB contiguous allocation, which MemoryErrors on a
+        # fetch-fragmented heap and left the site unreachable in the field.
         @server.route("/")
         def _index(request):  # noqa: ANN001
-            return Response(request, render_page(app), content_type="text/html")
+            # NB: ChunkedResponse CALLS its body (needs a generator FUNCTION).
+            return ChunkedResponse(request, lambda: render_page_chunks(app),
+                                   content_type="text/html")
 
         @server.route("/settings", [GET, POST])
         def _settings(request):  # noqa: ANN001
@@ -463,7 +499,8 @@ class ThemeParkConfigServer:
                 # times show within seconds instead of at the next update tick.
                 _schedule_refresh(app)
                 return Redirect(request, "/", status=_SEE_OTHER)
-            return Response(request, render_page(app), content_type="text/html")
+            return ChunkedResponse(request, lambda: render_page_chunks(app),
+                                   content_type="text/html")
 
         @server.route("/update", [POST])
         def _update(request):  # noqa: ANN001
