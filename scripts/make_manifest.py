@@ -70,13 +70,18 @@ def build_manifest(src, out_dir, *, device_root="/src", version="0.0.0"):
         files[device_path] = {
             "size": len(content),
             "checksum": hashlib.sha256(content).hexdigest(),
+            # Fielded devices may run the old frozen validator that hard-requires
+            # this key (relaxed in the library's 2026-07 fix) — always emit it.
+            "required": True,
         }
         dest = os.path.join(out_dir, "files", device_path.lstrip("/"))
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         shutil.copyfile(abs_path, dest)
 
-    manifest = {"version": version, "files": files,
-                "pre_update_scripts": [], "post_update_scripts": []}
+    # Sorted keys for deterministic manifests; no pre/post_update_scripts —
+    # the device deliberately ignores them (removed exec() surface).
+    manifest = {"version": version,
+                "files": {path: files[path] for path in sorted(files)}}
     os.makedirs(out_dir, exist_ok=True)
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)

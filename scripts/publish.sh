@@ -107,10 +107,38 @@ fi
 printf '%s\n' "$VERSION" > "$TREE/src/.version"
 
 # 4) build the manifest + payload for each device tree
-#    src/** -> /src/**, plus top-level code.py + boot.py -> /
+#    src/** -> /src/**, plus top-level code.py -> /
+#    boot.py is deliberately NOT shipped: it is the flash-frozen recovery anchor
+#    (it restores /backup if power is lost mid-install, BEFORE the possibly-torn
+#    app code runs). A power cut while OTA rewrote boot.py itself would be an
+#    unrecoverable brick — update it only via a supervised USB deploy.
 python3 "$MAKE_MANIFEST" "$TREE/src"     "$OUT" --root /src --version "$VERSION"
 python3 "$MAKE_MANIFEST" "$TREE/code.py" "$OUT" --root /    --version "$VERSION"
-python3 "$MAKE_MANIFEST" "$TREE/boot.py" "$OUT" --root /    --version "$VERSION"
+
+# 4b) preflight: run the built manifest through the REAL device-side parser.
+#     Generator (this repo) and validator (scrollkit, frozen on device) have no
+#     shared schema — this is the check whose absence shipped the
+#     missing-`required` outage. Hard-fail if the library isn't importable.
+SCROLLKIT_SRC="${SCROLLKIT_SRC:-$REPO_ROOT/../ScrollKit Library/src}"
+if [ ! -d "$SCROLLKIT_SRC/scrollkit" ]; then
+  echo "publish.sh: ABORT — scrollkit library not found at $SCROLLKIT_SRC" >&2
+  echo "            set SCROLLKIT_SRC to the library's src/ dir (the manifest" >&2
+  echo "            preflight validates with the real device-side parser)" >&2
+  exit 1
+fi
+PYTHONPATH="$SCROLLKIT_SRC" python3 - "$OUT/manifest.json" <<'PY'
+import json, sys
+from scrollkit.ota.manifest import UpdateManifest
+manifest = UpdateManifest.from_dict(json.load(open(sys.argv[1])))
+ok, err = manifest.validate()
+if not ok:
+    sys.exit("preflight FAILED: device validator rejects the manifest: %s" % err)
+if manifest.compare_version("0.0.0") <= 0:
+    sys.exit("preflight FAILED: manifest version %r does not compare as newer "
+             "than 0.0.0" % manifest.version)
+print("==> preflight OK: device validator accepts manifest v%s (%d files)"
+      % (manifest.version, len(manifest.files)))
+PY
 
 # 5) defense-in-depth: refuse to publish if anything private slipped in
 LEAK="$(cd "$OUT" && find files -type f \( -name secrets.py -o -name settings.json \

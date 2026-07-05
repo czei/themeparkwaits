@@ -197,7 +197,13 @@ class ThemeParkApp(ScrollKitApp):
         if self.ota is not None:
             try:
                 self.ota.attach_display(self.display)
-                await self.ota.install_pending()
+                had_pending = self.ota.has_pending()
+                installed = await self.ota.install_pending()
+                if had_pending and not installed:
+                    # A staged update failed to apply — persist it (the panel
+                    # frame is transient and serial may not be watched).
+                    logger.error(None, "OTA apply failed: %s"
+                                 % (self.ota.last_error or "unknown"))
             except Exception as e:
                 print("OTA install_pending failed:", e)
 
