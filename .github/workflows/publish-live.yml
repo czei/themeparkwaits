@@ -25,6 +25,10 @@ on:
         description: "Also ship src/lib (Adafruit bundle): 1 or 0"
         required: false
         default: "0"
+      scrollkit_ref:
+        description: "ScrollKit library ref to bundle (default: master)"
+        required: false
+        default: "master"
 
 permissions:
   contents: write       # push to the `live` branch via the default GITHUB_TOKEN
@@ -56,6 +60,17 @@ jobs:
           ref: ${{ steps.ref.outputs.ref }}
           fetch-depth: 0          # publish.sh runs `git archive <ref>`
 
+      # publish.sh bundles scrollkit into the payload (/lib/scrollkit) AND validates
+      # the manifest with the library's real device-side parser, so the library repo
+      # must be present. (If czei/scrollkit is private, replace the default
+      # GITHUB_TOKEN below with a PAT that can read it.)
+      - name: Checkout ScrollKit library
+        uses: actions/checkout@v4
+        with:
+          repository: czei/scrollkit
+          ref: ${{ inputs.scrollkit_ref || 'master' }}
+          path: scrollkit-lib
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -68,6 +83,8 @@ jobs:
           GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
           VERSION: ${{ inputs.version }}
           INCLUDE_LIB: ${{ inputs.include_lib }}
+          # publish.sh's SCROLLKIT_SRC = the library's src/ (parent of scrollkit/)
+          SCROLLKIT_SRC: ${{ github.workspace }}/scrollkit-lib/src
         run: |
           chmod +x scripts/publish.sh
           scripts/publish.sh "${{ steps.ref.outputs.ref }}"

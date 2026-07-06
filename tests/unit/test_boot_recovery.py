@@ -88,6 +88,24 @@ def test_restores_backup_when_both_markers(ota_recover, tmp_path):
     assert not (tmp_path / "updates" / "backup_complete").exists()
 
 
+def test_restore_deletes_created_files(ota_recover, tmp_path):
+    """P0: an interrupted apply that ADDED a file must, on rollback, delete that
+    file (it has no backup) so the reverted tree isn't contaminated."""
+    _sandbox(
+        tmp_path,
+        live={"src/app.py": b"TORN", "lib/scrollkit/new.py": b"FUTURE"},
+        backup={"src/app.py": b"OLD"},
+        staging=("manifest.json", "apply_started", "backup_complete"))
+    (tmp_path / "updates" / "created_paths").write_text("/lib/scrollkit/new.py\n")
+
+    ota_recover(root=str(tmp_path))
+
+    assert (tmp_path / "src" / "app.py").read_bytes() == b"OLD"          # restored
+    assert not (tmp_path / "lib" / "scrollkit" / "new.py").exists()      # created deleted
+    assert not (tmp_path / "updates" / "created_paths").exists()
+    assert not (tmp_path / "updates" / "apply_started").exists()
+
+
 def test_skips_when_readonly(ota_recover, tmp_path):
     """DOWN held at boot = filesystem read-only to the device: recovery must not
     attempt writes; state stays put for the next normal boot."""

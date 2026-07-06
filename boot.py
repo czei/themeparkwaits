@@ -36,6 +36,8 @@ storage.remount("/", drive_state)
 # Marker contract (see scrollkit/ota/client.py APPLY_STARTED/BACKUP_COMPLETE):
 #   /updates/apply_started   = an apply began; the live tree may be torn
 #   /updates/backup_complete = /backup holds a complete pre-update snapshot
+#   /updates/created_paths   = device paths this update CREATED (no backup) —
+#                              delete them on rollback or they orphan future code
 def _ota_recover(root="", readonly=False):
     def _exists(p):
         try:
@@ -49,6 +51,19 @@ def _ota_recover(root="", readonly=False):
             os.remove(p)
         except OSError:
             pass
+
+    def _delete_created(upd):
+        # Files this update ADDED have no backup; erase them so the rolled-back
+        # tree isn't contaminated with files from the version we're reverting.
+        try:
+            with open(upd + "/created_paths") as f:
+                data = f.read()
+        except OSError:
+            return
+        for line in data.split("\n"):
+            p = line.strip()
+            if p:
+                _rm(root + p)           # stored device-absolute; root prefixes for tests
 
     upd = root + "/updates"
     if not _exists(upd + "/apply_started"):
@@ -85,9 +100,11 @@ def _ota_recover(root="", readonly=False):
                             fo.write(buf)
 
         _copy(root + "/backup", root)   # dst "" -> "/name" absolute paths
+        _delete_created(upd)            # erase files the update added (no backup)
         # Staged manifest first (kills the auto-retry), trigger marker last, so
         # a crash DURING recovery converges on a re-runnable state.
         _rm(upd + "/manifest.json")
+        _rm(upd + "/created_paths")
         _rm(upd + "/backup_complete")
         _rm(upd + "/apply_started")
         print("OTA: restore complete, booting restored app")
@@ -120,5 +137,6 @@ if button.value is False:
     remove_file("/updates/manifest.json")
     remove_file("/updates/apply_started")
     remove_file("/updates/backup_complete")
+    remove_file("/updates/created_paths")
 
 

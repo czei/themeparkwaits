@@ -85,8 +85,9 @@ if ! SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "${REF}^{commit}")"; 
 fi
 
 echo "==> Publishing $REF ($SHA) as version $VERSION to '$LIVE_BRANCH'"
-[ "$INCLUDE_LIB" = "1" ] && echo "    including src/lib (Adafruit bundle)" \
-                         || echo "    src/lib + scrollkit are flash-frozen (not shipped)"
+echo "    bundling scrollkit under /lib/scrollkit (delta-apply ships only changed files)"
+[ "$INCLUDE_LIB" = "1" ] && echo "    including src/lib (Adafruit .mpy bundle)" \
+                         || echo "    src/lib (Adafruit .mpy bundle) flash-frozen (not shipped)"
 
 # --- work in a temp dir (cleaned on exit) -----------------------------------
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tpw-publish.XXXXXX")"
@@ -106,6 +107,17 @@ fi
 # 3) stamp the version into the shipped tree so the device records it post-apply
 printf '%s\n' "$VERSION" > "$TREE/src/.version"
 
+# 3b) resolve the sibling ScrollKit library — bundled into the payload below and
+#     used by the preflight (its real device-side parser). Fail loudly if absent.
+#     NOTE: publish.sh's SCROLLKIT_SRC is the library's `src/` (parent of
+#     `scrollkit/`); deploy.sh's same-named var points AT `src/scrollkit`.
+SCROLLKIT_SRC="${SCROLLKIT_SRC:-$REPO_ROOT/../ScrollKit Library/src}"
+if [ ! -d "$SCROLLKIT_SRC/scrollkit" ]; then
+  echo "publish.sh: ABORT — scrollkit library not found at $SCROLLKIT_SRC" >&2
+  echo "            set SCROLLKIT_SRC to the library's src/ dir (parent of scrollkit/)." >&2
+  exit 1
+fi
+
 # 4) build the manifest + payload for each device tree
 #    src/** -> /src/**, plus top-level code.py -> /
 #    boot.py is deliberately NOT shipped: it is the flash-frozen recovery anchor
@@ -115,27 +127,45 @@ printf '%s\n' "$VERSION" > "$TREE/src/.version"
 python3 "$MAKE_MANIFEST" "$TREE/src"     "$OUT" --root /src --version "$VERSION"
 python3 "$MAKE_MANIFEST" "$TREE/code.py" "$OUT" --root /    --version "$VERSION"
 
-# 4b) preflight: run the built manifest through the REAL device-side parser.
-#     Generator (this repo) and validator (scrollkit, frozen on device) have no
-#     shared schema — this is the check whose absence shipped the
-#     missing-`required` outage. Hard-fail if the library isn't importable.
-SCROLLKIT_SRC="${SCROLLKIT_SRC:-$REPO_ROOT/../ScrollKit Library/src}"
-if [ ! -d "$SCROLLKIT_SRC/scrollkit" ]; then
-  echo "publish.sh: ABORT — scrollkit library not found at $SCROLLKIT_SRC" >&2
-  echo "            set SCROLLKIT_SRC to the library's src/ dir (the manifest" >&2
-  echo "            preflight validates with the real device-side parser)" >&2
-  exit 1
-fi
+# 4b) bundle the ScrollKit library under /lib/scrollkit so a release that changed
+#     BOTH repos lands ATOMICALLY (the app may import a class that only exists in
+#     the updated library — ImportError otherwise). scrollkit ships as .py source;
+#     the device's delta-apply downloads only the files whose checksum changed, so
+#     an unchanged library costs nothing and a changed one ships just its diff.
+#     Mirror deploy.sh's excludes (simulator/ + dev/ are desktop-only) via a temp
+#     copy — the same idiom as `rm -rf src/lib` above. Accumulates into the same
+#     manifest; the leak-check + preflight below then cover the scrollkit files.
+SK_TMP="$WORK/scrollkit"
+mkdir -p "$SK_TMP"
+cp -R "$SCROLLKIT_SRC/scrollkit/." "$SK_TMP/"
+rm -rf "$SK_TMP/simulator" "$SK_TMP/dev"
+find "$SK_TMP" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+python3 "$MAKE_MANIFEST" "$SK_TMP" "$OUT" --root /lib/scrollkit --version "$VERSION"
+
+# 4c) preflight: run the built manifest through the REAL device-side parser +
+#     the same path-safety allowlist the device enforces. Generator (this repo)
+#     and validator (scrollkit, frozen on device) have no shared schema — this is
+#     the check whose absence shipped the missing-`required` outage.
 PYTHONPATH="$SCROLLKIT_SRC" python3 - "$OUT/manifest.json" <<'PY'
 import json, sys
 from scrollkit.ota.manifest import UpdateManifest
-manifest = UpdateManifest.from_dict(json.load(open(sys.argv[1])))
+data = json.load(open(sys.argv[1]))
+manifest = UpdateManifest.from_dict(data)
 ok, err = manifest.validate()
 if not ok:
     sys.exit("preflight FAILED: device validator rejects the manifest: %s" % err)
 if manifest.compare_version("0.0.0") <= 0:
     sys.exit("preflight FAILED: manifest version %r does not compare as newer "
              "than 0.0.0" % manifest.version)
+def allowed(k):
+    if not k or ".." in k.split("/"):
+        return False
+    if k in ("/code.py", "/boot.py"):
+        return True
+    return k.startswith("/src/") or k.startswith("/lib/scrollkit/")
+bad = [k for k in data["files"] if not allowed(k)]
+if bad:
+    sys.exit("preflight FAILED: unsafe manifest path(s): %s" % ", ".join(sorted(bad)[:5]))
 print("==> preflight OK: device validator accepts manifest v%s (%d files)"
       % (manifest.version, len(manifest.files)))
 PY
