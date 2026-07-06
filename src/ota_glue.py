@@ -89,25 +89,32 @@ class OTAGlue:
         return getattr(self._progress, "last_error", None)
 
     def schedule_update(self):
-        # Pick up the HttpClient's CURRENT session (created during WiFi connect,
-        # and possibly rebuilt since this glue was constructed) so the OTA GET uses
-        # a live socket pool rather than the None captured at construction time.
+        # The OTA GET opens a TLS context to raw.githubusercontent while the data
+        # session holds its own; on the device that double allocation failed the
+        # handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). We must reclaim that memory
+        # BEFORE the GET, but must NOT use adafruit_connection_manager
+        # connection_manager_close_all(): it frees EVERY managed socket globally —
+        # including the web server's listening socket (which killed the settings
+        # site) and the data session's cached socket, which adafruit_requests then
+        # tries to close again -> "RuntimeError: Socket not managed".
+        #
+        # Instead REBUILD the app's HTTP session: a fresh SocketPool + TLS context
+        # discards the old session's socket/TLS (reclaiming the same RAM) and holds
+        # NO stale reference to double-free — and touches nothing else, so the web
+        # server survives. The data loop reads http_client.session live, so its next
+        # fetch transparently uses the new session too.
         if self._http_client is not None:
+            import sys
+            if getattr(sys.implementation, "name", "") == "circuitpython":
+                try:
+                    self._http_client._rebuild_session()
+                except Exception as e:
+                    print("OTA session rebuild skipped:", e)
+                import gc
+                gc.collect()
+            # Pick up the CURRENT session (rebuilt above on device; the one created
+            # during WiFi connect on desktop) so the OTA GET uses a live socket pool.
             self.client.session = getattr(self._http_client, "session", None)
-        # The OTA GET opens a SECOND TLS context (raw.githubusercontent) while the
-        # data session still holds its own; on the device that double allocation
-        # failed the handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). Free the pooled
-        # data sockets first — adafruit_requests transparently reconnects on the
-        # next fetch — and collect, so the handshake gets its contiguous block.
-        import sys
-        if getattr(sys.implementation, "name", "") == "circuitpython":
-            try:
-                import adafruit_connection_manager
-                adafruit_connection_manager.connection_manager_close_all()
-            except Exception as e:
-                print("OTA socket pre-free skipped:", e)
-            import gc
-            gc.collect()
         return self._progress.schedule_update()
 
     async def install_pending(self):
