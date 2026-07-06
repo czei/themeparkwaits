@@ -443,6 +443,26 @@ def render_page(app) -> str:
     return "".join(render_page_chunks(app))
 
 
+def _styled_page(inner: str) -> str:
+    """Wrap a small HTML fragment in the settings page's styled shell.
+
+    Status responses (``/update``) were bare fragments with no ``<head>`` or
+    stylesheet link, so they rendered as unstyled black-on-white HTML a customer
+    could read as "broken". This gives them the same head + ``/style.css`` +
+    header/container as the main page. Links are styled as ``.btn`` buttons.
+    """
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        '<title>ThemeParkWaits</title>'
+        '<link rel="stylesheet" href="/style.css"></head>'
+        '<body><div class="container">'
+        '<div class="header"><h1>ThemeParkWaits</h1></div>'
+        '<div class="content">' + inner + '</div>'
+        '</div></body></html>'
+    )
+
+
 # --------------------------------------------------------------------------- #
 # The server — native adafruit_httpserver, same object on desktop + device
 # --------------------------------------------------------------------------- #
@@ -507,12 +527,14 @@ class ThemeParkConfigServer:
             status = schedule_update(app)
             if status == "staged":
                 _schedule_reboot(app)
-                body = ("<h3>Update staged</h3><p>Installing now — the sign will "
-                        "reboot and show <b>Installing&hellip; do not unplug!</b>. "
-                        "Give it a minute, then <a href='/'>reload</a>.</p>")
+                body = _styled_page(
+                    "<h3>Update staged</h3><p>Installing now — the sign will "
+                    "reboot and show <b>Installing&hellip; do not unplug!</b>. "
+                    "Give it a minute, then <a class='btn' href='/'>Reload</a>.</p>")
             else:
-                body = ("<h3>No update installed</h3><p>%s</p>"
-                        "<p><a href='/'>Back</a></p>" % _esc(status))
+                body = _styled_page(
+                    "<h3>No update installed</h3><p>%s</p>"
+                    "<p><a class='btn' href='/'>Back</a></p>" % _esc(status))
             return Response(request, body, content_type="text/html")
 
         return server
