@@ -290,7 +290,14 @@ def big_thunder_goat():
     goat = ramp3((0x6E, 0x68, 0x5A), (0xCC, 0xC4, 0xAE), (0xFF, 0xFF, 0xF4), 6)
     rock = ramp3((0x5A, 0x2C, 0x16), (0xA8, 0x5E, 0x30), (0xDD, 0x9E, 0x5C), 6)
     dirt = ramp((0x2E, 0x18, 0x0C), (0x5A, 0x32, 0x18), 3)   # the dark hoof/shadow specks
-    R = {"eadfc4": (goat, 0.08), "9c9fb0": (rock, 0.10), "4e2c12": (dirt, 0.0)}
+    dyna = ramp((0xB0, 0x22, 0x22), (0xFF, 0x55, 0x44), 5)   # red dynamite cylinder
+    fuse = ramp((0xC0, 0x55, 0x11), (0xFF, 0x99, 0x33), 3)   # orange wick
+    spark = ramp((0xFF, 0xAA, 0x22), (0xFF, 0xFF, 0xCC), 3)  # hot yellow-white spark
+    # Flat source hexes: eb3c3c="r", ff8822="O", ffe044="y" — each needs a key or
+    # _shade falls the pixel back to the FIRST material (fur) and the fuse/stick
+    # would render cream. Sparks get a big positive bias so they read as LIT.
+    R = {"eadfc4": (goat, 0.08), "9c9fb0": (rock, 0.10), "4e2c12": (dirt, 0.0),
+         "eb3c3c": (dyna, 0.14), "ff8822": (fuse, 0.24), "ffe044": (spark, 0.42)}
     return _shade("big_thunder_goat", R, occlude=True)
 
 

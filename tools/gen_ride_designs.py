@@ -250,6 +250,13 @@ def goat():
     # little hooves
     for lx in (27, 31, 38, 42):
         put(g, lx, 28, "N")
+    # stick of dynamite clenched in the mouth, pointing forward (left).
+    # Drawn last so it sits on top of the muzzle; the free (left) end carries
+    # a lit fuse. Kept within cols 3-12 so the head-nod hinge box encloses it.
+    rect(g, 6, 14, 12, 15, "r")               # red cylinder at the mouth line
+    put(g, 5, 13, "O"); put(g, 4, 12, "O")    # short orange wick off the tip
+    put(g, 4, 11, "y"); put(g, 3, 11, "y")    # bright yellow spark
+    put(g, 3, 10, "O")                        # ember flick
     write("big_thunder_goat", g)
 
 

@@ -24,6 +24,7 @@ from scrollkit.effects.image_animators import (       # noqa: F401 — re-export
     EmitterAnimator,
     PalettePulseAnimator,
     RegionShiftAnimator,
+    RegionRotateAnimator,
     OrbiterAnimator,
     BlinkAnimator,
     SpriteLiftAnimator,
@@ -142,6 +143,7 @@ _CLASSES = {
     "emitter": EmitterAnimator,
     "palette_pulse": PalettePulseAnimator,
     "region_shift": RegionShiftAnimator,
+    "region_rotate": RegionRotateAnimator,
     "orbiter": OrbiterAnimator,
     "blink": BlinkAnimator,
     "lift": SpriteLiftAnimator,
@@ -159,6 +161,12 @@ _SPECS = {
     "bat.bmp": ("combo", (("motion", dict(path='traverse_lr', amp=1, bob_amp=0, delay=0)), ("region_shift", dict(box=(2, 6, 27, 21), axis='y', amp=4, period=14, wave='hinge', hinge='right')), ("region_shift", dict(box=(37, 6, 62, 21), axis='y', amp=4, period=14, wave='hinge', hinge='left')))),
     "bear.bmp": ("blink", dict(box=(23, 11, 29, 19), color=0xBB6633, period=96, duty=8, delay=40)),
     "big_ben.bmp": ("orbiter", dict(cx=11, cy=8, rx=9, ry=6, period=80, clockwise=True, sprite=((0, 0, 0xFFFFFF), (-1, 0, 0xFFEE99), (-2, -1, 0xAA8833)))),
+    # Goat nods: a TRUE rotation of the head about the neck joint, so the head TILTS
+    # (nose dips as poll rises) instead of shearing straight up/down. The body is the
+    # same cream fill the head attaches to, so it's EXCLUDED (stays static, never
+    # holed); the pivot sits at the head/body split (~col 22, the merge row) so the
+    # muzzle + lit fuse swing most and the shoulder barely moves.
+    "big_thunder_goat.bmp": ("region_rotate", dict(box=(3, 8, 27, 20), pivot=(22, 14), amp_deg=13, period=44, exclude=(23, 14, 43, 22))),
     "bird.bmp": ("combo", (("motion", dict(path='traverse_lr', amp=1, bob_amp=0, delay=0)), ("region_shift", dict(box=(4, 6, 28, 17), axis='y', amp=2, period=12, phase=0, wave='sine')), ("region_shift", dict(box=(36, 6, 60, 17), axis='y', amp=2, period=12, phase=0, wave='sine')))),
     "bobsled.bmp": ("lift", dict(boxes=((15, 13, 49, 25),), exclude_colors=(0xBBBBCC, 0x777788, 0x9999AA, 0xCCCCDD), tol=28, path='lr', bob_amp=0, slope=0, loop=False)),
     "canoe.bmp": ("lift", dict(boxes=((8, 10, 57, 25),), exclude_colors=(0x1166BB, 0x3388DD, 0x4499EE, 0x55AAEE, 0x88DDFF), tol=28, path='lr', bob_amp=1, slope=0, loop=True)),

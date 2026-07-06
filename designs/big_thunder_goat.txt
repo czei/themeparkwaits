@@ -8,12 +8,12 @@
 
 
                         www
-                   w www www
-                 wwwwwwww  ww
-                wwwwwwww    w     w           w
-             wwwwwwwwwwww   wwwwwwwwwwwww    w
-             wwwwwwwwwwwwwwwwwwwwwwwwwwwwww w
-             wwwwwwwww wwwwwwwwwwwwwwwwwwwww
+   O               w www www
+   yy            wwwwwwww  ww
+    O           wwwwwwww    w     w           w
+     O       wwwwwwwwwwww   wwwwwwwwwwwww    w
+      rrrrrrrwwwwwwwwwwwwwwwwwwwwwwwwwwwwww w
+      rrrrrrrwwwwwwwww wwwwwwwwwwwwwwwwwwwww
               w    w    wwwwwwwwwwwwwwwwwwww
              ww         wwwwwwwwwwwwwwwwwwwww
               ww         wwwwwwwwwwwwwwwwwww
