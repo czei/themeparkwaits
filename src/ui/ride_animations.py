@@ -199,7 +199,7 @@ _SPECS = {
     "jungle_cruise.bmp": ("lift", dict(boxes=((13, 1, 53, 25),), exclude_colors=(0x2288EE, 0x2277CC, 0x2266BB, 0x1155AA, 0x114488, 0x112244), tol=28, path='rl', bob_amp=0, slope=0, loop=True)),
     "laser_blaster.bmp": ("combo", (("emitter", dict(box=(47, 15, 48, 16), vx=3, vy=0, rate=2, life=20, colors=(0xFFEE99, 0xEE4444, 0xCC3333), max_live=8, jitter=0)), ("palette_pulse", dict(match=(0x775511, 0x776622), tol=16, lo=0.6, hi=1.6, period=20)))),
     "light_bulb.bmp": ("palette_pulse", dict(match=(0xFFEE55, 0xFFDD44, 0xFFFF66, 0xEECC44, 0xCCAA33), tol=24, lo=0.6, hi=1.35, period=44)),
-    "locomotive.bmp": ("lift", dict(boxes=((0, 0, 63, 29),), path='lr', loop=True)),
+    "locomotive.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "magic_carpet.bmp": ("motion", dict(path='traverse_lr', bob_amp=2)),
     "minion.bmp": ("motion", dict(path='jiggle', amp=1)),
     "monkey.bmp": ("region_shift", dict(box=(24, 23, 40, 28), axis='y', amp=2, period=48, wave='sine', half='pos')),
