@@ -211,7 +211,7 @@ _SPECS = {
     "ostrich.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "panda.bmp": ("blink", dict(box=(23, 12, 29, 18), color=0x555555, period=48, duty=9, delay=28)),
     "poison_apple.bmp": ("palette_pulse", dict(match=(0x88DD55, 0x88CC55, 0x77BB55), tol=20, lo=0.5, hi=1.55, period=36)),
-    "pirates.bmp": ("lift", dict(boxes=((1, 4, 54, 27),), exclude_colors=(0x88DDFF, 0x66BBEE, 0x4499EE, 0x2277CC, 0x1166BB, 0x1155AA), tol=28, path='rl', bob_amp=0, slope=0, loop=True)),
+    "pirates.bmp": ("lift", dict(boxes=((9, 4, 62, 27),), exclude_colors=(0x88DDFF, 0x66BBEE, 0x4499EE, 0x2277CC, 0x1166BB, 0x1155AA), tol=28, path='lr', bob_amp=0, slope=0, loop=True)),
     "race_car.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "rat.bmp": ("region_shift", dict(box=(4, 7, 14, 21), axis='y', amp=2, period=18, wave='sine')),
     "river.bmp": ("twinkle", dict(colors=(0x112233, 0x3388AA, 0xCCFFFF), count=18)),
