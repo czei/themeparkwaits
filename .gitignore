@@ -1,5 +1,6 @@
 /src/.version
 /secrets.py
+/media-raw/
 .env
 .env.*
 /.idea/.gitignore

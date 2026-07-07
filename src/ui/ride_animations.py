@@ -232,7 +232,7 @@ _SPECS = {
     "tower_of_terror.bmp": ("palette_pulse", dict(match=(0xFFEE55, 0xFFDD55, 0xFFCC44, 0xFFFF66), tol=20, lo=0.4, hi=1.5, period=28)),
     "transformers.bmp": ("palette_pulse", dict(match=(0xCCEEFF, 0xBBDDFF, 0xBBEEFF), tol=8, lo=0.5, hi=1.6, period=40)),
     "tree.bmp": ("twinkle", dict(colors=(0x224422, 0x88AA44, 0xFFEE88), count=10, box=(14, 1, 50, 19))),
-    "tron.bmp": ("combo", (("motion", dict(path='traverse_lr', amp=2, bob_amp=0)), ("palette_pulse", dict(match=(0xCCFFFF, 0xAADDEE, 0xBBEEFF, 0x99DDEE), tol=20, lo=0.6, hi=1.5, period=32)))),
+    "tron.bmp": ("lift", dict(boxes=((0, 0, 63, 29),), path='lr', loop=True)),
     "volcano.bmp": ("combo", (("emitter", dict(box=(26, 11, 30, 13), vx=-0.2, vy=0.5, rate=5, life=28, colors=(0xFFEE55, 0xFFAA33, 0xEE4444, 0x992211), max_live=4, jitter=0.2)), ("emitter", dict(box=(34, 11, 38, 13), vx=0.2, vy=0.5, rate=5, life=28, colors=(0xFFEE55, 0xFFAA33, 0xEE4444, 0x992211), max_live=4, jitter=0.2, delay=6)))),
     "waves.bmp": ("combo", (("region_shift", dict(box=(0, 4, 63, 12), axis='x', amp=2, period=36)), ("region_shift", dict(box=(0, 13, 63, 21), axis='x', amp=2, period=48)))),
     "witch.bmp": ("motion", dict(path='traverse_lr', amp=1, bob_amp=1)),
