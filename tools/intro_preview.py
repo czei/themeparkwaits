@@ -1,23 +1,27 @@
 # Copyright (c) 2024-2026 Michael Czeiszperger
-"""Spot-check ride intro ANIMATIONS without booting the whole app.
+"""Play ride intro ANIMATIONS in the desktop simulator, one after another.
 
-Renders each animated ride's intro (the icon HOLD animation) to a looping GIF and writes an
-``index.html`` gallery, so you can eyeball every intro at once instead of waiting on a full
-boot + live API. It drives the REAL pipeline (``RideScreenContent`` intro -> the same
-animators that run on the device), just headless and offline: no hardware, no network.
+A fast spot-check loop for the ride icon intros without booting the whole app (no live
+API, no boot sequence). It drives the REAL pipeline (``RideScreenContent`` intro -> the
+same animators that run on the device) and shows each ride's icon animation in the
+simulator window; when the animation finishes it advances to the next ride.
 
-    # from the app repo, with the library checkout adjacent:
+    # from the app repo, with the library checkout adjacent (NOTE: no SDL dummy driver,
+    # so a real window opens):
+    PYTHONPATH="../ScrollKit Library/src:." python3 tools/intro_preview.py [filter ...]
+
+Keys:  Right / Space = next    Left = previous    R = replay    Esc / Q = quit
+
+No filter plays EVERY image that has a registered animation (``_SPECS``). A filter is a
+case-insensitive filename substring, so ``tron pirates loco`` plays just those three.
+
+    # optional: write a looping GIF per ride + index.html instead of a window (headless)
     PYTHONPATH="../ScrollKit Library/src:." SDL_VIDEODRIVER=dummy \
-        python3 tools/intro_preview.py [filter ...]
+        python3 tools/intro_preview.py --gif [filter ...]
 
-No filter previews EVERY image that has a registered animation (``_SPECS``). A filter is a
-case-insensitive filename substring, so ``tron pirates loco`` previews just those three.
-Output lands in ``media-raw/intro-preview/`` (one GIF per ride + ``index.html``); open the
-HTML to see them all looping, each labelled with its animation technique.
-
-Caveat: the simulator renders finished frames, so this faithfully shows the MOTION,
+Caveat: the simulator renders finished frames, so it faithfully shows the motion,
 technique and direction, but NOT the on-device startup timing (the "scene first" ordering
-fix has to be confirmed on the panel).
+fix still has to be confirmed on the panel).
 """
 import asyncio
 import os
@@ -29,10 +33,8 @@ _LIB = "/Users/czei/Documents/Projects/ScrollKit/ScrollKit Library/src"
 for _p in (_APP, _LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-from scrollkit.display._recording import capture_frame, encode_gif        # noqa: E402
 from scrollkit.display.unified import UnifiedDisplay                       # noqa: E402
 from src.ui.content_builder import _severity_color                        # noqa: E402
 from src.ui.ride_animations import _SPECS                                 # noqa: E402
@@ -40,19 +42,40 @@ from src.ui.ride_screen_content import RideScreenContent                  # noqa
 
 RIDES_DIR = os.path.join(_APP, "src", "images", "rides")
 OUT = os.path.join(_APP, "media-raw", "intro-preview")
-PITCH = 6.0
-MAX_HOLD = 200          # safety cap; a hold is ~104 frames
+PITCH = 10.0            # LED px per dot: a comfortably sized preview window
+FRAME_DT = 1.0 / 30     # playback frame rate
+HOLD_CAP = 220          # safety cap on a single ride's hold, in frames
 
 
 def technique(spec):
-    """A short human label for a ride's animation spec (what to look for)."""
+    """A short human label for a ride's animation spec (what to watch for)."""
     kind = spec[0]
     if kind == "combo":
         return "combo(" + " + ".join(part[0] for part in spec[1]) + ")"
     kw = spec[1] if len(spec) > 1 and isinstance(spec[1], dict) else {}
-    if "path" in kw:
-        return "%s %s" % (kind, kw["path"])
-    return kind
+    return "%s %s" % (kind, kw["path"]) if "path" in kw else kind
+
+
+def _collect(filters):
+    targets = []
+    for fname in sorted(_SPECS):
+        if filters and not any(f in fname.lower() for f in filters):
+            continue
+        path = os.path.join(RIDES_DIR, fname)
+        if os.path.exists(path):
+            targets.append((fname, path))
+    return targets
+
+
+def _make_content(slug, path):
+    return RideScreenContent(
+        slug, 30,
+        name_color=0x0000FF,
+        wait_color=_severity_color(30),
+        effect="Rain",
+        intro_image=path,                 # a direct path — no UUID / API lookup needed
+        name_gradient=True,
+    )
 
 
 async def _new_display():
@@ -65,32 +88,99 @@ async def _new_display():
     return disp
 
 
-async def render_intro_gif(name, image_path, out_gif):
-    """Capture one full icon-HOLD cycle for ``image_path`` and encode a looping GIF."""
-    disp = await _new_display()
-    content = RideScreenContent(
-        name, 30,
-        name_color=0x0000FF,
-        wait_color=_severity_color(30),
-        effect="Rain",
-        intro_image=image_path,           # a direct path — no UUID / API lookup needed
-        name_gradient=True,
-    )
+# --------------------------------------------------------------------------- window
+async def _play_hold(disp, content):
+    """Play one ride's icon-HOLD animation; return 'next' | 'prev' | 'auto' | 'quit'."""
+    import pygame
     await content.start()
-    frames = []
-    for _ in range(MAX_HOLD):
+    guard = 0
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "quit"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_q):
+                    return "quit"
+                if e.key in (pygame.K_RIGHT, pygame.K_SPACE):
+                    return "next"
+                if e.key == pygame.K_LEFT:
+                    return "prev"
+                if e.key == pygame.K_r:
+                    try:
+                        content._detach_intro()
+                    except Exception:
+                        pass
+                    await content.start()
+                    guard = 0
         await disp.clear()
         await content.render(disp)
-        await disp.show()
-        if content._intro_phase != "hold":    # icon animation is over; stop before the fade
+        if await disp.show() is False:        # window closed / Esc caught inside show()
+            return "quit"
+        guard += 1
+        if content._intro_phase != "hold" or guard > HOLD_CAP:
+            return "auto"                     # icon animation done -> advance
+        await asyncio.sleep(FRAME_DT)
+
+
+async def run_window(targets):
+    import pygame
+    disp = await _new_display()
+    try:
+        await disp.create_window("Ride intro preview")
+    except Exception as exc:
+        print("could not open a window (%s).\nRun without SDL_VIDEODRIVER=dummy, or use "
+              "--gif for headless output." % exc)
+        return
+    print("Playing %d intros.  Right/Space=next  Left=prev  R=replay  Esc/Q=quit\n"
+          % len(targets))
+    idx = 0
+    while 0 <= idx < len(targets):
+        fname, path = targets[idx]
+        slug = fname.rsplit(".", 1)[0]
+        tech = technique(_SPECS[fname])
+        pygame.display.set_caption("[%d/%d]  %s  -  %s" % (idx + 1, len(targets), slug, tech))
+        print("  [%2d/%2d] %-22s %s" % (idx + 1, len(targets), slug, tech))
+        content = _make_content(slug, path)
+        action = await _play_hold(disp, content)
+        try:
+            content._detach_intro()           # drop this ride's layers before the next
+        except Exception:
+            pass
+        if action == "quit":
             break
-        f = capture_frame(disp.matrix)
-        if f is not None:
-            frames.append(f)
-    if not frames:
-        return 0
-    encode_gif(frames, out_gif, fps=18, target_width=256, max_colors=64, frame_step=2)
-    return len(frames)
+        idx = max(0, idx - 1) if action == "prev" else idx + 1
+    print("\ndone.")
+
+
+# ----------------------------------------------------------------------------- gifs
+async def run_gifs(targets):
+    from scrollkit.display._recording import capture_frame, encode_gif
+    os.makedirs(OUT, exist_ok=True)
+    cards = []
+    for fname, path in targets:
+        slug = fname.rsplit(".", 1)[0]
+        disp = await _new_display()
+        content = _make_content(slug, path)
+        await content.start()
+        frames = []
+        for _ in range(HOLD_CAP):
+            await disp.clear()
+            await content.render(disp)
+            await disp.show()
+            if content._intro_phase != "hold":
+                break
+            f = capture_frame(disp.matrix)
+            if f is not None:
+                frames.append(f)
+        if not frames:
+            continue
+        gif = os.path.join(OUT, slug + ".gif")
+        encode_gif(frames, gif, fps=18, target_width=256, max_colors=64, frame_step=2)
+        tech = technique(_SPECS[fname])
+        print("  %-26s %-24s frames=%d" % (fname, tech, len(frames)))
+        cards.append((slug, tech, os.path.basename(gif)))
+    if cards:
+        print("\ngallery: %s  (%d rides)" % (_write_gallery(cards), len(cards)))
 
 
 _CSS = """<style>
@@ -120,37 +210,14 @@ def _write_gallery(cards):
 
 
 def main():
-    filters = [a.lower() for a in sys.argv[1:] if not a.startswith("-")]
-    os.makedirs(OUT, exist_ok=True)
-    targets = []
-    for fname in sorted(_SPECS):
-        if filters and not any(f in fname.lower() for f in filters):
-            continue
-        path = os.path.join(RIDES_DIR, fname)
-        if os.path.exists(path):
-            targets.append((fname, path))
+    args = sys.argv[1:]
+    gif_mode = ("--gif" in args) or ("--gifs" in args)
+    filters = [a.lower() for a in args if not a.startswith("-")]
+    targets = _collect(filters)
     if not targets:
         print("no matching animated rides (filters: %s)" % (filters or "none"))
         return
-
-    async def run():
-        cards = []
-        for fname, path in targets:
-            slug = fname.rsplit(".", 1)[0]
-            gif = os.path.join(OUT, slug + ".gif")
-            try:
-                n = await render_intro_gif(slug, path, gif)
-            except Exception as exc:               # one bad ride never sinks the batch
-                print("  %-26s ERROR %s" % (fname, exc))
-                continue
-            tech = technique(_SPECS[fname])
-            print("  %-26s %-24s frames=%d" % (fname, tech, n))
-            if n:
-                cards.append((slug, tech, os.path.basename(gif)))
-        if cards:
-            print("\ngallery: %s  (%d rides)" % (_write_gallery(cards), len(cards)))
-
-    asyncio.run(run())
+    asyncio.run(run_gifs(targets) if gif_mode else run_window(targets))
 
 
 if __name__ == "__main__":
