@@ -479,7 +479,22 @@ class ThemeParkApp(ScrollKitApp):
             else:
                 ok = True  # nothing to fetch (unconfigured) — show Configure prompt
             if ok:
-                build_content_queue(self.content_queue, pl, self.settings, self.service.vacation)
+                q = self.content_queue
+                # Preserve the rotation position across a data refresh. Rebuilding
+                # calls queue.clear(), which resets the cycle to index 0; for a board
+                # whose full cycle outlasts update_interval (a big park, or a max_wait
+                # sort that parks every closed ride at the tail) that meant the tail
+                # was never reached before the next 5-min refresh restarted at the top
+                # — so those screens (notably all the "Closed" rides) never showed.
+                # Resume where the rotation was so the cycle runs uninterrupted and
+                # every screen gets airtime; the fetched wait times update underneath.
+                prev_index = getattr(q, "_current_index", 0)
+                build_content_queue(q, pl, self.settings, self.service.vacation)
+                # _current_content is None right after clear()+rebuild, so setting the
+                # index alone makes the next get_current() resume at that screen.
+                new_len = len(getattr(q, "_items", ()))
+                if new_len:
+                    q._current_index = min(prev_index, new_len - 1)
             return ok
         except Exception as e:  # keep prior queue/snapshot, never crash (FR-014)
             logger.error(e, "fetch_and_build failed")
