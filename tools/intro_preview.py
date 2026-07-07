@@ -148,7 +148,10 @@ async def run_window(targets):
             pass
         if action == "quit":
             break
-        idx = max(0, idx - 1) if action == "prev" else idx + 1
+        # Wrap around so the player loops continuously (Esc/Q to quit). With a single
+        # target this simply replays it, which is what you want for a close look.
+        step = -1 if action == "prev" else 1
+        idx = (idx + step) % len(targets)
     print("\ndone.")
 
 
