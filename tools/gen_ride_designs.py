@@ -912,13 +912,6 @@ def gems():
     write("gems", g)
 
 
-# ---------------------------------------------------------------- GLASS SLIPPER
-# glass_slipper is NOT generated here: it is TRACED from a user reference image via
-#   python tools/trace_ref_outline.py <ref>.jpg --name glass_slipper --crop 180,175,590,480
-# (white-filled silhouette + thin blue outline). Re-running this generator must not
-# overwrite that traced designs/glass_slipper.txt, so there is no glass_slipper() here.
-
-
 def magic_carpet():
     g = grid()
     def yo(x):
@@ -2194,7 +2187,6 @@ if __name__ == "__main__":
     big_ben()
     magic_carpet()
     gems()
-    # glass_slipper() is traced separately (tools/trace_ref_outline.py) — not generated here
     jack_in_box()
     mop_bucket()
     # batch 7

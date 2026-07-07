@@ -188,7 +188,6 @@ _SPECS = {
     "flag.bmp": ("frames", dict(box=(8, 2, 57, 23), nframes=6, amp=2, wavelength=14, period=3)),
     "frog.bmp": ("motion", dict(path='traverse_lr', bob_amp=2)),
     "gems.bmp": ("twinkle", dict(colors=(0x333344, 0xAAAACC, 0xFFFFFF), count=14)),
-    "glass_slipper.bmp": ("palette_pulse", dict(match=(0xFFFFFF, 0xAAEEFF, 0x66AADD), tol=24, lo=0.7, hi=1.5, period=44)),
     "hang_glider.bmp": ("lift", dict(boxes=((11, 5, 53, 15), (26, 16, 39, 23)), exclude_colors=(), tol=28, path='lr', bob_amp=1, slope=-0.08, loop=True)),
     "haunted_mansion.bmp": ("combo", (("region_shift", dict(box=(15, 10, 22, 20), axis='y', amp=1, period=22, phase=0, wave='sine')), ("region_shift", dict(box=(42, 10, 49, 20), axis='y', amp=1, period=22, phase=3.14, wave='sine')))),
     "helicopter.bmp": ("combo", (("motion", dict(path='traverse_rl', amp=1, bob_amp=1)), ("blink", dict(box=(5, 4, 60, 7), color=0, period=6, duty=3, delay=0)))),
