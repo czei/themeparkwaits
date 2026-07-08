@@ -188,6 +188,11 @@ _SPECS = {
     "flag.bmp": ("frames", dict(box=(8, 2, 57, 23), nframes=6, amp=2, wavelength=14, period=3)),
     "frog.bmp": ("motion", dict(path='traverse_lr', bob_amp=2)),
     "gems.bmp": ("twinkle", dict(colors=(0x333344, 0xAAAACC, 0xFFFFFF), count=14)),
+    # Kilimanjaro Safaris: the giraffe stands and swings its long neck. A true rotation
+    # about the shoulder joint, so the far-away head bobs a lot while the neck base stays
+    # planted; the body/legs/ground are excluded and hold still (Animal Kingdom's signature
+    # animal, and the one silhouette that survives 64x32).
+    "giraffe.bmp": ("region_rotate", dict(box=(10, 0, 30, 17), pivot=(27, 16), amp_deg=10, period=84, exclude=(28, 14, 52, 31))),
     "hang_glider.bmp": ("lift", dict(boxes=((11, 5, 53, 15), (26, 16, 39, 23)), exclude_colors=(), tol=28, path='lr', bob_amp=1, slope=-0.08, loop=True)),
     "haunted_mansion.bmp": ("combo", (("region_shift", dict(box=(15, 10, 22, 20), axis='y', amp=1, period=22, phase=0, wave='sine')), ("region_shift", dict(box=(42, 10, 49, 20), axis='y', amp=1, period=22, phase=3.14, wave='sine')))),
     "helicopter.bmp": ("combo", (("motion", dict(path='traverse_rl', amp=1, bob_amp=1)), ("blink", dict(box=(5, 4, 60, 7), color=0, period=6, duty=3, delay=0)))),

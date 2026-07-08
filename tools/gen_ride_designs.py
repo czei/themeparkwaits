@@ -709,6 +709,45 @@ def elephant():
     write("elephant", g)
 
 
+# ---------------------------------------------------------------- GIRAFFE (Kilimanjaro Safaris)
+def giraffe():
+    g = grid()
+    # savanna ground
+    hline(g, 2, 61, 31, "g")
+    for x in range(3, 61, 4):
+        put(g, x, 30, "g")
+    # body (tan), front (left) raised into a sloping back
+    ellipse(g, 38, 18, 12, 5, "T")
+    rect(g, 28, 15, 48, 21, "T")
+    rect(g, 28, 14, 34, 15, "T")              # withers
+    # long legs, dark hooves + lighter lower "socks"
+    for lx in (30, 34, 44, 48):
+        rect(g, lx, 21, lx + 1, 29, "T")
+        rect(g, lx, 27, lx + 1, 29, "w")
+        put(g, lx, 30, "N"); put(g, lx + 1, 30, "N")
+    # tail + tuft
+    line(g, 49, 16, 52, 23, "T")
+    put(g, 52, 23, "N"); put(g, 52, 24, "N")
+    # long neck, leaning left to the head
+    thick_line(g, 28, 17, 21, 5, "T", 5)
+    # head + muzzle (left), ossicones, ear, eye, nostril
+    ellipse(g, 20, 4, 3, 2, "T")
+    rect(g, 14, 4, 20, 6, "T")
+    put(g, 19, 1, "N"); put(g, 19, 2, "T")
+    put(g, 22, 1, "N"); put(g, 22, 2, "T")
+    line(g, 23, 3, 25, 4, "T")
+    put(g, 17, 4, "K")
+    put(g, 14, 5, "N")
+    # short mane down the back of the neck
+    for i in range(0, 12):
+        put(g, 29 - i // 2, 17 - i, "n")
+    # reticulated patches (brown)
+    for (x0, y0, w, h) in [(31, 16, 3, 2), (36, 18, 3, 2), (41, 16, 3, 2),
+                           (45, 19, 2, 2), (25, 12, 2, 2), (23, 9, 2, 2), (33, 19, 2, 1)]:
+        rect(g, x0, y0, x0 + w - 1, y0 + h - 1, "n")
+    write("giraffe", g)
+
+
 # ---------------------------------------------------------------- TRON LIGHTCYCLE
 def tron():
     g = grid()
@@ -2174,6 +2213,7 @@ if __name__ == "__main__":
     spaceship_earth()
     everest()
     elephant()
+    giraffe()
     tron()
     falcon()
     # batch 5
