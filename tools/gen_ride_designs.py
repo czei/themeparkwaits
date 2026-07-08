@@ -118,6 +118,40 @@ def write(name, g):
     print("wrote", path)
 
 
+def write_sheet(name, grids):
+    """Compose N char-grids (each 64x32) side by side into ONE indexed strip BMP at
+    src/images/rides/<name>.bmp — a cel spritesheet for CelWalkAnimator's tile-indexed
+    TileGrid. All tiles share one palette (sky=index 0, so make_transparent(0) is correct on
+    both device and simulator); the global top-left pixel is sky by the row-0-blank rule.
+    Reuses make_ride_image's char->RGB PALETTE so the look matches the flat design path."""
+    from PIL import Image
+    import make_ride_image as mri            # sibling in tools/ (on sys.path when run as a script)
+
+    sky = mri.PALETTE[mri.SKY]
+    colors = [sky]
+    idx_of = {sky: 0}
+    n = len(grids)
+    img = Image.new("P", (W * n, H), 0)
+    for ti, g in enumerate(grids):
+        for y in range(H):
+            row = g[y]
+            for x in range(W):
+                rgb = mri.PALETTE.get(row[x], sky)
+                if rgb not in idx_of:
+                    idx_of[rgb] = len(colors)
+                    colors.append(rgb)
+                img.putpixel((ti * W + x, y), idx_of[rgb])
+    while len(colors) < 3:                    # avoid a 1-bit BMP (see make_ride_image._build)
+        colors.append((1, 1, 1))
+    flat = []
+    for rgb in colors:
+        flat += list(rgb)
+    img.putpalette(flat)
+    out = os.path.join(mri.OUT_DIR, name + ".bmp")
+    img.save(out)
+    print("wrote %s (%dx%d, %d tiles, %d colors)" % (out, W * n, H, n, len(colors)))
+
+
 # ---------------------------------------------------------------- GHOST
 def ghost():
     g = grid()
@@ -1610,10 +1644,15 @@ def monkey():
 
 
 # ---------------------------------------------------------------- OSTRICH (Ostrich Stampede)
-def ostrich():
-    g = grid()
-    # round body of dark plumes
-    ellipse(g, 27, 15, 11, 7, "S")
+# Split into body + legs so the walk-cycle spritesheet (ostrich_walk_sheet) can reuse a
+# pixel-identical body across frames and vary ONLY the legs. The legs attach at fixed hips
+# under the body; a pose is just the two foot positions.
+_OSTRICH_HIP_L, _OSTRICH_HIP_R, _OSTRICH_HIP_Y = 25, 31, 21
+
+
+def _ostrich_body(g):
+    """Everything but the legs — identical in every walk frame (no jitter)."""
+    ellipse(g, 27, 15, 11, 7, "S")                 # round body of dark plumes
     ellipse(g, 26, 18, 5, 3, "w")                  # folded white wing (low/central)
     ellipse(g, 18, 16, 4, 3, "w")                  # white tail tuft (rear, left)
     # very long thin S-neck to a SMALL head (tiny beak -> not a toucan)
@@ -1623,12 +1662,48 @@ def ostrich():
     ellipse(g, 52, 3, 2, 2, "w")                   # small head
     put(g, 54, 3, "o")                             # tiny beak
     put(g, 52, 2, "N")                             # eye
-    # two long thick legs with feet (long legs = the ostrich tell)
-    thick_line(g, 25, 21, 22, 31, "w", 2)
-    thick_line(g, 31, 21, 34, 31, "w", 2)
-    for fx in (21, 23, 33, 35):
-        put(g, fx, 31, "o")                        # splayed feet
+
+
+def _ostrich_legs(g, lf, rf):
+    """Two long thick legs from the fixed hips to feet ``lf``/``rf`` (each an (x, y)),
+    with splayed gold feet. A lifted foot (y < 31) draws a shorter, raised leg."""
+    thick_line(g, _OSTRICH_HIP_L, _OSTRICH_HIP_Y, lf[0], lf[1], "w", 2)
+    thick_line(g, _OSTRICH_HIP_R, _OSTRICH_HIP_Y, rf[0], rf[1], "w", 2)
+    for (fx, fy) in (lf, rf):
+        put(g, fx - 1, fy, "o")
+        put(g, fx + 1, fy, "o")
+
+
+def ostrich():
+    g = grid()
+    _ostrich_body(g)
+    _ostrich_legs(g, (22, 31), (34, 31))           # static splayed stance (unchanged art)
     write("ostrich", g)
+
+
+# One walk cycle, 4 frames (each = one foot pair). Travel is L->R (+x): each leg plants a
+# foot forward, drags it BACKWARD relative to the body through 3 planted frames, then LIFTS
+# (y=29) and swings forward — so the planted foot reads as staying put on the ground while
+# the sprite translates right (no "moonwalk"). The two legs run 180 deg out of phase:
+# left lifts on frame 3, right lifts on frame 1; frames 0 and 2 are double-support (both down).
+_OSTRICH_WALK_POSES = [
+    ((28, 31), (30, 31)),   # f0 double-support: left plants forward, right planted back
+    ((25, 31), (33, 29)),   # f1 right lifts + swings forward, left drags back
+    ((22, 31), (36, 31)),   # f2 double-support: right plants forward, left dragged back
+    ((26, 29), (33, 31)),   # f3 left lifts + swings forward, right drags back
+]
+
+
+def ostrich_walk_sheet():
+    """Write the ostrich walk-cycle spritesheet: a horizontal strip of the 4 poses (one
+    palette, sky=index 0) to src/images/rides/ostrich_walk.bmp, consumed by CelWalkAnimator."""
+    grids = []
+    for lf, rf in _OSTRICH_WALK_POSES:
+        g = grid()
+        _ostrich_body(g)
+        _ostrich_legs(g, lf, rf)
+        grids.append(g)
+    write_sheet("ostrich_walk", grids)
 
 
 # ================================================================ BATCH 11 (worldwide Disney)
@@ -2188,6 +2263,12 @@ def waves():
 
 
 if __name__ == "__main__":
+    import sys
+    # `python tools/gen_ride_designs.py ostrich_walk` -> write only the walk spritesheet BMP
+    # (a src/images/rides/ asset), NOT the full designs/*.txt regen below.
+    if len(sys.argv) > 1 and sys.argv[1] == "ostrich_walk":
+        ostrich_walk_sheet()
+        sys.exit(0)
     ghost()
     pirate_ship()
     jungle_cruise()

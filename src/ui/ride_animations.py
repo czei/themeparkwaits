@@ -2,7 +2,7 @@
 """Per-ride intro ANIMATIONS — app data + policy over the library's image animators.
 
 The ENGINE lives in the library now: ``scrollkit.effects.image_animators`` provides the
-twelve generic per-frame primitives (extracted up from this app, 2026-07; this module is
+thirteen generic per-frame primitives (extracted up from this app, 2026-07; this module is
 the back-compat/rollback seam, same pattern as ``src/diagnostics.py``). What stays here
 is exactly the theme-park domain:
 
@@ -31,6 +31,7 @@ from scrollkit.effects.image_animators import (       # noqa: F401 — re-export
     CoverAnimator,
     VanishAnimator,
     FrameCycleAnimator,
+    CelWalkAnimator,
     ComboAnimator,
 )
 from scrollkit.effects.image_animators import copy_to_writable as _lib_copy_to_writable
@@ -151,6 +152,7 @@ _CLASSES = {
     "vanish": VanishAnimator,
     "frames": FrameCycleAnimator,
     "swim": SwimAnimator,
+    "cel_walk": CelWalkAnimator,
 }
 
 _SPECS = {
@@ -213,7 +215,7 @@ _SPECS = {
     "mummy.bmp": ("twinkle", dict(colors=(0x443300, 0xBB8833, 0xFFEEBB), count=10)),
     "mushroom.bmp": ("twinkle", dict(colors=(0x663333, 0xEE9988, 0xFFFFFF), count=8, box=(12, 3, 54, 16))),
     "old_car.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
-    "ostrich.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
+    "ostrich.bmp": ("cel_walk", dict(period=6, bob=0)),
     "panda.bmp": ("blink", dict(box=(23, 12, 29, 18), color=0x555555, period=48, duty=9, delay=28)),
     "poison_apple.bmp": ("palette_pulse", dict(match=(0x88DD55, 0x88CC55, 0x77BB55), tol=20, lo=0.5, hi=1.55, period=36)),
     "pirates.bmp": ("lift", dict(boxes=((1, 4, 62, 27),), exclude_colors=(0x88DDFF, 0x66BBEE, 0x4499EE, 0x2277CC, 0x1166BB, 0x1155AA), tol=28, path='rl', bob_amp=0, slope=0, loop=True)),
@@ -266,6 +268,11 @@ def for_image(image_path):
     if spec is None:
         return None
     try:
-        return _build(spec[0], spec[1])
+        anim = _build(spec[0], spec[1])
+        # Animators that load sibling assets (e.g. a cel-walk spritesheet) need the resolved
+        # image path; opt in via ``wants_image_path`` so the 5-arg start() contract is untouched.
+        if getattr(anim, "wants_image_path", False):
+            anim.image_path = image_path
+        return anim
     except Exception:
         return None
