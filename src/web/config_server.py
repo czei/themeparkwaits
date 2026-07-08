@@ -35,8 +35,13 @@ from __future__ import annotations
 import sys
 
 from scrollkit.utils.url_utils import url_decode
+from scrollkit.utils.error_handler import ErrorHandler
 from src.ui.content_builder import build_content_queue
 from src.ui.ride_screen_content import WAIT_EFFECTS
+
+# Persist OTA install outcomes: error() writes to error_log in BOTH modes (info is
+# console-only in PRODUCTION), so a silent download failure leaves a readable reason.
+logger = ErrorHandler("error_log")
 
 SORT_MODES = ("alphabetical", "max_wait", "min_wait")
 SCROLL_SPEEDS = ("Slow", "Medium", "Fast")
@@ -312,8 +317,13 @@ def install_update(app) -> bool:
         except Exception as e:
             print("OTA stage failed:", e)
         if staged:
+            logger.error(None, "OTA: staged update, rebooting to apply")
             _schedule_reboot(app, delay=0.4)   # reboot -> install_pending applies + reboots
         else:
+            # PERSIST why it didn't stage (last_error is otherwise invisible — not on
+            # the web page or serial), so a silent download failure is diagnosable.
+            logger.error(None, "OTA: install did NOT stage: %s"
+                         % (getattr(ota, "last_error", None) or "unknown"))
             try:
                 await ota.show_failed()
             except Exception:

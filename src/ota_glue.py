@@ -158,7 +158,15 @@ class OTAGlue:
         self._prep_session()
         self._progress.last_error = None      # read-only property on self; set _progress
         try:
-            ok, err = self.client.download_update()
+            # Re-check to get a FRESH manifest and pass it explicitly, rather than
+            # relying on client.available_update from an earlier check (which a session
+            # rebuild or an intervening up-to-date check can leave stale/None — then
+            # download_update() returns "No update manifest available" silently).
+            has_update, info = self.client.check_for_updates()
+            if not has_update:
+                self._progress.last_error = "stage: no newer release (%s)" % (info,)
+                return False
+            ok, err = self.client.download_update(info)
             if not ok:
                 self._progress.last_error = "download failed: %s" % (err,)
             return bool(ok)
