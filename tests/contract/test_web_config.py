@@ -241,14 +241,49 @@ async def test_post_url_encoded_color_is_decoded(mock_http_client, settings_fact
     assert app.content_queue.get_content_count() > 0
 
 
-async def test_post_update_reports_outcome(mock_http_client, settings_factory):
-    """POST /update answers with the OTA outcome (200 + reason), not a blind
-    redirect — failures used to be serial-only and undiagnosable in the field."""
+async def test_post_update_checks_only_offers_install(mock_http_client, settings_factory):
+    """POST /update is a CHECK ONLY: with an update available it answers 200 with the
+    version + an Install *form* (a separate confirmed step), NOT the install/reboot
+    itself. Stub the OTA check so it's deterministic + offline (the real check hits
+    the GitHub `live` manifest)."""
     app = await _app(mock_http_client, settings_factory)
+    app.ota.check_update = lambda: (True, "9.9.9", "")     # deterministic, offline
     with _RunningServer(app, _PORT + 3) as srv:
         code, body = _post_body(srv.base, "/update", "")
         assert code == 200
-        assert ("No update installed" in body) or ("Update staged" in body)
+        assert "Update available" in body and "9.9.9" in body
+        assert "/install" in body                          # offers install as its own step
+        assert "Updating&hellip;" not in body              # did NOT start the install itself
+
+
+async def test_check_is_readonly_and_install_schedules(mock_http_client, settings_factory):
+    """check_update() is READ-ONLY (returns the (available, version, message) tuple,
+    never stages); install_update() is the ONLY path that stages, and it schedules a
+    background task (which needs the running asyncio loop the device's server runs
+    inside; the threaded test HTTP server has none, so this drives the functions
+    directly). OTA is stubbed so nothing hits the network or downloads."""
+    from src.web.config_server import check_update, install_update
+    app = await _app(mock_http_client, settings_factory)
+    staged = {"n": 0}
+    async def _noop(): pass
+    app.ota.check_update = lambda: (True, "9.9.9", "")
+    app.ota.show_updating = _noop
+    app.ota.show_failed = _noop
+    def _stage():
+        staged["n"] += 1
+        return True
+    app.ota.stage_update = _stage
+
+    available, version, message = check_update(app)
+    assert available is True and version == "9.9.9"
+    assert "no setter" not in (message or "")               # regression guard
+    assert staged["n"] == 0                                 # a CHECK never stages
+
+    started = install_update(app)                           # inside the async loop
+    assert started is True
+    import asyncio
+    await asyncio.sleep(0.6)                                # let _run() call stage_update
+    assert staged["n"] == 1                                 # install staged exactly once
 
 
 async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):

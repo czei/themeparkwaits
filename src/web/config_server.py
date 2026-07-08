@@ -244,23 +244,13 @@ def _schedule_refresh(app) -> None:
         print("schedule refresh failed:", e)
 
 
-def schedule_update(app) -> str:
-    """Run the OTA check+stage (POST /update). Returns a status string, never raises.
-
-    "staged" means a newer release was downloaded and the device should reboot to
-    install it. Anything else is the reason nothing happened — surfaced to the
-    browser because OTA failures used to be serial-only and invisible in the field.
-    """
-    ota = getattr(app, "ota", None)
-    if ota is None or not hasattr(ota, "schedule_update"):
-        return "OTA unavailable: %s" % (getattr(app, "ota_error", None) or "not constructed")
-    # Free the on-screen ride's intro overlay (its writable bitmap — e.g. the Big
-    # Thunder goat) before the OTA GET: the manifest fetch fails with the same
-    # MemoryError-on-TLS-socket-allocation as the park-data fetch, starved by that
-    # bitmap. The data path fixed it by yielding to the display loop's async
-    # teardown, but this runs synchronously from the web handler and can't yield —
-    # so detach the current content's intro directly (a sync op) and gc, giving the
-    # handshake contiguous heap. (ota_glue.schedule_update also rebuilds the session.)
+def _reclaim_display_mem(app) -> None:
+    """Free the on-screen ride's intro overlay (its writable bitmap — e.g. the Big
+    Thunder goat) + gc before an OTA GET. The manifest/file fetches fail with the
+    same MemoryError-on-TLS-socket-allocation as the park-data fetch, starved by that
+    bitmap. The data path fixed it by yielding to the display loop's async teardown,
+    but this runs synchronously from the web handler and can't yield — so detach the
+    current content's intro directly (a sync op) and double-gc for the handshake."""
     try:
         cq = getattr(app, "content_queue", None)
         cur = cq.get_current_content() if cq is not None else None
@@ -272,21 +262,68 @@ def schedule_update(app) -> str:
         gc.collect()   # second pass frees what the first made collectable
     except Exception as e:
         print("OTA pre-reclaim skipped:", e)
+
+
+def check_update(app):
+    """POST /update: CHECK ONLY. Does a newer release exist? No download — the user
+    decides whether to install (the old fused check+stage auto-installed with no
+    consent). Returns ``(available: bool, version: str|None, message: str)``; never
+    raises. Failures surface to the browser (OTA errors were serial-only before)."""
+    ota = getattr(app, "ota", None)
+    if ota is None or not hasattr(ota, "check_update"):
+        return (False, None, "OTA unavailable: %s"
+                % (getattr(app, "ota_error", None) or "not constructed"))
+    _reclaim_display_mem(app)          # free heap for the manifest GET's TLS socket
     try:
-        staged = bool(ota.schedule_update())
+        return ota.check_update()
     except Exception as e:
-        # Same MemoryError-on-TLS-socket class as the data fetch. Attach a heap note
-        # (free + largest contiguous block) so a repeat failure is diagnosable from
-        # the browser/log without a serial cable, like the data path's [heap:] note.
+        # Same MemoryError-on-TLS-socket class as the data fetch; attach a heap note
+        # so a repeat failure is diagnosable from the browser without a serial cable.
         try:
             from src.api.theme_park_service import _heap_note
             hn = _heap_note()
         except Exception:
             hn = ""
-        return "OTA check failed: %s%s" % (e, (" [heap: " + hn + "]") if hn else "")
-    if staged:
-        return "staged"
-    return getattr(ota, "last_error", None) or "no update available"
+        return (False, None, "check failed: %s%s"
+                % (e, (" [heap: " + hn + "]") if hn else ""))
+
+
+def install_update(app) -> bool:
+    """POST /install: start the user-confirmed install and return immediately so the
+    'update started' page flushes FIRST. A background task then paints
+    'Updating / DO NOT / UNPLUG!' on the panel, downloads the staged files (blocking
+    — the message holds on screen through it), and reboots so the next boot's
+    install_pending() applies them. Returns whether the task was scheduled."""
+    import asyncio
+    ota = getattr(app, "ota", None)
+    if ota is None or not hasattr(ota, "stage_update"):
+        return False
+
+    async def _run():
+        await asyncio.sleep(0.4)               # let the HTTP response flush first
+        try:
+            await ota.show_updating()          # "Updating / DO NOT / UNPLUG!" on the panel
+        except Exception as e:
+            print("show_updating failed:", e)
+        _reclaim_display_mem(app)              # free heap for the download GETs
+        staged = False
+        try:
+            staged = bool(ota.stage_update())  # blocking download; the panel message holds
+        except Exception as e:
+            print("OTA stage failed:", e)
+        if staged:
+            _schedule_reboot(app, delay=0.4)   # reboot -> install_pending applies + reboots
+        else:
+            try:
+                await ota.show_failed()
+            except Exception:
+                pass
+
+    try:
+        asyncio.get_running_loop().create_task(_run())
+        return True
+    except RuntimeError:
+        return False                           # no running loop (tests)
 
 
 def _schedule_reboot(app, delay=2.0):
@@ -550,17 +587,43 @@ class ThemeParkConfigServer:
 
         @server.route("/update", [POST])
         def _update(request):  # noqa: ANN001
-            status = schedule_update(app)
-            if status == "staged":
-                _schedule_reboot(app)
+            # CHECK ONLY: report whether an update exists and let the user choose.
+            available, version, message = check_update(app)
+            if available:
                 body = _styled_page(
-                    "<h3>Update staged</h3><p>Installing now — the sign will "
-                    "reboot and show <b>Installing&hellip; do not unplug!</b>. "
-                    "Give it a minute, then <a class='btn' href='/'>Reload</a>.</p>")
+                    "<h3>Update available</h3>"
+                    "<p>Version <b>%s</b> is ready to install.</p>"
+                    "<p>Installing takes 1&ndash;2 minutes: the sign will show "
+                    "<b>Updating &mdash; do not unplug</b> and reboot, and this page "
+                    "will be unavailable until it finishes.</p>"
+                    "<form method='POST' action='/install'>"
+                    "<button class='btn' type='submit'>Install update</button></form>"
+                    "<p style='margin-top:12px'><a class='btn' href='/'>Not now</a></p>"
+                    % _esc(version or "?"))
             else:
                 body = _styled_page(
-                    "<h3>No update installed</h3><p>%s</p>"
-                    "<p><a class='btn' href='/'>Back</a></p>" % _esc(status))
+                    "<h3>No update</h3><p>%s</p>"
+                    "<p><a class='btn' href='/'>Back</a></p>"
+                    % _esc(message or "You're up to date."))
+            return Response(request, body, content_type="text/html")
+
+        @server.route("/install", [POST])
+        def _install(request):  # noqa: ANN001
+            # User confirmed: kick off the install (background task) and tell them
+            # what's happening BEFORE the connection drops on reboot.
+            started = install_update(app)
+            if started:
+                body = _styled_page(
+                    "<h3>Updating&hellip;</h3>"
+                    "<p><b>Do not unplug the sign.</b> It is downloading the update "
+                    "and will reboot to install &mdash; the sign shows "
+                    "<b>Updating &mdash; do not unplug</b> until it is done.</p>"
+                    "<p>This page is unavailable during the update. Wait about two "
+                    "minutes, then <a class='btn' href='/'>reload</a>.</p>")
+            else:
+                body = _styled_page(
+                    "<h3>Couldn&rsquo;t start the update</h3>"
+                    "<p>OTA is unavailable. <a class='btn' href='/'>Back</a></p>")
             return Response(request, body, content_type="text/html")
 
         return server
