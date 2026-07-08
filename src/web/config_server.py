@@ -254,10 +254,36 @@ def schedule_update(app) -> str:
     ota = getattr(app, "ota", None)
     if ota is None or not hasattr(ota, "schedule_update"):
         return "OTA unavailable: %s" % (getattr(app, "ota_error", None) or "not constructed")
+    # Free the on-screen ride's intro overlay (its writable bitmap — e.g. the Big
+    # Thunder goat) before the OTA GET: the manifest fetch fails with the same
+    # MemoryError-on-TLS-socket-allocation as the park-data fetch, starved by that
+    # bitmap. The data path fixed it by yielding to the display loop's async
+    # teardown, but this runs synchronously from the web handler and can't yield —
+    # so detach the current content's intro directly (a sync op) and gc, giving the
+    # handshake contiguous heap. (ota_glue.schedule_update also rebuilds the session.)
+    try:
+        cq = getattr(app, "content_queue", None)
+        cur = cq.get_current_content() if cq is not None else None
+        detach = getattr(cur, "_detach_intro", None)
+        if detach is not None:
+            detach()
+        import gc
+        gc.collect()
+        gc.collect()   # second pass frees what the first made collectable
+    except Exception as e:
+        print("OTA pre-reclaim skipped:", e)
     try:
         staged = bool(ota.schedule_update())
     except Exception as e:
-        return "OTA check failed: %s" % e
+        # Same MemoryError-on-TLS-socket class as the data fetch. Attach a heap note
+        # (free + largest contiguous block) so a repeat failure is diagnosable from
+        # the browser/log without a serial cable, like the data path's [heap:] note.
+        try:
+            from src.api.theme_park_service import _heap_note
+            hn = _heap_note()
+        except Exception:
+            hn = ""
+        return "OTA check failed: %s%s" % (e, (" [heap: " + hn + "]") if hn else "")
     if staged:
         return "staged"
     return getattr(ota, "last_error", None) or "no update available"
