@@ -69,6 +69,26 @@ class OTAGlue:
                                       session=getattr(http_client, "session", None))
         self._progress = OTAProgressDisplay(client, display=display)
 
+    def _heap_probe(self):
+        """One-line heap snapshot for the serial log around OTA GETs.
+
+        The espidf calls take NO arguments on CircuitPython (verified on-device
+        10.2.1) and report the WHOLE IDF heap including PSRAM — there is no
+        internal-SRAM filter. So read them as an upper bound: a TLS handshake
+        failing with MemoryError while gc_free and idf_largest both look huge
+        means the starved region is the ~320 KB internal SRAM (where mbedtls
+        contexts must live; hardware crypto can't touch PSRAM)."""
+        import gc
+        parts = ["gc_free=%d" % gc.mem_free()]
+        try:
+            import espidf
+            parts.append("idf_free=%d" % espidf.heap_caps_get_free_size())
+            parts.append("idf_largest=%d"
+                         % espidf.heap_caps_get_largest_free_block())
+        except Exception:
+            pass
+        return " ".join(parts)
+
     @property
     def client(self):
         return self._progress.client
@@ -89,33 +109,64 @@ class OTAGlue:
         return getattr(self._progress, "last_error", None)
 
     def _prep_session(self):
-        # The OTA GET opens a TLS context to raw.githubusercontent while the data
-        # session holds its own; on the device that double allocation failed the
-        # handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). We must reclaim that memory
-        # BEFORE the GET, but must NOT use adafruit_connection_manager
-        # connection_manager_close_all(): it frees EVERY managed socket globally —
-        # including the web server's listening socket (which killed the settings
-        # site) and the data session's cached socket, which adafruit_requests then
-        # tries to close again -> "RuntimeError: Socket not managed".
-        #
-        # Instead REBUILD the app's HTTP session: a fresh SocketPool + TLS context
-        # discards the old session's socket/TLS (reclaiming the same RAM) and holds
-        # NO stale reference to double-free — and touches nothing else, so the web
-        # server survives. The data loop reads http_client.session live, so its next
-        # fetch transparently uses the new session too.
+        """Point the OTA client at the app's LIVE session — and NEVER rebuild it.
+
+        History, because this exact spot has now caused two eras of OTA failure:
+        this used to call http_client._rebuild_session() before every GET (fresh
+        SocketPool + TLS context), a defense from the EBUSY socket-leak era.
+        That leak was later properly fixed at the source (responses are closed),
+        but the rebuild survived — and became the disease: every rebuild drops
+        the old pool to the GC WITHOUT native teardown, orphaning its socket and
+        its mbedtls TLS context in the ESP32-S3's ~320 KB internal SRAM (TLS
+        cannot live in the 2 MB PSRAM — hardware crypto can't reach it). Each
+        button press leaked another; the starvation surfaced as
+        "MemoryError" (internal SRAM) or "RuntimeError: Out of sockets"
+        (global socket table) on the NEXT handshake. Observed live: 2 checks
+        passed then 3 consecutive "Out of sockets" as back-to-back checks ate
+        the table. Reusing the one long-lived session lets the pooled GitHub
+        socket be REUSED instead of leaked. Multi-model consensus + on-device
+        falsification, 2026-07-09.
+        """
         if self._http_client is None:
             return
-        import sys
-        if getattr(sys.implementation, "name", "") == "circuitpython":
-            try:
-                self._http_client._rebuild_session()
-            except Exception as e:
-                print("OTA session rebuild skipped:", e)
+        import gc
+        gc.collect()
+        self.client.session = getattr(self._http_client, "session", None)
+
+    def _evict_data_sockets(self):
+        """Properly close every socket pooled by the app's data session, freeing
+        their native TLS contexts (~40 KB of internal SRAM each) ahead of a
+        fresh handshake. This is the consensus 'Phase B': when internal SRAM is
+        too tight to allocate the GitHub TLS context alongside the park API's
+        (mbedtls -0x3F80 PK_ALLOC_FAILED / OSError -16256), evict the park
+        socket first — its fetch loop reconnects on the next 5-minute tick and
+        retries 3x, so a miss there is invisible, unlike the user's button.
+
+        Scoped strictly to the DATA pool: the web server builds its own
+        SocketPool (config_server.py:16), and connection_manager_close_all is
+        per-pool, so the listening socket is untouchable from here. Digs the
+        pool out of the session via vendored-bundle internals — acceptable
+        because the bundle is USB-frozen (version-locked to this flash)."""
+        session = getattr(self._http_client, "session", None)
+        if session is None:
+            return False
+        try:
+            from adafruit_connection_manager import connection_manager_close_all
+            pool = session._connection_manager._socket_pool
+            connection_manager_close_all(socket_pool=pool)
             import gc
             gc.collect()
-        # Pick up the CURRENT session (rebuilt above on device; the one created
-        # during WiFi connect on desktop) so the OTA GET uses a live socket pool.
-        self.client.session = getattr(self._http_client, "session", None)
+            print("OTA: evicted data-session sockets (native TLS contexts freed)")
+            return True
+        except Exception as e:
+            print("OTA: socket eviction skipped:", e)
+            return False
+
+    @staticmethod
+    def _is_transient(reason):
+        """Allocation-shaped failures worth one evict-and-retry."""
+        r = str(reason)
+        return ("MemoryError" in r or "Out of sockets" in r or "OSError" in r)
 
     def check_update(self):
         """CHECK ONLY: is a newer release on the channel? No download — the caller
@@ -123,29 +174,39 @@ class OTAGlue:
         raises. Splitting this out of schedule_update() is what lets the web UI ask
         the user before touching the device (the fused check+download auto-installed)."""
         self._prep_session()
+        print("OTA check heap:", self._heap_probe())
         # NB: OTAGlue.last_error is a read-only property delegating to _progress, so
         # diagnostics state is set on _progress.last_error (assigning self.last_error
         # raises "no setter").
         self._progress.last_error = None
-        try:
-            has_update, info = self.client.check_for_updates()
-        except Exception as e:  # never crash the request
-            msg = "check failed: %s" % (e,)
-            self._progress.last_error = msg
-            return (False, None, msg)
-        if has_update:
-            return (True, getattr(info, "version", None), "")
-        # ``info`` is the reason string. The up-to-date sentinel is the literal
-        # "No updates available" (scrollkit.ota.client.UP_TO_DATE). Compare to the
-        # LITERAL rather than importing the name: a device running an OLDER library
-        # than this app (the atomic-release mismatch — e.g. app 3.5.2 code against an
-        # on-device 0.8.3 that predates the constant) does not export UP_TO_DATE, and
-        # a hard ``from ... import UP_TO_DATE`` there raises "can't import name
-        # UP_TO_DATE" and fails the whole check. The value is stable; the name is not.
-        reason = str(info)
-        if reason == "No updates available":
-            return (False, None, "You're up to date (%s)."
-                    % getattr(self.client, "current_version", "?"))
+        reason = ""
+        for attempt in (1, 2):
+            try:
+                has_update, info = self.client.check_for_updates()
+            except Exception as e:  # never crash the request
+                has_update, info = False, "check failed: %s" % (e,)
+            if has_update:
+                return (True, getattr(info, "version", None), "")
+            # ``info`` is the reason string. The up-to-date sentinel is the literal
+            # "No updates available" (scrollkit.ota.client.UP_TO_DATE). Compare to
+            # the LITERAL rather than importing the name: a device running an OLDER
+            # library than this app does not export UP_TO_DATE, and a hard import
+            # there raises "can't import name UP_TO_DATE" and fails the whole
+            # check. The value is stable; the name is not.
+            reason = str(info)
+            if reason == "No updates available":
+                return (False, None, "You're up to date (%s)."
+                        % getattr(self.client, "current_version", "?"))
+            print("OTA check FAILED (attempt %d), heap: %s"
+                  % (attempt, self._heap_probe()))
+            # Allocation-shaped first failure: free the park TLS context and give
+            # the handshake one more shot with maximum native headroom. The first
+            # attempt deliberately doesn't evict — the warm pooled socket is the
+            # fast path.
+            if attempt == 1 and self._is_transient(reason):
+                self._evict_data_sockets()
+                continue
+            break
         # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.
         self._progress.last_error = reason
         return (False, None, reason)
@@ -156,6 +217,9 @@ class OTAGlue:
         Assumes a prior ``check_update()`` found one; ``download_update()`` re-checks
         if needed. Never raises."""
         self._prep_session()
+        # Unconditional eviction here: a ~2 s re-handshake is nothing next to the
+        # download, and the install path should start with maximum native headroom.
+        self._evict_data_sockets()
         self._progress.last_error = None      # read-only property on self; set _progress
         try:
             # Re-check to get a FRESH manifest and pass it explicitly, rather than
