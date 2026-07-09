@@ -51,7 +51,7 @@ History and rollback targets live in the `release-*` archive branches.
 | `boot.py`                    | **no** — flash-frozen     | the recovery anchor; a power cut rewriting it would be an unrecoverable brick. USB deploy only. |
 | `src/**` (app code, www, fonts, images) | yes (`/src/**`) | the app |
 | `src/.version`               | yes — **stamped at publish** | this is how the device records its new `current_version` |
-| `scrollkit/` (the library)   | **yes** (`/lib/scrollkit/**`) | bundled from the sibling repo at publish; ships as `.py` source so a release that changed both repos lands atomically |
+| `scrollkit/` (the library)   | **yes** (`/lib/scrollkit/**`) | bundled from the sibling repo at publish and compiled to `.mpy` (pinned mpy-cross), so a release that changed both repos lands atomically at half the size |
 | `src/lib/**` (Adafruit `.mpy` bundle) | **no, by default** | flash-frozen; `INCLUDE_LIB=1` to ship it |
 | `secrets.py`, `settings.json`, `error_log`, caches | **never** | device-owned / private |
 
@@ -67,11 +67,23 @@ weren't true of a naive full-bundle push:
   the whole tree — regardless of total manifest size. A full-manifest download would
   not even fit the device's thin free space (`2 ×` the combined app+library manifest
   exceeds it); the delta does.
-- **`scrollkit` ships as `.py` source, not `.mpy`.** So it has no "must match the
-  CircuitPython core" constraint — that constraint is what keeps the **Adafruit
-  `src/lib` bundle** (`.mpy`) frozen: bumping it needs a supervised USB reflash, so
-  `INCLUDE_LIB` stays `0`. An interrupted apply still rolls back via `boot.py` +
+- **`scrollkit` ships as compiled `.mpy`** — roughly half the bytes of `.py`
+  source, which halves both its resident flash footprint and every future
+  library delta (the thing that makes big library jumps fit the free-space
+  guard). `publish.sh` compiles it with the **pinned** CircuitPython mpy-cross
+  from `scripts/fetch_mpy_cross.sh` and drops the desktop-only `ota/publish.py`
+  from the payload. An interrupted apply still rolls back via `boot.py` +
   `/backup` (created files are deleted so no orphans remain).
+
+  **The pin is a real constraint:** `.mpy` bytecode must match the CircuitPython
+  core family on the device (format stable across CP 9.x/10.x; CP 8.x can't load
+  it). Moving the device past CP 10.x means bumping `MPY_CROSS_VERSION` (+ URLs
+  and sha256s) in `scripts/fetch_mpy_cross.sh` and re-publishing. Note the PyPI
+  `mpy-cross` package is MicroPython's compiler — its bytecode is REJECTED by
+  CircuitPython; only the pinned Adafruit binaries work. `MPY=0 scripts/publish.sh …`
+  is the escape hatch to ship plain `.py` source (and `MPY=1 scripts/deploy.sh`
+  puts the compiled layout on the board over USB — the rsync `--delete` makes
+  switching layouts just a redeploy).
 
 ## Versioning
 

@@ -34,6 +34,10 @@
 #   LIVE_BRANCH      channel branch to publish to (default: live)
 #   PUBLISH_REMOTE   git URL to push to (default: this repo's `origin` URL)
 #   DRY_RUN=1        same as --dry-run
+#   MPY=0            ship scrollkit as .py source instead of compiled .mpy
+#                    (default 1: compile with the pinned CircuitPython mpy-cross
+#                     from scripts/fetch_mpy_cross.sh — halves the library's
+#                     flash footprint and every future OTA delta)
 #
 # Copyright (c) 2024-2026 Michael Czeiszperger
 set -euo pipefail
@@ -129,9 +133,10 @@ python3 "$MAKE_MANIFEST" "$TREE/code.py" "$OUT" --root /    --version "$VERSION"
 
 # 4b) bundle the ScrollKit library under /lib/scrollkit so a release that changed
 #     BOTH repos lands ATOMICALLY (the app may import a class that only exists in
-#     the updated library — ImportError otherwise). scrollkit ships as .py source;
-#     the device's delta-apply downloads only the files whose checksum changed, so
-#     an unchanged library costs nothing and a changed one ships just its diff.
+#     the updated library — ImportError otherwise). scrollkit ships as compiled
+#     .mpy (see 4b-mpy below); the device's delta-apply downloads only the files
+#     whose checksum changed, so an unchanged library costs nothing and a changed
+#     one ships just its diff.
 #     Mirror deploy.sh's excludes (simulator/ + dev/ are desktop-only) via a temp
 #     copy — the same idiom as `rm -rf src/lib` above. Accumulates into the same
 #     manifest; the leak-check + preflight below then cover the scrollkit files.
@@ -139,7 +144,51 @@ SK_TMP="$WORK/scrollkit"
 mkdir -p "$SK_TMP"
 cp -R "$SCROLLKIT_SRC/scrollkit/." "$SK_TMP/"
 rm -rf "$SK_TMP/simulator" "$SK_TMP/dev"
+# ota/publish.py is the desktop/CI-side publisher (raises ImportError on the
+# device) — it has no business in the payload.
+rm -f "$SK_TMP/ota/publish.py"
 find "$SK_TMP" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+
+# 4b-mpy) compile scrollkit .py -> .mpy with the PINNED CircuitPython mpy-cross
+#     (scripts/fetch_mpy_cross.sh — the pin must match the device's CP core).
+#     Roughly halves the library's bytes on flash AND every future OTA delta.
+#     MPY=0 is the escape hatch to ship plain .py source.
+MPY="${MPY:-1}"
+if [ "$MPY" = "1" ]; then
+  MPY_CROSS_BIN="$("$SCRIPT_DIR/fetch_mpy_cross.sh")"
+  PY_BYTES="$(du -sk "$SK_TMP" | cut -f1)"
+  PY_COUNT="$(find "$SK_TMP" -name '*.py' | wc -l | tr -d ' ')"
+  while IFS= read -r -d '' f; do
+    "$MPY_CROSS_BIN" "$f" -o "${f%.py}.mpy"
+    rm "$f"
+  done < <(find "$SK_TMP" -name '*.py' -print0)
+  # Sanity: nothing un-compiled, count parity, and every file carries
+  # CircuitPython's .mpy header b'C\x06' — a MicroPython-built mpy-cross
+  # (e.g. the PyPI package) emits b'M...' and would brick the import.
+  python3 - "$SK_TMP" "$PY_COUNT" <<'PY'
+import os, sys
+root, want = sys.argv[1], int(sys.argv[2])
+mpy = []
+for dirpath, _dirs, files in os.walk(root):
+    for name in files:
+        path = os.path.join(dirpath, name)
+        if name.endswith('.py'):
+            sys.exit("mpy sanity FAILED: source survived the compile: %s" % path)
+        if name.endswith('.mpy'):
+            mpy.append(path)
+if len(mpy) != want:
+    sys.exit("mpy sanity FAILED: %d .py in, %d .mpy out" % (want, len(mpy)))
+for path in mpy:
+    with open(path, 'rb') as f:
+        head = f.read(2)
+    if head != b'C\x06':
+        sys.exit("mpy sanity FAILED: %s header %r is not CircuitPython bytecode "
+                 "(magic 'C', MPY_VERSION 6) — wrong mpy-cross?" % (path, head))
+print("==> mpy OK: %d modules compiled" % len(mpy))
+PY
+  echo "==> scrollkit payload: ${PY_BYTES}K of .py -> $(du -sk "$SK_TMP" | cut -f1)K of .mpy"
+fi
+
 python3 "$MAKE_MANIFEST" "$SK_TMP" "$OUT" --root /lib/scrollkit --version "$VERSION"
 
 # 4c) preflight: run the built manifest through the REAL device-side parser +
