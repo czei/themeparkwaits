@@ -47,28 +47,43 @@ History and rollback targets live in the `release-*` archive branches.
 
 | Path                         | Ships via OTA?            | Why |
 |------------------------------|---------------------------|-----|
-| `code.py`, `boot.py`         | yes (`/code.py`, `/boot.py`) | app entry |
+| `code.py`                    | yes (`/code.py`)          | app entry |
+| `boot.py`                    | **no** — flash-frozen     | the recovery anchor; a power cut rewriting it would be an unrecoverable brick. USB deploy only. |
 | `src/**` (app code, www, fonts, images) | yes (`/src/**`) | the app |
 | `src/.version`               | yes — **stamped at publish** | this is how the device records its new `current_version` |
+| `scrollkit/` (the library)   | **yes** (`/lib/scrollkit/**`) | bundled from the sibling repo at publish and compiled to `.mpy` (pinned mpy-cross), so a release that changed both repos lands atomically at half the size |
 | `src/lib/**` (Adafruit `.mpy` bundle) | **no, by default** | flash-frozen; `INCLUDE_LIB=1` to ship it |
-| `scrollkit/` (the library)   | **no — not in this repo** | flash-frozen; copied to device `/lib/` at flash time |
 | `secrets.py`, `settings.json`, `error_log`, caches | **never** | device-owned / private |
 
-**Why libraries are flash-frozen (deliberate — don't "fix" this):** the primary
-reason is the **install window**. A large payload means a long
-"Installing… do not unplug!" period, and impatient users *will* yank power mid-write
-— a half-written filesystem can brick the device. Shipping app source only (~tens of
-KB) keeps that window short and the update safe. Shipping the 80-file Adafruit bundle
-(~400 KB) would multiply it. Secondary reasons: the bundle and `scrollkit` are `.mpy`
-matched to the CircuitPython core (bumping them needs a USB reflash anyway), and a
-smaller payload means a smaller on-device backup set during apply (storage-headroom
-matters on the S3). When you *do* bump a bundled library, do it on a supervised USB
-reflash — not OTA. `INCLUDE_LIB=1` exists only for a rare deliberate full-bundle push.
+**Why `scrollkit` now ships (and why the Adafruit bundle still doesn't):** features
+are often "universal" — the app imports something that only exists in the updated
+library, so shipping app source alone would `ImportError` on boot. `scrollkit` is
+bundled into the payload under `/lib/scrollkit/**`. Two things make this safe that
+weren't true of a naive full-bundle push:
 
-> ⚠️ **Decision (confirmed by the maintainer): keep `INCLUDE_LIB=0`.** OTA ships app
-> source only; `src/lib` and `scrollkit` are flash-frozen. The publisher supports
-> `INCLUDE_LIB=1` for the rare full-bundle release, but the impatient-user / unplug
-> risk above is the reason not to make it the default.
+- **Delta apply.** The device downloads / backs up / installs only the files whose
+  on-device sha256 differs from the manifest, so the "Installing… do not unplug!"
+  window and the on-device backup set stay small — a handful of changed files, not
+  the whole tree — regardless of total manifest size. A full-manifest download would
+  not even fit the device's thin free space (`2 ×` the combined app+library manifest
+  exceeds it); the delta does.
+- **`scrollkit` ships as compiled `.mpy`** — roughly half the bytes of `.py`
+  source, which halves both its resident flash footprint and every future
+  library delta (the thing that makes big library jumps fit the free-space
+  guard). `publish.sh` compiles it with the **pinned** CircuitPython mpy-cross
+  from `scripts/fetch_mpy_cross.sh` and drops the desktop-only `ota/publish.py`
+  from the payload. An interrupted apply still rolls back via `boot.py` +
+  `/backup` (created files are deleted so no orphans remain).
+
+  **The pin is a real constraint:** `.mpy` bytecode must match the CircuitPython
+  core family on the device (format stable across CP 9.x/10.x; CP 8.x can't load
+  it). Moving the device past CP 10.x means bumping `MPY_CROSS_VERSION` (+ URLs
+  and sha256s) in `scripts/fetch_mpy_cross.sh` and re-publishing. Note the PyPI
+  `mpy-cross` package is MicroPython's compiler — its bytecode is REJECTED by
+  CircuitPython; only the pinned Adafruit binaries work. `MPY=0 scripts/publish.sh …`
+  is the escape hatch to ship plain `.py` source (and `MPY=1 scripts/deploy.sh`
+  puts the compiled layout on the board over USB — the rsync `--delete` makes
+  switching layouts just a redeploy).
 
 ## Versioning
 
@@ -137,12 +152,17 @@ fielded devices to move.
 
 ## How apply / restore behaves on the device (for reference)
 
-- `/update` (web) or a boot check → `OTAGlue.schedule_update()` checks + downloads
-  to the staging dir, then reboots.
+- `/update` (web) or a boot check → `OTAGlue.schedule_update()` checks, computes the
+  **delta** (only files whose on-device sha256 differs from the manifest), downloads
+  just those to the staging dir, then reboots. The free-space guard is sized to the
+  delta (`2 × delta + headroom`), not the whole manifest.
 - Next `setup()` → `install_pending()` shows **"Installing… do not unplug!"**, backs
-  up current files, installs, and reboots into the new version. On failure it
-  restores from backup — the device stays bootable and `secrets.py` / `settings.json`
-  are untouched (they're never in the payload).
+  up the changed files, installs them (writing `/src/.version` last as the commit
+  marker), verifies the **whole** tree against the manifest, and reboots into the new
+  version. On failure — or a power cut, via `boot.py` — it restores the changed files
+  from `/backup` **and deletes any files the update newly created** (they have no
+  backup), so a rolled-back tree has no orphans. `secrets.py` / `settings.json` are
+  untouched (never in the payload).
 - Verify on hardware: success path (T041), corrupt/restore path (T042),
   credentials+settings survive (T042) — see `specs/001-this-project-is/tasks.md`.
 

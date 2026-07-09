@@ -23,6 +23,9 @@
 # Env:
 #   CIRCUITPY       mount point (default: /Volumes/CIRCUITPY)
 #   SCROLLKIT_SRC   path to the scrollkit package (default: ../ScrollKit Library/src/scrollkit)
+#   MPY=1           deploy scrollkit compiled to .mpy — the same layout publish.sh
+#                   ships OTA (~half the flash). Default: plain .py source, which
+#                   keeps line numbers in device tracebacks for debugging.
 #
 # Copyright (c) 2024-2026 Michael Czeiszperger
 set -euo pipefail
@@ -64,11 +67,35 @@ if [ -f "$REPO_ROOT/src/.version" ]; then
   [ "$DRY" = 0 ] && cp "$REPO_ROOT/src/.version" "$DEST/src/.version"
 fi
 
+# MPY=1: mirror what publish.sh ships OTA — compile scrollkit to .mpy with the
+# pinned CircuitPython mpy-cross (and drop the desktop-only ota/publish.py), then
+# sync the compiled tree instead of the source. The --delete rsync below prunes
+# the other layout's files, so switching .py <-> .mpy is just a redeploy.
+if [ "${MPY:-0}" = "1" ]; then
+  MPY_CROSS_BIN="$("$REPO_ROOT/scripts/fetch_mpy_cross.sh")"
+  SK_BUILD="$WORK/scrollkit-mpy"
+  mkdir -p "$SK_BUILD"
+  cp -R "$LIB_SRC/." "$SK_BUILD/"
+  rm -rf "$SK_BUILD/simulator" "$SK_BUILD/dev" "$SK_BUILD/ota/publish.py"
+  find "$SK_BUILD" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+  while IFS= read -r -d '' f; do
+    # -s embeds the stable on-device path (not the temp build path) so locally
+    # deployed .mpy bytes are byte-identical to what publish.sh ships OTA —
+    # keeping the device's delta against `live` empty when nothing changed.
+    "$MPY_CROSS_BIN" -s "lib/scrollkit/${f#"$SK_BUILD"/}" "$f" -o "${f%.py}.mpy"
+    rm "$f"
+  done < <(find "$SK_BUILD" -name '*.py' -print0)
+  LIB_SRC="$SK_BUILD"
+  SK_LABEL=".mpy, compiled"
+else
+  SK_LABEL=".py source"
+fi
+
 # scrollkit/simulator (pygame) and scrollkit/dev (test harness) are desktop-only
 # — the board never imports them (scrollkit does no eager imports). Excluding them
 # drops the sync from ~2.9M to ~1M and saves device flash. --delete prunes any that
 # a previous run already copied.
-echo "==> library: scrollkit  ->  $DEST/lib/scrollkit  (excl simulator/ + dev/; --delete prunes stale)"
+echo "==> library: scrollkit ($SK_LABEL)  ->  $DEST/lib/scrollkit  (excl simulator/ + dev/; --delete prunes stale)"
 [ "$DRY" = 0 ] && mkdir -p "$DEST/lib/scrollkit"
 # --delete-excluded (not just --delete): rsync PROTECTS excluded paths from plain
 # --delete, so simulator/dev already on the device would survive. This prunes them.
@@ -87,6 +114,16 @@ done
 if [ "$DRY" = 1 ]; then
   echo "== DRY RUN complete — re-run without --dry-run to deploy =="
   exit 0
+fi
+
+# macOS spawns AppleDouble (._*) metadata files alongside everything it writes
+# to FAT — one full deploy left 260 of them (~1 MB of 4 KB clusters) eating the
+# board's flash. The rsync excludes can't stop them (macOS creates them during
+# the copy, not rsync); purge them after the fact.
+JUNK="$(find "$DEST" \( -name '._*' -o -name '.DS_Store' \) -type f | wc -l | tr -d ' ')"
+if [ "$JUNK" != "0" ]; then
+  echo "==> purging $JUNK macOS metadata file(s) (._* / .DS_Store)"
+  find "$DEST" \( -name '._*' -o -name '.DS_Store' \) -type f -delete
 fi
 sync
 echo "==> done. Let the board finish reloading, then open the serial console to watch boot:"

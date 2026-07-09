@@ -118,6 +118,40 @@ def write(name, g):
     print("wrote", path)
 
 
+def write_sheet(name, grids):
+    """Compose N char-grids (each 64x32) side by side into ONE indexed strip BMP at
+    src/images/rides/<name>.bmp — a cel spritesheet for CelWalkAnimator's tile-indexed
+    TileGrid. All tiles share one palette (sky=index 0, so make_transparent(0) is correct on
+    both device and simulator); the global top-left pixel is sky by the row-0-blank rule.
+    Reuses make_ride_image's char->RGB PALETTE so the look matches the flat design path."""
+    from PIL import Image
+    import make_ride_image as mri            # sibling in tools/ (on sys.path when run as a script)
+
+    sky = mri.PALETTE[mri.SKY]
+    colors = [sky]
+    idx_of = {sky: 0}
+    n = len(grids)
+    img = Image.new("P", (W * n, H), 0)
+    for ti, g in enumerate(grids):
+        for y in range(H):
+            row = g[y]
+            for x in range(W):
+                rgb = mri.PALETTE.get(row[x], sky)
+                if rgb not in idx_of:
+                    idx_of[rgb] = len(colors)
+                    colors.append(rgb)
+                img.putpixel((ti * W + x, y), idx_of[rgb])
+    while len(colors) < 3:                    # avoid a 1-bit BMP (see make_ride_image._build)
+        colors.append((1, 1, 1))
+    flat = []
+    for rgb in colors:
+        flat += list(rgb)
+    img.putpalette(flat)
+    out = os.path.join(mri.OUT_DIR, name + ".bmp")
+    img.save(out)
+    print("wrote %s (%dx%d, %d tiles, %d colors)" % (out, W * n, H, n, len(colors)))
+
+
 # ---------------------------------------------------------------- GHOST
 def ghost():
     g = grid()
@@ -239,11 +273,6 @@ def goat():
     # beard hanging under the chin
     vline(g, 14, 15, 19, "w")
     put(g, 15, 18, "w"); put(g, 13, 17, "w")
-    # the FAMOUS stick of dynamite clenched in his teeth (fuse curling up-left;
-    # the intro animation chews the head — and the stick — up and down, with
-    # fuse sparks from an emitter overlay)
-    rect(g, 7, 13, 12, 14, "r")
-    put(g, 6, 12, "N"); put(g, 5, 11, "N")
     # one bold backward-curving horn (thick)
     line(g, 21, 10, 26, 9, "w"); line(g, 22, 11, 27, 10, "w")
     line(g, 26, 9, 28, 12, "w"); line(g, 27, 10, 29, 13, "w")
@@ -255,6 +284,13 @@ def goat():
     # little hooves
     for lx in (27, 31, 38, 42):
         put(g, lx, 28, "N")
+    # stick of dynamite clenched in the mouth, pointing forward (left).
+    # Drawn last so it sits on top of the muzzle; the free (left) end carries
+    # a lit fuse. Kept within cols 3-12 so the head-nod hinge box encloses it.
+    rect(g, 6, 14, 12, 15, "r")               # red cylinder at the mouth line
+    put(g, 5, 13, "O"); put(g, 4, 12, "O")    # short orange wick off the tip
+    put(g, 4, 11, "y"); put(g, 3, 11, "y")    # bright yellow spark
+    put(g, 3, 10, "O")                        # ember flick
     write("big_thunder_goat", g)
 
 
@@ -707,6 +743,45 @@ def elephant():
     write("elephant", g)
 
 
+# ---------------------------------------------------------------- GIRAFFE (Kilimanjaro Safaris)
+def giraffe():
+    g = grid()
+    # savanna ground
+    hline(g, 2, 61, 31, "g")
+    for x in range(3, 61, 4):
+        put(g, x, 30, "g")
+    # body (tan), front (left) raised into a sloping back
+    ellipse(g, 38, 18, 12, 5, "T")
+    rect(g, 28, 15, 48, 21, "T")
+    rect(g, 28, 14, 34, 15, "T")              # withers
+    # long legs, dark hooves + lighter lower "socks"
+    for lx in (30, 34, 44, 48):
+        rect(g, lx, 21, lx + 1, 29, "T")
+        rect(g, lx, 27, lx + 1, 29, "w")
+        put(g, lx, 30, "N"); put(g, lx + 1, 30, "N")
+    # tail + tuft
+    line(g, 49, 16, 52, 23, "T")
+    put(g, 52, 23, "N"); put(g, 52, 24, "N")
+    # long neck, leaning left to the head
+    thick_line(g, 28, 17, 21, 5, "T", 5)
+    # head + muzzle (left), ossicones, ear, eye, nostril
+    ellipse(g, 20, 4, 3, 2, "T")
+    rect(g, 14, 4, 20, 6, "T")
+    put(g, 19, 1, "N"); put(g, 19, 2, "T")
+    put(g, 22, 1, "N"); put(g, 22, 2, "T")
+    line(g, 23, 3, 25, 4, "T")
+    put(g, 17, 4, "K")
+    put(g, 14, 5, "N")
+    # short mane down the back of the neck
+    for i in range(0, 12):
+        put(g, 29 - i // 2, 17 - i, "n")
+    # reticulated patches (brown)
+    for (x0, y0, w, h) in [(31, 16, 3, 2), (36, 18, 3, 2), (41, 16, 3, 2),
+                           (45, 19, 2, 2), (25, 12, 2, 2), (23, 9, 2, 2), (33, 19, 2, 1)]:
+        rect(g, x0, y0, x0 + w - 1, y0 + h - 1, "n")
+    write("giraffe", g)
+
+
 # ---------------------------------------------------------------- TRON LIGHTCYCLE
 def tron():
     g = grid()
@@ -908,13 +983,6 @@ def gems():
     for sx, sy in ((27, 8), (41, 6), (12, 12), (52, 11)):    # sparkles
         put(g, sx, sy, "w"); put(g, sx, sy - 1, "o")
     write("gems", g)
-
-
-# ---------------------------------------------------------------- GLASS SLIPPER
-# glass_slipper is NOT generated here: it is TRACED from a user reference image via
-#   python tools/trace_ref_outline.py <ref>.jpg --name glass_slipper --crop 180,175,590,480
-# (white-filled silhouette + thin blue outline). Re-running this generator must not
-# overwrite that traced designs/glass_slipper.txt, so there is no glass_slipper() here.
 
 
 def magic_carpet():
@@ -1576,10 +1644,15 @@ def monkey():
 
 
 # ---------------------------------------------------------------- OSTRICH (Ostrich Stampede)
-def ostrich():
-    g = grid()
-    # round body of dark plumes
-    ellipse(g, 27, 15, 11, 7, "S")
+# Split into body + legs so the walk-cycle spritesheet (ostrich_walk_sheet) can reuse a
+# pixel-identical body across frames and vary ONLY the legs. The legs attach at fixed hips
+# under the body; a pose is just the two foot positions.
+_OSTRICH_HIP_L, _OSTRICH_HIP_R, _OSTRICH_HIP_Y = 25, 31, 21
+
+
+def _ostrich_body(g):
+    """Everything but the legs — identical in every walk frame (no jitter)."""
+    ellipse(g, 27, 15, 11, 7, "S")                 # round body of dark plumes
     ellipse(g, 26, 18, 5, 3, "w")                  # folded white wing (low/central)
     ellipse(g, 18, 16, 4, 3, "w")                  # white tail tuft (rear, left)
     # very long thin S-neck to a SMALL head (tiny beak -> not a toucan)
@@ -1589,12 +1662,48 @@ def ostrich():
     ellipse(g, 52, 3, 2, 2, "w")                   # small head
     put(g, 54, 3, "o")                             # tiny beak
     put(g, 52, 2, "N")                             # eye
-    # two long thick legs with feet (long legs = the ostrich tell)
-    thick_line(g, 25, 21, 22, 31, "w", 2)
-    thick_line(g, 31, 21, 34, 31, "w", 2)
-    for fx in (21, 23, 33, 35):
-        put(g, fx, 31, "o")                        # splayed feet
+
+
+def _ostrich_legs(g, lf, rf):
+    """Two long thick legs from the fixed hips to feet ``lf``/``rf`` (each an (x, y)),
+    with splayed gold feet. A lifted foot (y < 31) draws a shorter, raised leg."""
+    thick_line(g, _OSTRICH_HIP_L, _OSTRICH_HIP_Y, lf[0], lf[1], "w", 2)
+    thick_line(g, _OSTRICH_HIP_R, _OSTRICH_HIP_Y, rf[0], rf[1], "w", 2)
+    for (fx, fy) in (lf, rf):
+        put(g, fx - 1, fy, "o")
+        put(g, fx + 1, fy, "o")
+
+
+def ostrich():
+    g = grid()
+    _ostrich_body(g)
+    _ostrich_legs(g, (22, 31), (34, 31))           # static splayed stance (unchanged art)
     write("ostrich", g)
+
+
+# One walk cycle, 4 frames (each = one foot pair). Travel is L->R (+x): each leg plants a
+# foot forward, drags it BACKWARD relative to the body through 3 planted frames, then LIFTS
+# (y=29) and swings forward — so the planted foot reads as staying put on the ground while
+# the sprite translates right (no "moonwalk"). The two legs run 180 deg out of phase:
+# left lifts on frame 3, right lifts on frame 1; frames 0 and 2 are double-support (both down).
+_OSTRICH_WALK_POSES = [
+    ((28, 31), (30, 31)),   # f0 double-support: left plants forward, right planted back
+    ((25, 31), (33, 29)),   # f1 right lifts + swings forward, left drags back
+    ((22, 31), (36, 31)),   # f2 double-support: right plants forward, left dragged back
+    ((26, 29), (33, 31)),   # f3 left lifts + swings forward, right drags back
+]
+
+
+def ostrich_walk_sheet():
+    """Write the ostrich walk-cycle spritesheet: a horizontal strip of the 4 poses (one
+    palette, sky=index 0) to src/images/rides/ostrich_walk.bmp, consumed by CelWalkAnimator."""
+    grids = []
+    for lf, rf in _OSTRICH_WALK_POSES:
+        g = grid()
+        _ostrich_body(g)
+        _ostrich_legs(g, lf, rf)
+        grids.append(g)
+    write_sheet("ostrich_walk", grids)
 
 
 # ================================================================ BATCH 11 (worldwide Disney)
@@ -2153,7 +2262,58 @@ def waves():
     write("waves", g)
 
 
+# ---------------------------------------------------------------- ROCK 'N' ROLLER COASTER
+# A single Gibson Les Paul: single-cutaway solid body, cream binding, twin humbuckers,
+# open-book headstock. The body is one flat fill ("R"); the rich pass paints the cherry
+# sunburst onto it with a radial light (bright amber centre -> dark edge). Materials map
+# to shared ramps in gen_rich_icons.rock_roller(): R=sunburst top, w=cream binding/
+# pickguard/inlays, N=rosewood fretboard, s=steel frets/strings/bridge, K=ink
+# (humbuckers/headstock), o=gold (tuners/knobs/pole pieces).
+def rock_roller():
+    g = grid()
+    cy = 16                                      # horizontal centre line
+    # Drawn STRAIGHT-ON (not in perspective): headstock left, neck across, body face-on
+    # right, symmetric about cy. Reads far better than a 3/4 angle at 64x32.
+    # ---- Open-book headstock + 3+3 gold tuners ----
+    ellipse(g, 4, cy, 3, 4, "K")                 # black headstock plate
+    put(g, 1, cy - 1, "K"); put(g, 1, cy + 1, "K")
+    for ty in (cy - 5, cy + 5):                  # gold tuners, 3 per side
+        put(g, 2, ty, "o"); put(g, 4, ty, "o"); put(g, 6, ty, "o")
+    # ---- Neck / rosewood fretboard (horizontal) ----
+    rect(g, 8, cy - 3, 30, cy + 3, "N")          # fretboard, 7 px tall
+    for fx in (11, 14, 17, 20, 23, 26, 29):      # steel frets
+        vline(g, fx, cy - 3, cy + 3, "s")
+    for ix in (12, 18, 24):                      # trapezoid pearl inlays
+        put(g, ix, cy - 1, "w"); put(g, ix, cy + 1, "w")
+    # ---- Body: cream binding, then sunburst maple top (symmetric about cy) ----
+    ellipse(g, 46, cy, 15, 13, "w")              # binding (lower/main bout)
+    ellipse(g, 36, cy, 10, 11, "w")              # binding (upper bout by the neck)
+    ellipse(g, 46, cy, 14, 12, "R")              # sunburst top (main)
+    ellipse(g, 36, cy, 9, 10, "R")               # sunburst top (upper bout)
+    ellipse(g, 31, cy - 8, 4, 4, " ")            # single-cutaway bay (upper-left)
+    # ---- Strings (only over the body, nut side -> bridge) ----
+    for sy in (cy - 2, cy, cy + 2):
+        line(g, 31, sy, 49, sy, "s")
+    # ---- Pickups + hardware ----
+    ellipse(g, 38, cy + 8, 5, 2, "w")            # cream pickguard (lower/treble side)
+    rect(g, 34, cy - 4, 36, cy + 4, "K")         # neck humbucker (upright bar)
+    rect(g, 40, cy - 4, 42, cy + 4, "K")         # bridge humbucker
+    for py in (cy - 3, cy - 1, cy + 1, cy + 3):
+        put(g, 35, py, "o"); put(g, 41, py, "o")  # gold pole pieces
+    vline(g, 46, cy - 4, cy + 4, "s")            # tune-o-matic bridge
+    vline(g, 49, cy - 4, cy + 4, "s")            # stopbar tailpiece
+    for kx, ky in ((52, cy + 6), (56, cy + 7), (54, cy + 3), (58, cy + 4)):
+        put(g, kx, ky, "o")                      # 4 gold top-hat knobs
+    write("rock_roller", g)
+
+
 if __name__ == "__main__":
+    import sys
+    # `python tools/gen_ride_designs.py ostrich_walk` -> write only the walk spritesheet BMP
+    # (a src/images/rides/ asset), NOT the full designs/*.txt regen below.
+    if len(sys.argv) > 1 and sys.argv[1] == "ostrich_walk":
+        ostrich_walk_sheet()
+        sys.exit(0)
     ghost()
     pirate_ship()
     jungle_cruise()
@@ -2179,6 +2339,7 @@ if __name__ == "__main__":
     spaceship_earth()
     everest()
     elephant()
+    giraffe()
     tron()
     falcon()
     # batch 5
@@ -2192,7 +2353,6 @@ if __name__ == "__main__":
     big_ben()
     magic_carpet()
     gems()
-    # glass_slipper() is traced separately (tools/trace_ref_outline.py) — not generated here
     jack_in_box()
     mop_bucket()
     # batch 7
@@ -2254,3 +2414,5 @@ if __name__ == "__main__":
     waves()
     # batch 14 (art-direction round 4)
     poison_apple()
+    # batch 15 (Disney's Hollywood Studios)
+    rock_roller()

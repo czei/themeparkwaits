@@ -38,6 +38,34 @@ def test_manifest_excludes_private_and_hashes(tmp_path):
     assert (out / "manifest.json").exists()
 
 
+def test_manifest_roundtrips_through_device_validator(tmp_path):
+    """THE contract test whose absence shipped the missing-`required` outage:
+    the generator (this repo) and validator (scrollkit, frozen on the device)
+    live in different repos with no shared schema — the generator's output must
+    be accepted by the REAL device-side parser."""
+    import json
+    from scripts.make_manifest import build_manifest
+    from scrollkit.ota.manifest import UpdateManifest
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "app.py").write_text("print('hi')")
+    (src / ".version").write_text("1.96\n")
+    out = tmp_path / "out"
+    build_manifest(str(src), str(out), device_root="/src", version="1.96")
+
+    data = json.loads((out / "manifest.json").read_text())
+    manifest = UpdateManifest.from_dict(data)
+    ok, err = manifest.validate()
+    assert ok, f"device validator rejected the generated manifest: {err}"
+    assert manifest.compare_version("0.0.1") > 0
+
+    # Old fielded validators hard-require the per-file key — keep emitting it.
+    assert all(info.get("required") is True for info in data["files"].values())
+    assert list(data["files"]) == sorted(data["files"])   # deterministic output
+    assert "pre_update_scripts" not in data               # removed exec() surface
+
+
 def test_ota_glue_constructs_and_reads_version():
     from src.ota_glue import OTAGlue, read_current_version
 

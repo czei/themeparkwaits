@@ -29,6 +29,36 @@ def _close_response(response):
             pass
 
 
+def _largest_block():
+    """Best-effort size (bytes) of the largest contiguous block we can allocate.
+
+    The field fetch failures are ``MemoryError`` raised while allocating the TLS
+    *socket* (adafruit_connection_manager._get_connected_socket), not while
+    reading the body — and CircuitPython's GC is non-compacting, so
+    ``gc.mem_free()`` can report plenty of free heap while no single ~16 KB span
+    survives the display's intro-bitmap churn. Probing a few TLS-relevant sizes
+    tells fragmentation (ample free, small largest block) apart from exhaustion
+    (little free at all), which decides the real fix. Each probe is freed at once;
+    returns 0 if even 4 KB won't allocate, -1 where ``bytearray`` isn't the limit."""
+    for size in (32768, 24576, 20480, 16384, 12288, 8192, 4096):
+        try:
+            probe = bytearray(size)
+        except MemoryError:
+            continue
+        else:
+            del probe
+            return size
+    return 0
+
+
+def _heap_note():
+    """One-line heap snapshot for the log, or '' where gc.mem_free is absent (desktop)."""
+    try:
+        return "%d free, largest block >=%d B" % (gc.mem_free(), _largest_block())
+    except Exception:      # gc.mem_free() is device-only; desktop/tests skip the note
+        return ""
+
+
 class ThemeParkService:
     """
     Service for fetching and managing theme park data
@@ -207,7 +237,19 @@ class ThemeParkService:
                 url = f"https://api.themeparks.wiki/v1/entity/{park_id}/live"
                 logger.info(f"Fetching data for park ID {park_id} from {url} (attempt {retry_count + 1}/{max_retries})")
 
-                gc.collect()  # free heap before the ~90 KB response + parse spike
+                # Reclaim heap before the TLS socket + ~90 KB response. The yield
+                # between the two collects is the actual fix for the field
+                # MemoryError on the socket allocation: update_data() tears down the
+                # on-screen ride right before this fetch, but the content's async
+                # stop() — which frees its intro overlay layers and the animator's
+                # writable bitmap copy (e.g. the Big Thunder goat) — only runs when
+                # we yield to the display loop. Without the yield those bitmaps are
+                # still held when adafruit allocates the TLS socket, starving it; the
+                # yield lets them free and the second collect reclaims them. Verified
+                # on hardware: every-attempt MemoryError -> 11/11 fetches, ~1.5 MB free.
+                gc.collect()
+                await asyncio.sleep(0)
+                gc.collect()
                 response = await self.http_client.get(url)
 
                 if not response or not hasattr(response, 'text'):
@@ -249,7 +291,10 @@ class ThemeParkService:
                     continue
 
             except Exception as e:
-                logger.error(e, f"Error fetching park data for park ID {park_id} (attempt {retry_count + 1})")
+                note = _heap_note()
+                logger.error(e, "Error fetching park data for park ID %s (attempt %d)%s"
+                             % (park_id, retry_count + 1,
+                                (" [heap: " + note + "]") if note else ""))
                 retry_count += 1
                 if retry_count < max_retries:
                     await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s

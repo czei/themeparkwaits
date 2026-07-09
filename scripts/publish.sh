@@ -34,6 +34,10 @@
 #   LIVE_BRANCH      channel branch to publish to (default: live)
 #   PUBLISH_REMOTE   git URL to push to (default: this repo's `origin` URL)
 #   DRY_RUN=1        same as --dry-run
+#   MPY=0            ship scrollkit as .py source instead of compiled .mpy
+#                    (default 1: compile with the pinned CircuitPython mpy-cross
+#                     from scripts/fetch_mpy_cross.sh — halves the library's
+#                     flash footprint and every future OTA delta)
 #
 # Copyright (c) 2024-2026 Michael Czeiszperger
 set -euo pipefail
@@ -85,8 +89,9 @@ if ! SHA="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "${REF}^{commit}")"; 
 fi
 
 echo "==> Publishing $REF ($SHA) as version $VERSION to '$LIVE_BRANCH'"
-[ "$INCLUDE_LIB" = "1" ] && echo "    including src/lib (Adafruit bundle)" \
-                         || echo "    src/lib + scrollkit are flash-frozen (not shipped)"
+echo "    bundling scrollkit under /lib/scrollkit (delta-apply ships only changed files)"
+[ "$INCLUDE_LIB" = "1" ] && echo "    including src/lib (Adafruit .mpy bundle)" \
+                         || echo "    src/lib (Adafruit .mpy bundle) flash-frozen (not shipped)"
 
 # --- work in a temp dir (cleaned on exit) -----------------------------------
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tpw-publish.XXXXXX")"
@@ -106,11 +111,116 @@ fi
 # 3) stamp the version into the shipped tree so the device records it post-apply
 printf '%s\n' "$VERSION" > "$TREE/src/.version"
 
+# 3b) resolve the sibling ScrollKit library — bundled into the payload below and
+#     used by the preflight (its real device-side parser). Fail loudly if absent.
+#     NOTE: publish.sh's SCROLLKIT_SRC is the library's `src/` (parent of
+#     `scrollkit/`); deploy.sh's same-named var points AT `src/scrollkit`.
+SCROLLKIT_SRC="${SCROLLKIT_SRC:-$REPO_ROOT/../ScrollKit Library/src}"
+if [ ! -d "$SCROLLKIT_SRC/scrollkit" ]; then
+  echo "publish.sh: ABORT — scrollkit library not found at $SCROLLKIT_SRC" >&2
+  echo "            set SCROLLKIT_SRC to the library's src/ dir (parent of scrollkit/)." >&2
+  exit 1
+fi
+
 # 4) build the manifest + payload for each device tree
-#    src/** -> /src/**, plus top-level code.py + boot.py -> /
+#    src/** -> /src/**, plus top-level code.py -> /
+#    boot.py is deliberately NOT shipped: it is the flash-frozen recovery anchor
+#    (it restores /backup if power is lost mid-install, BEFORE the possibly-torn
+#    app code runs). A power cut while OTA rewrote boot.py itself would be an
+#    unrecoverable brick — update it only via a supervised USB deploy.
 python3 "$MAKE_MANIFEST" "$TREE/src"     "$OUT" --root /src --version "$VERSION"
 python3 "$MAKE_MANIFEST" "$TREE/code.py" "$OUT" --root /    --version "$VERSION"
-python3 "$MAKE_MANIFEST" "$TREE/boot.py" "$OUT" --root /    --version "$VERSION"
+
+# 4b) bundle the ScrollKit library under /lib/scrollkit so a release that changed
+#     BOTH repos lands ATOMICALLY (the app may import a class that only exists in
+#     the updated library — ImportError otherwise). scrollkit ships as compiled
+#     .mpy (see 4b-mpy below); the device's delta-apply downloads only the files
+#     whose checksum changed, so an unchanged library costs nothing and a changed
+#     one ships just its diff.
+#     Mirror deploy.sh's excludes (simulator/ + dev/ are desktop-only) via a temp
+#     copy — the same idiom as `rm -rf src/lib` above. Accumulates into the same
+#     manifest; the leak-check + preflight below then cover the scrollkit files.
+SK_TMP="$WORK/scrollkit"
+mkdir -p "$SK_TMP"
+cp -R "$SCROLLKIT_SRC/scrollkit/." "$SK_TMP/"
+rm -rf "$SK_TMP/simulator" "$SK_TMP/dev"
+# ota/publish.py is the desktop/CI-side publisher (raises ImportError on the
+# device) — it has no business in the payload.
+rm -f "$SK_TMP/ota/publish.py"
+find "$SK_TMP" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+
+# 4b-mpy) compile scrollkit .py -> .mpy with the PINNED CircuitPython mpy-cross
+#     (scripts/fetch_mpy_cross.sh — the pin must match the device's CP core).
+#     Roughly halves the library's bytes on flash AND every future OTA delta.
+#     MPY=0 is the escape hatch to ship plain .py source.
+MPY="${MPY:-1}"
+if [ "$MPY" = "1" ]; then
+  MPY_CROSS_BIN="$("$SCRIPT_DIR/fetch_mpy_cross.sh")"
+  PY_BYTES="$(du -sk "$SK_TMP" | cut -f1)"
+  PY_COUNT="$(find "$SK_TMP" -name '*.py' | wc -l | tr -d ' ')"
+  while IFS= read -r -d '' f; do
+    # -s embeds a STABLE source name (the on-device path) instead of the temp
+    # build path — without it every build produces different .mpy bytes and the
+    # device's delta-apply would re-download the whole library each release.
+    "$MPY_CROSS_BIN" -s "lib/scrollkit/${f#"$SK_TMP"/}" "$f" -o "${f%.py}.mpy"
+    rm "$f"
+  done < <(find "$SK_TMP" -name '*.py' -print0)
+  # Sanity: nothing un-compiled, count parity, and every file carries
+  # CircuitPython's .mpy header b'C\x06' — a MicroPython-built mpy-cross
+  # (e.g. the PyPI package) emits b'M...' and would brick the import.
+  python3 - "$SK_TMP" "$PY_COUNT" <<'PY'
+import os, sys
+root, want = sys.argv[1], int(sys.argv[2])
+mpy = []
+for dirpath, _dirs, files in os.walk(root):
+    for name in files:
+        path = os.path.join(dirpath, name)
+        if name.endswith('.py'):
+            sys.exit("mpy sanity FAILED: source survived the compile: %s" % path)
+        if name.endswith('.mpy'):
+            mpy.append(path)
+if len(mpy) != want:
+    sys.exit("mpy sanity FAILED: %d .py in, %d .mpy out" % (want, len(mpy)))
+for path in mpy:
+    with open(path, 'rb') as f:
+        head = f.read(2)
+    if head != b'C\x06':
+        sys.exit("mpy sanity FAILED: %s header %r is not CircuitPython bytecode "
+                 "(magic 'C', MPY_VERSION 6) — wrong mpy-cross?" % (path, head))
+print("==> mpy OK: %d modules compiled" % len(mpy))
+PY
+  echo "==> scrollkit payload: ${PY_BYTES}K of .py -> $(du -sk "$SK_TMP" | cut -f1)K of .mpy"
+fi
+
+python3 "$MAKE_MANIFEST" "$SK_TMP" "$OUT" --root /lib/scrollkit --version "$VERSION"
+
+# 4c) preflight: run the built manifest through the REAL device-side parser +
+#     the same path-safety allowlist the device enforces. Generator (this repo)
+#     and validator (scrollkit, frozen on device) have no shared schema — this is
+#     the check whose absence shipped the missing-`required` outage.
+PYTHONPATH="$SCROLLKIT_SRC" python3 - "$OUT/manifest.json" <<'PY'
+import json, sys
+from scrollkit.ota.manifest import UpdateManifest
+data = json.load(open(sys.argv[1]))
+manifest = UpdateManifest.from_dict(data)
+ok, err = manifest.validate()
+if not ok:
+    sys.exit("preflight FAILED: device validator rejects the manifest: %s" % err)
+if manifest.compare_version("0.0.0") <= 0:
+    sys.exit("preflight FAILED: manifest version %r does not compare as newer "
+             "than 0.0.0" % manifest.version)
+def allowed(k):
+    if not k or ".." in k.split("/"):
+        return False
+    if k in ("/code.py", "/boot.py"):
+        return True
+    return k.startswith("/src/") or k.startswith("/lib/scrollkit/")
+bad = [k for k in data["files"] if not allowed(k)]
+if bad:
+    sys.exit("preflight FAILED: unsafe manifest path(s): %s" % ", ".join(sorted(bad)[:5]))
+print("==> preflight OK: device validator accepts manifest v%s (%d files)"
+      % (manifest.version, len(manifest.files)))
+PY
 
 # 5) defense-in-depth: refuse to publish if anything private slipped in
 LEAK="$(cd "$OUT" && find files -type f \( -name secrets.py -o -name settings.json \

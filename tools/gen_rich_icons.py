@@ -290,7 +290,14 @@ def big_thunder_goat():
     goat = ramp3((0x6E, 0x68, 0x5A), (0xCC, 0xC4, 0xAE), (0xFF, 0xFF, 0xF4), 6)
     rock = ramp3((0x5A, 0x2C, 0x16), (0xA8, 0x5E, 0x30), (0xDD, 0x9E, 0x5C), 6)
     dirt = ramp((0x2E, 0x18, 0x0C), (0x5A, 0x32, 0x18), 3)   # the dark hoof/shadow specks
-    R = {"eadfc4": (goat, 0.08), "9c9fb0": (rock, 0.10), "4e2c12": (dirt, 0.0)}
+    dyna = ramp((0xB0, 0x22, 0x22), (0xFF, 0x55, 0x44), 5)   # red dynamite cylinder
+    fuse = ramp((0xC0, 0x55, 0x11), (0xFF, 0x99, 0x33), 3)   # orange wick
+    spark = ramp((0xFF, 0xAA, 0x22), (0xFF, 0xFF, 0xCC), 3)  # hot yellow-white spark
+    # Flat source hexes: eb3c3c="r", ff8822="O", ffe044="y" — each needs a key or
+    # _shade falls the pixel back to the FIRST material (fur) and the fuse/stick
+    # would render cream. Sparks get a big positive bias so they read as LIT.
+    R = {"eadfc4": (goat, 0.08), "9c9fb0": (rock, 0.10), "4e2c12": (dirt, 0.0),
+         "eb3c3c": (dyna, 0.14), "ff8822": (fuse, 0.24), "ffe044": (spark, 0.42)}
     return _shade("big_thunder_goat", R, occlude=True)
 
 
@@ -625,7 +632,36 @@ def transformers():
     return _shade("transformers", R, occlude=True)
 
 
+def rock_roller():
+    # Rock 'n' Roller Coaster: a realistic Gibson Les Paul. The body ("R") is painted as a
+    # cherry sunburst by a RADIAL light centred on the body — bright amber core falling to
+    # a dark cherry edge — rather than the default top-left gradient. Everything off the
+    # body (neck, headstock, hardware) sits at a neutral mid-light and is tuned by per-
+    # material bias, so the burst does not drag the rest of the icon dark.
+    burst = ramp3((0x2a, 0x0e, 0x06), (0xb0, 0x3a, 0x12), (0xff, 0xc6, 0x3e), 8)
+    bcx, bcy, br = 45, 16, 15
+
+    def sun(x, y, bbox):
+        # elliptical falloff (body is wider than tall) so the burst darkens evenly all
+        # round the edge; a hair under 1.0 at the core keeps the centre amber, not white.
+        d = math.hypot((x - bcx) * 0.82, (y - bcy) * 1.05)
+        return (0.92 - 0.86 * (d / br)) if d <= br else 0.5
+
+    R = {"c05a2e": (burst, 0.0),          # sunburst maple top
+         "eadfc4": (_CREAM, 0.12),        # cream binding + pickguard + inlays
+         "4e2c12": (_DKWOOD, 0.05),       # rosewood fretboard
+         "9c9fb0": (_STEEL, 0.10),        # frets, strings, tune-o-matic bridge
+         "111111": (_INK, 0.0),           # humbuckers + headstock
+         "ffd246": (_GOLD, 0.20)}         # tuners, top-hat knobs, pole pieces
+
+    def extras(out, pal, mask, bbox):
+        if (40, 10) in mask:
+            _dot(out, pal, 40, 10, (0xff, 0xe4, 0x9a))   # soft gloss glint, off-centre
+    return _shade("rock_roller", R, extras, occlude=True, light_fn=sun)
+
+
 HEROES = {"minion": minion, "panda": panda, "transformers": transformers,
+          "rock_roller": rock_roller,
           "space_mountain": space_mountain, "tron": tron,
           "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,

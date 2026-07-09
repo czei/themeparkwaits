@@ -35,8 +35,13 @@ from __future__ import annotations
 import sys
 
 from scrollkit.utils.url_utils import url_decode
+from scrollkit.utils.error_handler import ErrorHandler
 from src.ui.content_builder import build_content_queue
 from src.ui.ride_screen_content import WAIT_EFFECTS
+
+# Persist OTA install outcomes: error() writes to error_log in BOTH modes (info is
+# console-only in PRODUCTION), so a silent download failure leaves a readable reason.
+logger = ErrorHandler("error_log")
 
 SORT_MODES = ("alphabetical", "max_wait", "min_wait")
 SCROLL_SPEEDS = ("Slow", "Medium", "Fast")
@@ -244,23 +249,91 @@ def _schedule_refresh(app) -> None:
         print("schedule refresh failed:", e)
 
 
-def schedule_update(app) -> str:
-    """Run the OTA check+stage (POST /update). Returns a status string, never raises.
-
-    "staged" means a newer release was downloaded and the device should reboot to
-    install it. Anything else is the reason nothing happened — surfaced to the
-    browser because OTA failures used to be serial-only and invisible in the field.
-    """
-    ota = getattr(app, "ota", None)
-    if ota is None or not hasattr(ota, "schedule_update"):
-        return "OTA unavailable: %s" % (getattr(app, "ota_error", None) or "not constructed")
+def _reclaim_display_mem(app) -> None:
+    """Free the on-screen ride's intro overlay (its writable bitmap — e.g. the Big
+    Thunder goat) + gc before an OTA GET. The manifest/file fetches fail with the
+    same MemoryError-on-TLS-socket-allocation as the park-data fetch, starved by that
+    bitmap. The data path fixed it by yielding to the display loop's async teardown,
+    but this runs synchronously from the web handler and can't yield — so detach the
+    current content's intro directly (a sync op) and double-gc for the handshake."""
     try:
-        staged = bool(ota.schedule_update())
+        cq = getattr(app, "content_queue", None)
+        cur = cq.get_current_content() if cq is not None else None
+        detach = getattr(cur, "_detach_intro", None)
+        if detach is not None:
+            detach()
+        import gc
+        gc.collect()
+        gc.collect()   # second pass frees what the first made collectable
     except Exception as e:
-        return "OTA check failed: %s" % e
-    if staged:
-        return "staged"
-    return getattr(ota, "last_error", None) or "no update available"
+        print("OTA pre-reclaim skipped:", e)
+
+
+def check_update(app):
+    """POST /update: CHECK ONLY. Does a newer release exist? No download — the user
+    decides whether to install (the old fused check+stage auto-installed with no
+    consent). Returns ``(available: bool, version: str|None, message: str)``; never
+    raises. Failures surface to the browser (OTA errors were serial-only before)."""
+    ota = getattr(app, "ota", None)
+    if ota is None or not hasattr(ota, "check_update"):
+        return (False, None, "OTA unavailable: %s"
+                % (getattr(app, "ota_error", None) or "not constructed"))
+    _reclaim_display_mem(app)          # free heap for the manifest GET's TLS socket
+    try:
+        return ota.check_update()
+    except Exception as e:
+        # Same MemoryError-on-TLS-socket class as the data fetch; attach a heap note
+        # so a repeat failure is diagnosable from the browser without a serial cable.
+        try:
+            from src.api.theme_park_service import _heap_note
+            hn = _heap_note()
+        except Exception:
+            hn = ""
+        return (False, None, "check failed: %s%s"
+                % (e, (" [heap: " + hn + "]") if hn else ""))
+
+
+def install_update(app) -> bool:
+    """POST /install: start the user-confirmed install and return immediately so the
+    'update started' page flushes FIRST. A background task then paints
+    'Updating / DO NOT / UNPLUG!' on the panel, downloads the staged files (blocking
+    — the message holds on screen through it), and reboots so the next boot's
+    install_pending() applies them. Returns whether the task was scheduled."""
+    import asyncio
+    ota = getattr(app, "ota", None)
+    if ota is None or not hasattr(ota, "stage_update"):
+        return False
+
+    async def _run():
+        await asyncio.sleep(0.4)               # let the HTTP response flush first
+        try:
+            await ota.show_updating()          # "Updating / DO NOT / UNPLUG!" on the panel
+        except Exception as e:
+            print("show_updating failed:", e)
+        _reclaim_display_mem(app)              # free heap for the download GETs
+        staged = False
+        try:
+            staged = bool(ota.stage_update())  # blocking download; the panel message holds
+        except Exception as e:
+            print("OTA stage failed:", e)
+        if staged:
+            logger.error(None, "OTA: staged update, rebooting to apply")
+            _schedule_reboot(app, delay=0.4)   # reboot -> install_pending applies + reboots
+        else:
+            # PERSIST why it didn't stage (last_error is otherwise invisible — not on
+            # the web page or serial), so a silent download failure is diagnosable.
+            logger.error(None, "OTA: install did NOT stage: %s"
+                         % (getattr(ota, "last_error", None) or "unknown"))
+            try:
+                await ota.show_failed()
+            except Exception:
+                pass
+
+    try:
+        asyncio.get_running_loop().create_task(_run())
+        return True
+    except RuntimeError:
+        return False                           # no running loop (tests)
 
 
 def _schedule_reboot(app, delay=2.0):
@@ -326,8 +399,19 @@ def _diagnostics_html(app) -> str:
     return "<h3>Diagnostics</h3>" + items
 
 
-def render_page(app) -> str:
-    """Render the settings form, pre-filled, with the live park list."""
+def render_page_chunks(app):
+    """Yield the settings page in small pieces (a ``ChunkedResponse`` body).
+
+    The full page is ~50 KB (four park ``<select>``s of ~140 options each).
+    Building it as ONE string needs a ~50 KB contiguous allocation, which
+    fails with MemoryError once a few 90 KB park fetches have fragmented the
+    heap — seen live as ``config server poll error: memory allocation failed,
+    allocating 50552 bytes`` with 1.5 MB total free, i.e. a dead settings
+    site on a healthy device. Streaming keeps the peak allocation to ~3 KB.
+    """
+    import gc
+    gc.collect()
+
     sm = app.settings
     svc = getattr(app, "service", None)
     parks = sorted(getattr(getattr(svc, "park_list", None), "park_list", []) or [],
@@ -344,16 +428,6 @@ def render_page(app) -> str:
         if name_counts.get(p.name, 0) > 1 and getattr(p, "destination_name", ""):
             return "%s - %s" % (p.name, p.destination_name)
         return p.name
-
-    def park_select(i):
-        cur = selected[i - 1] if i - 1 < len(selected) else None
-        opts = ['<option value="">(none)</option>']
-        for p in parks:
-            sel = " selected" if cur == p.id else ""
-            opts.append('<option value="%s"%s>%s</option>' % (_esc(p.id), sel, _esc(park_label(p))))
-        return ('<div class="form-group"><label>Park %d</label>'
-                '<select class="form-control" name="park_%d">%s</select></div>'
-                % (i, i, "".join(opts)))
 
     def select(name, options, current):
         opts = []
@@ -382,14 +456,12 @@ def render_page(app) -> str:
                 '<select class="form-control" name="%s">%s</select></div>'
                 % (_esc(SettingsLabel(name)), name, "".join(opts)))
 
-    park_html = "".join(park_select(i) for i in range(1, MAX_PARKS + 1))
     try:
         brightness = float(sm.get("brightness_scale", "0.5"))
     except (TypeError, ValueError):
         brightness = 0.5
 
-    return PAGE_TEMPLATE.format(
-        park_selectors=park_html,
+    fields = dict(
         sort=select("sort_mode", SORT_MODES, sm.get("sort_mode", "alphabetical")),
         scroll=select("scroll_speed", SCROLL_SPEEDS, sm.get("scroll_speed", "Medium")),
         wait_effect=select("wait_time_effect", WAIT_EFFECTS,
@@ -410,6 +482,57 @@ def render_page(app) -> str:
         vac_month=_esc(sm.get("next_visit_month", "") or ""),
         vac_day=_esc(sm.get("next_visit_day", "") or ""),
         diagnostics=_diagnostics_html(app),
+    )
+
+    # Everything except the park selectors is small; the selectors are streamed
+    # option-batch by option-batch between the two template halves.
+    head, tail = PAGE_TEMPLATE.split("{park_selectors}")
+    yield head.format(**fields)
+
+    for i in range(1, MAX_PARKS + 1):
+        cur = selected[i - 1] if i - 1 < len(selected) else None
+        yield ('<div class="form-group"><label>Park %d</label>'
+               '<select class="form-control" name="park_%d">'
+               '<option value="">(none)</option>' % (i, i))
+        batch = []
+        for p in parks:
+            sel = " selected" if cur == p.id else ""
+            batch.append('<option value="%s"%s>%s</option>'
+                         % (_esc(p.id), sel, _esc(park_label(p))))
+            if len(batch) >= 25:
+                yield "".join(batch)
+                batch = []
+        if batch:
+            yield "".join(batch)
+        yield '</select></div>'
+
+    yield tail.format(**fields)
+    gc.collect()
+
+
+def render_page(app) -> str:
+    """Render the settings form as one string (desktop/tests convenience —
+    on-device requests stream ``render_page_chunks`` instead)."""
+    return "".join(render_page_chunks(app))
+
+
+def _styled_page(inner: str) -> str:
+    """Wrap a small HTML fragment in the settings page's styled shell.
+
+    Status responses (``/update``) were bare fragments with no ``<head>`` or
+    stylesheet link, so they rendered as unstyled black-on-white HTML a customer
+    could read as "broken". This gives them the same head + ``/style.css`` +
+    header/container as the main page. Links are styled as ``.btn`` buttons.
+    """
+    return (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        '<title>ThemeParkWaits</title>'
+        '<link rel="stylesheet" href="/style.css"></head>'
+        '<body><div class="container">'
+        '<div class="header"><h1>ThemeParkWaits</h1></div>'
+        '<div class="content">' + inner + '</div>'
+        '</div></body></html>'
     )
 
 
@@ -438,7 +561,8 @@ class ThemeParkConfigServer:
         self._server = None
 
     def _build_server(self):
-        from adafruit_httpserver import Server, Response, Redirect, GET, POST
+        from adafruit_httpserver import (Server, Response, ChunkedResponse,
+                                         Redirect, GET, POST)
 
         pool = self.socket_pool
         if pool is None:
@@ -448,9 +572,14 @@ class ThemeParkConfigServer:
         server = Server(pool, self.static_dir, debug=False)
         app = self.app
 
+        # The settings page is streamed (ChunkedResponse): as ONE string it
+        # needs a ~50 KB contiguous allocation, which MemoryErrors on a
+        # fetch-fragmented heap and left the site unreachable in the field.
         @server.route("/")
         def _index(request):  # noqa: ANN001
-            return Response(request, render_page(app), content_type="text/html")
+            # NB: ChunkedResponse CALLS its body (needs a generator FUNCTION).
+            return ChunkedResponse(request, lambda: render_page_chunks(app),
+                                   content_type="text/html")
 
         @server.route("/settings", [GET, POST])
         def _settings(request):  # noqa: ANN001
@@ -463,19 +592,48 @@ class ThemeParkConfigServer:
                 # times show within seconds instead of at the next update tick.
                 _schedule_refresh(app)
                 return Redirect(request, "/", status=_SEE_OTHER)
-            return Response(request, render_page(app), content_type="text/html")
+            return ChunkedResponse(request, lambda: render_page_chunks(app),
+                                   content_type="text/html")
 
         @server.route("/update", [POST])
         def _update(request):  # noqa: ANN001
-            status = schedule_update(app)
-            if status == "staged":
-                _schedule_reboot(app)
-                body = ("<h3>Update staged</h3><p>Installing now — the sign will "
-                        "reboot and show <b>Installing&hellip; do not unplug!</b>. "
-                        "Give it a minute, then <a href='/'>reload</a>.</p>")
+            # CHECK ONLY: report whether an update exists and let the user choose.
+            available, version, message = check_update(app)
+            if available:
+                body = _styled_page(
+                    "<h3>Update available</h3>"
+                    "<p>Version <b>%s</b> is ready to install.</p>"
+                    "<p>Installing takes 1&ndash;2 minutes: the sign will show "
+                    "<b>Updating &mdash; do not unplug</b> and reboot, and this page "
+                    "will be unavailable until it finishes.</p>"
+                    "<form method='POST' action='/install'>"
+                    "<button class='btn' type='submit'>Install update</button></form>"
+                    "<p style='margin-top:12px'><a class='btn' href='/'>Not now</a></p>"
+                    % _esc(version or "?"))
             else:
-                body = ("<h3>No update installed</h3><p>%s</p>"
-                        "<p><a href='/'>Back</a></p>" % _esc(status))
+                body = _styled_page(
+                    "<h3>No update</h3><p>%s</p>"
+                    "<p><a class='btn' href='/'>Back</a></p>"
+                    % _esc(message or "You're up to date."))
+            return Response(request, body, content_type="text/html")
+
+        @server.route("/install", [POST])
+        def _install(request):  # noqa: ANN001
+            # User confirmed: kick off the install (background task) and tell them
+            # what's happening BEFORE the connection drops on reboot.
+            started = install_update(app)
+            if started:
+                body = _styled_page(
+                    "<h3>Updating&hellip;</h3>"
+                    "<p><b>Do not unplug the sign.</b> It is downloading the update "
+                    "and will reboot to install &mdash; the sign shows "
+                    "<b>Updating &mdash; do not unplug</b> until it is done.</p>"
+                    "<p>This page is unavailable during the update. Wait about two "
+                    "minutes, then <a class='btn' href='/'>reload</a>.</p>")
+            else:
+                body = _styled_page(
+                    "<h3>Couldn&rsquo;t start the update</h3>"
+                    "<p>OTA is unavailable. <a class='btn' href='/'>Back</a></p>")
             return Response(request, body, content_type="text/html")
 
         return server

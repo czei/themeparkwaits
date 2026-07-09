@@ -165,7 +165,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Roger Rabbit's Car Toon Spin |  |  | `6ce9cdd1-0a43-459e-83cd-f4cace9cfa7b` |
 | Sailing Ship Columbia | Sailing Ship | pirates.bmp | `c9e39189-7e99-4e0a-97e0-4a0d5654d257` |
 | Sleeping Beauty Castle Walkthrough |  | castle.bmp | `90d5a091-478c-4df1-adfe-c605b4005013` |
-| Snow White's Enchanted Wish | Glass Slipper | glass_slipper.bmp | `4f0053e7-b8db-4833-b02f-35e1c91b4523` |
+| Snow White's Enchanted Wish | Poison Apple | poison_apple.bmp | `4f0053e7-b8db-4833-b02f-35e1c91b4523` |
 | Space Mountain |  | space_mountain.bmp | `9167db1d-e5e7-46da-a07f-ae30a87bc4c4` |
 | Star Tours - The Adventures Continue | Space Ship | xwing.bmp | `cc718d11-fa15-44ee-87d0-ded989ad61bc` |
 | Star Wars: Rise of the Resistance | Space Ship | xwing.bmp | `34b1d70f-11c4-42df-935e-d5582c9f1a8e` |

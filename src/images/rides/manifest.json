@@ -133,7 +133,7 @@
   "ce87a0fe-c644-475e-abb6-9727e05cebff": "child.bmp",
   "3a1cd3f7-9c42-4f9b-90fa-dab7ba113862": "race_car.bmp",
   "852d957c-382e-4afb-bb74-70c9a79055df": "big_thunder_goat.bmp",
-  "8ed1472a-4d2e-47f1-b848-353de0bc3670": "glass_slipper.bmp",
+  "8ed1472a-4d2e-47f1-b848-353de0bc3670": "poison_apple.bmp",
   "03992704-698d-474b-a721-a5ac3498edb9": "laser_blaster.bmp",
   "7ff5d512-aed5-479a-8b3d-9bd1efb4177b": "locomotive.bmp",
   "53895b6d-d25d-4e08-a489-0c3d47dd183f": "locomotive.bmp",
@@ -168,9 +168,10 @@
   "e3577b4a-f1d9-4ec5-aacf-b99977ea88c9": "big_thunder_goat.bmp",
   "1fb05b7d-953a-4fa7-b7ed-db2eb62b85bf": "carousel_horse.bmp",
   "a0a63e1c-3fc6-4433-b9b1-f5e798ab1f00": "tree.bmp",
-  "f82709b6-51a3-4b65-8d6f-c2472f5053df": "glass_slipper.bmp",
+  "f82709b6-51a3-4b65-8d6f-c2472f5053df": "castle.bmp",
   "83f11a48-0d22-4429-8e59-43fd611d6795": "bear.bmp",
   "78510449-ec64-47d3-a140-7b473dbaddf2": "elephant.bmp",
+  "32e01181-9a5f-4936-8a77-0dace1de836c": "giraffe.bmp",
   "52c5e406-67e2-4d37-aee8-987644d87b63": "coaster_car.bmp",
   "8fce6b54-e3e4-40bb-a574-93c8327c3fab": "haunted_mansion.bmp",
   "e0887415-3da2-458c-8b88-0691e6b8ab63": "jungle_cruise.bmp",
@@ -181,7 +182,7 @@
   "e541ad8f-1457-469a-8f35-457555f475ad": "big_ben.bmp",
   "52eb0fc9-5853-49c8-8c72-1e5e83aae1c1": "pirates.bmp",
   "a88464b5-2cf5-4ef1-b38f-96e07b233bf2": "honey_pot.bmp",
-  "a853aadd-2337-435a-b0a3-2c03db96e5e1": "glass_slipper.bmp",
+  "a853aadd-2337-435a-b0a3-2c03db96e5e1": "poison_apple.bmp",
   "dfe25d8e-e234-4020-a261-30c6825d0680": "mountain_falls.bmp",
   "512fd34c-2f0a-4e0a-bcc1-ef4d15c5f803": "xwing.bmp",
   "f9321bc7-aa96-4a70-b963-681482384d1b": "tree.bmp",
@@ -413,6 +414,7 @@
   "7969166f-feef-4350-b26e-6a6c745528f4": "jellyfish.bmp",
   "b7678dab-5544-48d5-8fdc-c1a0127cfbcd": "cassette.bmp",
   "8f8746cb-c714-4c60-848d-e2dc4e6f586b": "pyramid.bmp",
-  "1f542745-cda1-4786-a536-5fff373e5964": "flag.bmp"
+  "1f542745-cda1-4786-a536-5fff373e5964": "flag.bmp",
+  "e516f303-e82d-4fd3-8fbf-8e6ab624cf89": "rock_roller.bmp"
  }
 }

@@ -312,7 +312,7 @@ class _ScrollingNameContent(DisplayContent):
             animator = None
             try:
                 from src.ui.ride_animations import (for_image, copy_to_writable,
-                                                    read_indexed_bmp)
+                                                    read_indexed_bmp, SpriteLiftAnimator)
                 animator = for_image(self._intro_image)
                 if animator is not None:
                     # Animators READ (some rewrite) image pixels, but CircuitPython's
@@ -330,17 +330,38 @@ class _ScrollingNameContent(DisplayContent):
             except Exception:
                 animator = None
             tile = displayio.TileGrid(bmp, pixel_shader=pal)
-            display.add_layer(tile)
             self._display = display
             self._intro_odb = odb
             self._intro_tile = tile
             self._intro_palette = pal
+            # A sprite-lift erases its moving subject out of ``bmp`` (capture + row-inpaint)
+            # inside start(); on-device that spans several frames. If the base tile is
+            # already composited, the panel shows the un-lifted still (scene + vehicle)
+            # through those frames, then the subject blinks out when start() finishes — the
+            # "sits, then disappears, then enters from the edge" the transport icons showed.
+            # Defer compositing the base until AFTER start() so the FIRST shown frame is the
+            # scene alone (road / water / track) and the vehicle scrolls in from off-screen.
+            # Only plain lifts defer (they expose one _overlay_tile to lift back on top);
+            # every other animator keeps the original order so any overlays it adds in
+            # start() stay above the base.
+            defer = animator is not None and isinstance(animator, SpriteLiftAnimator)
+            if not defer:
+                display.add_layer(tile)
+            started = False
             if animator is not None:
                 try:
                     animator.start(display, tile, bmp, pal, self._intro_base_colors)
                     self._intro_animator = animator
+                    started = True
                 except Exception:
                     self._intro_animator = None
+            if defer:
+                display.add_layer(tile)                  # scene-only base, now that it is lifted
+                if started:
+                    ov = getattr(self._intro_animator, "_overlay_tile", None)
+                    if ov is not None:                   # keep the moving subject above the scene
+                        display.remove_layer(ov)
+                        display.add_layer(ov)
         except Exception:
             self._detach_intro()
             self._intro_phase = None

@@ -88,26 +88,114 @@ class OTAGlue:
         """Why the last schedule_update() did not stage (None after success)."""
         return getattr(self._progress, "last_error", None)
 
-    def schedule_update(self):
-        # Pick up the HttpClient's CURRENT session (created during WiFi connect,
-        # and possibly rebuilt since this glue was constructed) so the OTA GET uses
-        # a live socket pool rather than the None captured at construction time.
-        if self._http_client is not None:
-            self.client.session = getattr(self._http_client, "session", None)
-        # The OTA GET opens a SECOND TLS context (raw.githubusercontent) while the
-        # data session still holds its own; on the device that double allocation
-        # failed the handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). Free the pooled
-        # data sockets first — adafruit_requests transparently reconnects on the
-        # next fetch — and collect, so the handshake gets its contiguous block.
+    def _prep_session(self):
+        # The OTA GET opens a TLS context to raw.githubusercontent while the data
+        # session holds its own; on the device that double allocation failed the
+        # handshake (mbedtls -0x3F80 PK_ALLOC_FAILED). We must reclaim that memory
+        # BEFORE the GET, but must NOT use adafruit_connection_manager
+        # connection_manager_close_all(): it frees EVERY managed socket globally —
+        # including the web server's listening socket (which killed the settings
+        # site) and the data session's cached socket, which adafruit_requests then
+        # tries to close again -> "RuntimeError: Socket not managed".
+        #
+        # Instead REBUILD the app's HTTP session: a fresh SocketPool + TLS context
+        # discards the old session's socket/TLS (reclaiming the same RAM) and holds
+        # NO stale reference to double-free — and touches nothing else, so the web
+        # server survives. The data loop reads http_client.session live, so its next
+        # fetch transparently uses the new session too.
+        if self._http_client is None:
+            return
         import sys
         if getattr(sys.implementation, "name", "") == "circuitpython":
             try:
-                import adafruit_connection_manager
-                adafruit_connection_manager.connection_manager_close_all()
+                self._http_client._rebuild_session()
             except Exception as e:
-                print("OTA socket pre-free skipped:", e)
+                print("OTA session rebuild skipped:", e)
             import gc
             gc.collect()
+        # Pick up the CURRENT session (rebuilt above on device; the one created
+        # during WiFi connect on desktop) so the OTA GET uses a live socket pool.
+        self.client.session = getattr(self._http_client, "session", None)
+
+    def check_update(self):
+        """CHECK ONLY: is a newer release on the channel? No download — the caller
+        decides whether to install. Returns ``(available, version, message)``; never
+        raises. Splitting this out of schedule_update() is what lets the web UI ask
+        the user before touching the device (the fused check+download auto-installed)."""
+        self._prep_session()
+        # NB: OTAGlue.last_error is a read-only property delegating to _progress, so
+        # diagnostics state is set on _progress.last_error (assigning self.last_error
+        # raises "no setter").
+        self._progress.last_error = None
+        try:
+            has_update, info = self.client.check_for_updates()
+        except Exception as e:  # never crash the request
+            msg = "check failed: %s" % (e,)
+            self._progress.last_error = msg
+            return (False, None, msg)
+        if has_update:
+            return (True, getattr(info, "version", None), "")
+        # ``info`` is the reason string. The up-to-date sentinel is the literal
+        # "No updates available" (scrollkit.ota.client.UP_TO_DATE). Compare to the
+        # LITERAL rather than importing the name: a device running an OLDER library
+        # than this app (the atomic-release mismatch — e.g. app 3.5.2 code against an
+        # on-device 0.8.3 that predates the constant) does not export UP_TO_DATE, and
+        # a hard ``from ... import UP_TO_DATE`` there raises "can't import name
+        # UP_TO_DATE" and fails the whole check. The value is stable; the name is not.
+        reason = str(info)
+        if reason == "No updates available":
+            return (False, None, "You're up to date (%s)."
+                    % getattr(self.client, "current_version", "?"))
+        # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.
+        self._progress.last_error = reason
+        return (False, None, reason)
+
+    def stage_update(self):
+        """Download the pending release into the staging dir (no reboot). Returns True
+        if staged; the caller reboots so ``install_pending()`` applies it next boot.
+        Assumes a prior ``check_update()`` found one; ``download_update()`` re-checks
+        if needed. Never raises."""
+        self._prep_session()
+        self._progress.last_error = None      # read-only property on self; set _progress
+        try:
+            # Re-check to get a FRESH manifest and pass it explicitly, rather than
+            # relying on client.available_update from an earlier check (which a session
+            # rebuild or an intervening up-to-date check can leave stale/None — then
+            # download_update() returns "No update manifest available" silently).
+            has_update, info = self.client.check_for_updates()
+            if not has_update:
+                self._progress.last_error = "stage: no newer release (%s)" % (info,)
+                return False
+            ok, err = self.client.download_update(info)
+            if not ok:
+                self._progress.last_error = "download failed: %s" % (err,)
+            return bool(ok)
+        except Exception as e:
+            print("OTA stage failed:", e)
+            self._progress.last_error = "stage failed: %s" % (e,)
+            return False
+
+    async def show_updating(self):
+        """Paint 'Updating / DO NOT / UNPLUG!' on the panel BEFORE the blocking
+        download, so the sign shows a clear message instead of freezing mid-content
+        (install_pending() shows 'Installing…' later, at apply time). Never raises."""
+        try:
+            await self._progress._show(["Updating", "DO NOT", "UNPLUG!"])
+        except Exception as e:
+            print("show_updating skipped:", e)
+
+    async def show_failed(self):
+        """Panel message when a staged download fails. Never raises."""
+        try:
+            await self._progress._show(["Update", "failed"])
+        except Exception:
+            pass
+
+    def schedule_update(self):
+        """Fused check+download in one call (the unattended/boot-check policy). The
+        interactive web UI uses check_update()/stage_update() so it can confirm with
+        the user first; this stays for any non-interactive caller."""
+        self._prep_session()
         return self._progress.schedule_update()
 
     async def install_pending(self):
