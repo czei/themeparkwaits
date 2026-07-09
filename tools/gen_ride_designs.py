@@ -2286,17 +2286,42 @@ def rock_roller():
         put(g, tx, cy - 4, "o"); put(g, tx, cy + 4, "o")
     # ---- Neck / rosewood fretboard: mostly solid wood, 4 widely-spaced frets (the
     # earlier 7 read as a barcode at panel scale), single pearl dots between them ----
-    rect(g, 9, cy - 3, 30, cy + 3, "N")          # fretboard, 7 px tall
-    for fx in (11, 15, 19, 23):                  # steel frets
-        vline(g, fx, cy - 3, cy + 3, "s")
-    for ix in (13, 17, 21):                      # pearl dot inlays
+    rect(g, 9, cy - 2, 30, cy + 2, "N")          # fretboard, 5 px tall
+    for fx in (11, 15, 19, 23, 27):              # steel frets
+        vline(g, fx, cy - 2, cy + 2, "s")
+    for ix in (13, 17, 21, 25):                  # pearl dot inlays
         put(g, ix, cy, "w")
-    # ---- Body: cream binding, then sunburst maple top (symmetric about cy) ----
-    ellipse(g, 46, cy, 15, 13, "w")              # binding (lower/main bout)
-    ellipse(g, 36, cy, 10, 11, "w")              # binding (upper bout by the neck)
-    ellipse(g, 46, cy, 14, 12, "R")              # sunburst top (main)
-    ellipse(g, 36, cy, 9, 10, "R")               # sunburst top (upper bout)
-    ellipse(g, 31, cy - 8, 4, 4, " ")            # single-cutaway bay (upper-left)
+    # ---- Body: the actual Les Paul outline, lofted from a per-column half-height
+    # profile. An ellipse union reads as a pineapple; what defines the LP is the
+    # ASYMMETRY of the bouts and how they intersect: upper bout +/-9 rows, a gentle
+    # 1-px waist, a lower bout swelling to +/-13 with its widest point in the right
+    # third, and the single-cutaway horn + scoop carved out alongside the neck. ----
+    prof = ((32, 9, 9), (33, 9, 9), (34, 9, 9), (35, 9, 9),
+            (36, 9, 9), (37, 8, 8), (38, 8, 8), (39, 8, 8), (40, 9, 9),
+            (41, 10, 10), (42, 10, 10), (43, 11, 11), (44, 11, 11), (45, 12, 12),
+            (46, 12, 12), (47, 12, 12), (48, 13, 13), (49, 13, 13), (50, 13, 13),
+            (51, 13, 13), (52, 12, 12), (53, 12, 12), (54, 12, 12), (55, 11, 11),
+            (56, 10, 10), (57, 9, 9), (58, 8, 8), (59, 7, 7), (60, 5, 5), (61, 3, 3))
+    for x, t, b in prof:                         # (x, rows above cy, rows below cy)
+        for y in range(cy - t, cy + b + 1):
+            put(g, x, y, "R")
+    for x, b in ((27, 6), (28, 7), (29, 8), (30, 8), (31, 9)):
+        for y in range(cy + 3, cy + b + 1):      # bass shoulder sneaks under the neck
+            put(g, x, y, "R")
+    # single-cutaway: the top of the upper bout mirrors the bass side's footprint, and
+    # the scoop is carved INTO it — a sky wedge between horn and fretboard. The horn
+    # tip stops at the shoulder's own leftmost extent; it never juts past the body.
+    for x, t, u in ((27, 7, 6), (28, 7, 6), (29, 8, 6), (30, 8, 6), (31, 9, 5)):
+        for y in range(cy - t, cy - u + 1):
+            put(g, x, y, "R")
+    for y in range(H):                           # cream binding: body pixels on the rim
+        for x in range(W):
+            if g[y][x] == "R" and ((x > 0 and g[y][x - 1] == " ")
+                                   or (x < W - 1 and g[y][x + 1] == " ")
+                                   or (y > 0 and g[y - 1][x] == " ")
+                                   or (y < H - 1 and g[y + 1][x] == " ")):
+                g[y][x] = "w"
+    rect(g, 30, cy - 2, 32, cy + 2, "N")         # fretboard tongue over the body face
     # ---- Strings (only over the body, nut side -> bridge) ----
     for sy in (cy - 2, cy, cy + 2):
         line(g, 31, sy, 49, sy, "s")
@@ -2308,8 +2333,8 @@ def rock_roller():
         put(g, 35, py, "o"); put(g, 41, py, "o")
     vline(g, 46, cy - 4, cy + 4, "s")            # tune-o-matic bridge
     vline(g, 49, cy - 4, cy + 4, "s")            # stopbar tailpiece
-    for kx, ky in ((52, cy + 6), (56, cy + 7), (54, cy + 3), (58, cy + 4)):
-        put(g, kx, ky, "o")                      # 4 gold top-hat knobs
+    for kx, ky in ((52, cy - 6), (56, cy - 7), (54, cy - 3), (58, cy - 4)):
+        put(g, kx, ky, "o")                      # 4 knobs on the treble (cutaway) side
     write("rock_roller", g)
 
 

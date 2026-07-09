@@ -1,32 +1,32 @@
 
 
 
-                                              w
-                                         wwwwwRwwwww
-                                    w  wwRRRRRRRRRRRww
-                                   wRwwRRRRRRRRRRRRRRRww
-                                   RRRRRRRRRRRRRRRRRRRRRw
-                                    RRRRRRRRRRRRRRRRRRRRRw
-                                   RRRRRRRRRRRRRRRRRRRRRRRw
-                                   RRRRRRRRRRRRRRRRRRRRRRRRw
-                            w     RRRRRRRRRRRRRRRRRRRRRRRRRw
-  o o o                    wRRR RRKKKRRRKKKRRRsRRsRRRRRRRRRRw
- KKKKKK  NNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
- KKKKKKKKNNsNNNsNNNsNNNsNNNwRRRsssKoKsssKoKsssssssRRRRRRRRRRw
-  KKKKKKKNNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
-   KKKKKKNNsNwNsNwNsNwNsNNwRRRRsssKKKsssKKKsssssssRRRRRRRRRRRw
-  KKKKKKKNNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
- KKKKKKKKNNsNNNsNNNsNNNsNNNwRRRsssKoKsssKoKsssssssRRRRRRRRRRw
- KKKKKK  NNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRoRRRRRw
-  o o o                    wRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRoRw
+                                                wwww
+                                             wwwRRRRwww
+                                           wwRRRRRRRRRRw
+                                         wwRRRRRRRRRRRRRw
+                               wwwwww   wRRRRRRRRRRRRRRRRw
+                             wwRRRRRRwwwRRRRRRRRRRRRRRRRRRw
+                           wwRRRRRRRRRRRRRRRRRRRRRRRRRRRoRRw
+                           wwwwRRRRRRRRRRRRRRRRRRRRRoRRRRRRw
+                               wRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
+  o o o                         wRKKKRRRKKKRRRsRRsRRRRRRRRoRw
+ KKKKKK                         wRKKKRRRKKKRRRsRRsRRRRoRRRRRRw
+ KKKKKKKKNNsNNNsNNNsNNNsNNNsNNNsssKoKsssKoKsssssssRRRRRRRRRRRw
+  KKKKKKKNNsNNNsNNNsNNNsNNNsNNNNNRKKKRRRKKKRRRsRRsRRRRRRRRRRRw
+   KKKKKKNNsNwNsNwNsNwNsNwNsNNNsssKKKsssKKKsssssssRRRRRRRRRRRw
+  KKKKKKKNNsNNNsNNNsNNNsNNNsNNNNNRKKKRRRKKKRRRsRRsRRRRRRRRRRRw
+ KKKKKKKKNNsNNNsNNNsNNNsNNNsNNNsssKoKsssKoKsssssssRRRRRRRRRRRw
+ KKKKKK                    wRRRwRRKKKRRRKKKRRRsRRsRRRRRRRRRRRw
+  o o o                    wRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
+                           wRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
+                           wRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
                             wRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
-                            wRRRRRRRRRRRRRRRRRRRRRRRoRRRRRRw
-                             wRRRRRRRRRRRRRRRRRRRRRRRRRRoRw
-                              wRRRRRRRRRRRRRRRRRRRRRRRRRRw
-                               wwRRRRRRRRRRRRRRRRRRRRRRRw
-                                wwwwRwwRRRRRRRRRRRRRRRww
-                                    w  wwRRRRRRRRRRRww
-                                         wwwwwRwwwww
-                                              w
+                             wwRRRRRRwwwRRRRRRRRRRRRRRRRRRw
+                               wwwwww   wRRRRRRRRRRRRRRRRw
+                                         wwRRRRRRRRRRRRRw
+                                           wwRRRRRRRRRRw
+                                             wwwRRRRwww
+                                                wwww
 
 
