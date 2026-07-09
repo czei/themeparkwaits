@@ -15,7 +15,9 @@ GitHub REST is 60 req/hr/IP, `json.loads` needs contiguous RAM) — see
 So the device never discovers releases. Instead:
 
 ```
-cut a release  ──>  release-MAJOR.MINOR branch   (immutable archive, history/rollback)
+main (development trunk)
+  │
+cut a release  ──>  release-MAJOR.MINOR[.PATCH] branch   (immutable snapshot of main's tip)
                           │
                   publish.sh / GitHub Action      (off-device automation)
                           │
@@ -26,6 +28,21 @@ cut a release  ──>  release-MAJOR.MINOR branch   (immutable archive, history
                           ▼
                     Matrix Portal S3
 ```
+
+## Branches: where development happens
+
+**All development happens on `main`.** A `release-X.Y[.Z]` branch is an
+**immutable snapshot** of `main`'s tip at the moment you release — creating it
+is what triggers the CI publish to `live`, and its name is the version. Never
+commit to a `release-*` branch: it would silently change what that version
+means, and CI publishes on branch *creation*, so the commits wouldn't ship
+anyway. To release new work, land it on `main` and cut the next `release-*`
+branch. The old snapshots stay around purely as history/rollback anchors.
+
+(Before 2026-07-08 development drifted onto `release-3.5` while `main` went
+stale; that ended with the merge commit that restored `main` as the trunk. The
+`release-3.5.1`/`release-3.5.2` branches from that era are ordinary snapshots —
+bookmarks into what was then the development line.)
 
 `live` is named distinctly from `release-*` to avoid a `releases` / `release-2.1`
 name clash. `live` always holds a single squashed commit (the publisher
