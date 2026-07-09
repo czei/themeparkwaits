@@ -632,7 +632,36 @@ def transformers():
     return _shade("transformers", R, occlude=True)
 
 
+def rock_roller():
+    # Rock 'n' Roller Coaster: a realistic Gibson Les Paul. The body ("R") is painted as a
+    # cherry sunburst by a RADIAL light centred on the body — bright amber core falling to
+    # a dark cherry edge — rather than the default top-left gradient. Everything off the
+    # body (neck, headstock, hardware) sits at a neutral mid-light and is tuned by per-
+    # material bias, so the burst does not drag the rest of the icon dark.
+    burst = ramp3((0x2a, 0x0e, 0x06), (0xb0, 0x3a, 0x12), (0xff, 0xc6, 0x3e), 8)
+    bcx, bcy, br = 45, 16, 15
+
+    def sun(x, y, bbox):
+        # elliptical falloff (body is wider than tall) so the burst darkens evenly all
+        # round the edge; a hair under 1.0 at the core keeps the centre amber, not white.
+        d = math.hypot((x - bcx) * 0.82, (y - bcy) * 1.05)
+        return (0.92 - 0.86 * (d / br)) if d <= br else 0.5
+
+    R = {"c05a2e": (burst, 0.0),          # sunburst maple top
+         "eadfc4": (_CREAM, 0.12),        # cream binding + pickguard + inlays
+         "4e2c12": (_DKWOOD, 0.05),       # rosewood fretboard
+         "9c9fb0": (_STEEL, 0.10),        # frets, strings, tune-o-matic bridge
+         "111111": (_INK, 0.0),           # humbuckers + headstock
+         "ffd246": (_GOLD, 0.20)}         # tuners, top-hat knobs, pole pieces
+
+    def extras(out, pal, mask, bbox):
+        if (40, 10) in mask:
+            _dot(out, pal, 40, 10, (0xff, 0xe4, 0x9a))   # soft gloss glint, off-centre
+    return _shade("rock_roller", R, extras, occlude=True, light_fn=sun)
+
+
 HEROES = {"minion": minion, "panda": panda, "transformers": transformers,
+          "rock_roller": rock_roller,
           "space_mountain": space_mountain, "tron": tron,
           "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,

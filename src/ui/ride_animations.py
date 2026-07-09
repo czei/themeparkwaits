@@ -133,6 +133,69 @@ class SwimAnimator(IntroAnimator):
             pass
 
 
+class SheenAnimator(IntroAnimator):
+    """A soft specular highlight sweeping across a glossy surface — a guitar's finish
+    catching a moving stage light (Rock 'n' Roller Coaster's Les Paul). Overlay-only:
+    ``start`` captures the surface pixels (non-sky inside ``box``) and projects each onto
+    the sweep axis; each frame lights a moving band, brightest along its centre, that
+    travels across the surface and then rests dark for ``gap`` of the cycle before the
+    next pass. Bespoke (like SwimAnimator): ``box``/``angle`` are tuned to the body of
+    rock_roller.bmp, so the glint rakes down the sunburst top and skips the neck.
+    """
+
+    HOLD_FRAMES = 108
+
+    def __init__(self, box, angle=1.02, period=88, width=1.3, gap=0.55,
+                 colors=(0xFFCD6E, 0xFFEEAF)):
+        self._box = box
+        self._angle = angle          # travel direction of the band (radians)
+        self._period = max(8, period)
+        self._width = width          # half-width of the lit band, in pixels
+        self._gap = min(0.95, max(0.0, gap))   # fraction of the cycle spent dark
+        self._colors = tuple(colors)
+
+    def start(self, display, tile, bitmap, palette, base_colors):
+        super().start(display, tile, bitmap, palette, base_colors)
+        self._make_overlay(display, self._colors)
+        x0, y0, x1, y1 = self._box
+        ca, sa = math.cos(self._angle), math.sin(self._angle)
+        pts = []
+        smin, smax = 1e9, -1e9
+        for y in range(max(0, y0), min(display.height, y1 + 1)):
+            for x in range(max(0, x0), min(display.width, x1 + 1)):
+                if bitmap[x, y] != 0:                  # surface pixel (not sky)
+                    s = x * ca + y * sa
+                    pts.append((x, y, s))
+                    if s < smin:
+                        smin = s
+                    if s > smax:
+                        smax = s
+        self._pts = pts
+        self._smin, self._smax = smin, smax
+
+    def step(self, frame):
+        overlay = self._overlay
+        overlay.fill(0)                                # one C fill, no per-pixel clear
+        if not self._pts:
+            return
+        active = 1.0 - self._gap
+        cyc = (frame % self._period) / self._period
+        if cyc >= active:                              # dark rest between passes
+            return
+        t = cyc / active if active else 0.0
+        w = self._width
+        center = self._smin - w + t * ((self._smax - self._smin) + 2 * w)
+        n = len(self._colors)
+        for (x, y, s) in self._pts:
+            d = abs(s - center)
+            if d < w:
+                overlay[x, y] = n if d < w * 0.5 else 1   # bright core, soft flank
+
+    def detach(self):
+        self._drop_overlay()
+        self._pts = None
+
+
 # ------------------------------------------------------------------------------------
 # Registry: image filename -> (type, kwargs). Data, not code — one line per image, so
 # tuning a ride's motion is a spec edit. Unlisted images animate nothing (perfectly fine:
@@ -153,6 +216,7 @@ _CLASSES = {
     "frames": FrameCycleAnimator,
     "swim": SwimAnimator,
     "cel_walk": CelWalkAnimator,
+    "sheen": SheenAnimator,
 }
 
 _SPECS = {
@@ -224,6 +288,7 @@ _SPECS = {
     "river.bmp": ("twinkle", dict(colors=(0x112233, 0x3388AA, 0xCCFFFF), count=18)),
     "riverboat.bmp": ("lift", dict(boxes=((4, 0, 59, 26),), exclude_colors=(0x2288EE, 0x2277CC, 0x2266BB, 0x1155AA, 0x114488, 0x112244), tol=28, path='lr', bob_amp=0, slope=0, loop=True)),
     "rocket.bmp": ("combo", (("motion", dict(path='rise', delay=40)), ("emitter", dict(box=(29, 27, 37, 29), vx=0, vy=0.5, rate=2, life=10, colors=(0xFFEE44, 0xFFAA22, 0xEE4411, 0x662211), max_live=8, jitter=0.3)))),
+    "rock_roller.bmp": ("sheen", dict(box=(26, 3, 61, 30), angle=1.35, period=88, width=1.3, gap=0.55)),
     "seashell.bmp": ("twinkle", dict(colors=(0x443311, 0xBB9944, 0xFFFFEE), count=12)),
     "shark.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "skull.bmp": ("combo", (("emitter", dict(box=(25, 12, 29, 15), vx=0, vy=-0.1, rate=2, life=10, colors=(0xEE3311, 0xBB1111, 0x550000), max_live=4, jitter=0.2)), ("emitter", dict(box=(35, 12, 39, 15), vx=0, vy=-0.1, rate=2, life=10, colors=(0xEE3311, 0xBB1111, 0x550000), max_live=4, jitter=0.2)))),

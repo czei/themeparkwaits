@@ -2262,6 +2262,51 @@ def waves():
     write("waves", g)
 
 
+# ---------------------------------------------------------------- ROCK 'N' ROLLER COASTER
+# A single Gibson Les Paul: single-cutaway solid body, cream binding, twin humbuckers,
+# open-book headstock. The body is one flat fill ("R"); the rich pass paints the cherry
+# sunburst onto it with a radial light (bright amber centre -> dark edge). Materials map
+# to shared ramps in gen_rich_icons.rock_roller(): R=sunburst top, w=cream binding/
+# pickguard/inlays, N=rosewood fretboard, s=steel frets/strings/bridge, K=ink
+# (humbuckers/headstock), o=gold (tuners/knobs/pole pieces).
+def rock_roller():
+    g = grid()
+    cy = 16                                      # horizontal centre line
+    # Drawn STRAIGHT-ON (not in perspective): headstock left, neck across, body face-on
+    # right, symmetric about cy. Reads far better than a 3/4 angle at 64x32.
+    # ---- Open-book headstock + 3+3 gold tuners ----
+    ellipse(g, 4, cy, 3, 4, "K")                 # black headstock plate
+    put(g, 1, cy - 1, "K"); put(g, 1, cy + 1, "K")
+    for ty in (cy - 5, cy + 5):                  # gold tuners, 3 per side
+        put(g, 2, ty, "o"); put(g, 4, ty, "o"); put(g, 6, ty, "o")
+    # ---- Neck / rosewood fretboard (horizontal) ----
+    rect(g, 8, cy - 3, 30, cy + 3, "N")          # fretboard, 7 px tall
+    for fx in (11, 14, 17, 20, 23, 26, 29):      # steel frets
+        vline(g, fx, cy - 3, cy + 3, "s")
+    for ix in (12, 18, 24):                      # trapezoid pearl inlays
+        put(g, ix, cy - 1, "w"); put(g, ix, cy + 1, "w")
+    # ---- Body: cream binding, then sunburst maple top (symmetric about cy) ----
+    ellipse(g, 46, cy, 15, 13, "w")              # binding (lower/main bout)
+    ellipse(g, 36, cy, 10, 11, "w")              # binding (upper bout by the neck)
+    ellipse(g, 46, cy, 14, 12, "R")              # sunburst top (main)
+    ellipse(g, 36, cy, 9, 10, "R")               # sunburst top (upper bout)
+    ellipse(g, 31, cy - 8, 4, 4, " ")            # single-cutaway bay (upper-left)
+    # ---- Strings (only over the body, nut side -> bridge) ----
+    for sy in (cy - 2, cy, cy + 2):
+        line(g, 31, sy, 49, sy, "s")
+    # ---- Pickups + hardware ----
+    ellipse(g, 38, cy + 8, 5, 2, "w")            # cream pickguard (lower/treble side)
+    rect(g, 34, cy - 4, 36, cy + 4, "K")         # neck humbucker (upright bar)
+    rect(g, 40, cy - 4, 42, cy + 4, "K")         # bridge humbucker
+    for py in (cy - 3, cy - 1, cy + 1, cy + 3):
+        put(g, 35, py, "o"); put(g, 41, py, "o")  # gold pole pieces
+    vline(g, 46, cy - 4, cy + 4, "s")            # tune-o-matic bridge
+    vline(g, 49, cy - 4, cy + 4, "s")            # stopbar tailpiece
+    for kx, ky in ((52, cy + 6), (56, cy + 7), (54, cy + 3), (58, cy + 4)):
+        put(g, kx, ky, "o")                      # 4 gold top-hat knobs
+    write("rock_roller", g)
+
+
 if __name__ == "__main__":
     import sys
     # `python tools/gen_ride_designs.py ostrich_walk` -> write only the walk spritesheet BMP
@@ -2369,3 +2414,5 @@ if __name__ == "__main__":
     waves()
     # batch 14 (art-direction round 4)
     poison_apple()
+    # batch 15 (Disney's Hollywood Studios)
+    rock_roller()
