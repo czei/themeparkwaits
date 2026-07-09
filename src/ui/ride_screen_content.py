@@ -251,7 +251,11 @@ class _ScrollingNameContent(DisplayContent):
             if self._intro_animator is not None:
                 try:
                     self._intro_animator.step(self._intro_frame)
-                except Exception:
+                except Exception as _e:
+                    # Print before settling: this fallback is silent on the panel, and
+                    # a swallowed device-only error here cost days (see ANIM-START-FAIL
+                    # below — math.hypot). Settling nulls the animator, so one line only.
+                    print("ANIM-STEP-FAIL", repr(_e))
                     self._settle_animator()
             hold_limit = (self._intro_animator.HOLD_FRAMES
                           if self._intro_animator is not None else _INTRO_HOLD_FRAMES)
@@ -327,7 +331,12 @@ class _ScrollingNameContent(DisplayContent):
                                                    display.height, len(pal))
                     except TypeError:
                         bmp = read_indexed_bmp(self._intro_image)
-            except Exception:
+            except Exception as _e:
+                # A failure here (import of the animation stack, spec lookup, or the
+                # device-only BMP decode) silently stills EVERY intro — say so on
+                # serial. The 2026-07 goat hunt: this except hid an ImportError class
+                # for two days.
+                print("ANIM-LOOKUP-FAIL", repr(_e))
                 animator = None
             tile = displayio.TileGrid(bmp, pixel_shader=pal)
             self._display = display
@@ -353,7 +362,11 @@ class _ScrollingNameContent(DisplayContent):
                     animator.start(display, tile, bmp, pal, self._intro_base_colors)
                     self._intro_animator = animator
                     started = True
-                except Exception:
+                except Exception as _e:
+                    # start() raises by design (guards, platform gaps); the fallback
+                    # is a still image with zero trace unless we print. This line is
+                    # how math.hypot-is-not-on-CircuitPython was finally caught.
+                    print("ANIM-START-FAIL", repr(_e))
                     self._intro_animator = None
             if defer:
                 display.add_layer(tile)                  # scene-only base, now that it is lifted
