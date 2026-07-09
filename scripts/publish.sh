@@ -159,7 +159,10 @@ if [ "$MPY" = "1" ]; then
   PY_BYTES="$(du -sk "$SK_TMP" | cut -f1)"
   PY_COUNT="$(find "$SK_TMP" -name '*.py' | wc -l | tr -d ' ')"
   while IFS= read -r -d '' f; do
-    "$MPY_CROSS_BIN" "$f" -o "${f%.py}.mpy"
+    # -s embeds a STABLE source name (the on-device path) instead of the temp
+    # build path — without it every build produces different .mpy bytes and the
+    # device's delta-apply would re-download the whole library each release.
+    "$MPY_CROSS_BIN" -s "lib/scrollkit/${f#"$SK_TMP"/}" "$f" -o "${f%.py}.mpy"
     rm "$f"
   done < <(find "$SK_TMP" -name '*.py' -print0)
   # Sanity: nothing un-compiled, count parity, and every file carries
