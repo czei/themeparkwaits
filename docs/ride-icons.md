@@ -1,6 +1,6 @@
 # Ride Icon Ideas
 
-_312 rides across 13 theme parks · 208 with images · 73 representations filled in._
+_312 rides across 13 theme parks · 224 with images · 73 representations filled in._
 
 Fill in **Representation** with a SIMPLE visual for each ride (e.g. Jungle Cruise = a small boat; Haunted Mansion = a ghost; Space Mountain = the spired cone). Then draw it and ship the BMP — see `docs/ride-intro-images.md`. The **Image** column auto-fills from the manifest. Avoid `|` in your notes (it breaks the table merge).
 
@@ -55,33 +55,33 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Awesome Planet |  |  | `482169b9-2889-4747-8aef-f9d13a37d940` |
 | Beauty and the Beast Sing-Along |  |  | `8c8cd77d-97f6-4309-b285-42aad90e9f15` |
 | Bijutsu-kan Gallery |  |  | `6f1d3b25-42c9-4e99-9dce-6c20d7a5deea` |
-| Bruce's Shark World |  |  | `2ecc4fff-2994-476f-9926-24a4af173838` |
+| Bruce's Shark World |  | shark.bmp | `2ecc4fff-2994-476f-9926-24a4af173838` |
 | Canada Far and Wide in Circle-Vision 360 |  |  | `61fb49f8-e62f-4e1c-ae0e-8ab9929037bc` |
 | Disney and Pixar Short Film Festival |  |  | `35ed719b-f7f0-488f-8346-4fbf8055d373` |
 | Frozen Ever After |  | snowflake.bmp | `8d7ccdb1-a22b-4e26-8dc8-65b1938ed5f0` |
 | Gallery of Arts and History |  |  | `07dbeaea-85fa-45f2-872f-02f9e7510419` |
-| Gran Fiesta Tour Starring The Three Caballeros |  |  | `22f48b73-01df-460e-8969-9eb2b4ae836c` |
-| Guardians of the Galaxy: Cosmic Rewind |  |  | `e3549451-b284-453d-9c31-e3b1207abd79` |
+| Gran Fiesta Tour Starring The Three Caballeros |  | pyramid.bmp | `22f48b73-01df-460e-8969-9eb2b4ae836c` |
+| Guardians of the Galaxy: Cosmic Rewind |  | cassette.bmp | `e3549451-b284-453d-9c31-e3b1207abd79` |
 | House of the Whispering Willows |  |  | `0f40274d-420a-425a-9377-29fd6e49484f` |
 | ImageWorks - The "What If" Labs |  |  | `3e5f26ee-c02d-47fd-891e-5e4479073444` |
 | Impressions de France |  |  | `00666fe9-7774-4b53-9fb7-3d333f8aa503` |
-| Journey Into Imagination With Figment |  |  | `75449e85-c410-4cef-a368-9d2ea5d52b58` |
+| Journey Into Imagination With Figment |  | light_bulb.bmp | `75449e85-c410-4cef-a368-9d2ea5d52b58` |
 | Journey of Water, Inspired by Moana | Volcano | volcano.bmp | `dae68dee-dfba-4128-b594-6aa12add1070` |
 | Kidcot Fun Stops |  |  | `3ace01d1-15fc-4fbb-99e4-81a696cb2d05` |
 | Living with the Land | Plant | plant.bmp | `8f353879-d6ac-4211-9352-4029efb47c18` |
-| Mexico Folk Art Gallery |  |  | `8f8746cb-c714-4c60-848d-e2dc4e6f586b` |
+| Mexico Folk Art Gallery |  | pyramid.bmp | `8f8746cb-c714-4c60-848d-e2dc4e6f586b` |
 | Mission: SPACE | Space Ship | rocket.bmp | `5b6475ad-4e9a-4793-b841-501aa382c9c0` |
 | Palais du Cinéma |  |  | `18c533d6-a395-4ae4-9488-80fce9c497fe` |
 | Project Tomorrow: Inventing the Wonders of the Future |  |  | `9053240b-7f7f-44fe-970b-bd7956cd5d4f` |
 | Reflections of China |  |  | `ee070d46-6a64-41c0-9f12-69dcfcca10a0` |
 | Remy's Ratatouille Adventure | Rat | rat.bmp | `1e735ffb-4868-47f1-b2cd-2ac1156cd5f0` |
-| SeaBase Aquarium |  |  | `7969166f-feef-4350-b26e-6a6c745528f4` |
-| Soarin' Across America | Airplane | airplane.bmp | `81b15dfd-cf6a-466f-be59-3dd65d2a2807` |
+| SeaBase Aquarium |  | jellyfish.bmp | `7969166f-feef-4350-b26e-6a6c745528f4` |
+| Soarin' Across America | Airplane | hang_glider.bmp | `81b15dfd-cf6a-466f-be59-3dd65d2a2807` |
 | Spaceship Earth | Earth | spaceship_earth.bmp | `480fde8f-fe58-4bfb-b3ab-052a39d4db7c` |
 | Stave Church Gallery |  |  | `66ff36de-9cb3-4d9a-b891-1665d19ffb3e` |
 | Test Track | Race Car | race_car.bmp | `37ae57c5-feaf-4e47-8f27-4b385be200f0` |
-| The American Adventure |  |  | `1f542745-cda1-4786-a536-5fff373e5964` |
-| The Seas with Nemo & Friends | Clown Fish |  | `fb076275-0570-4d62-b2a9-4d6515130fa3` |
+| The American Adventure |  | flag.bmp | `1f542745-cda1-4786-a536-5fff373e5964` |
+| The Seas with Nemo & Friends | Clown Fish | clownfish.bmp | `fb076275-0570-4d62-b2a9-4d6515130fa3` |
 | Turtle Talk With Crush | Turtle | turtle.bmp | `57acb522-a6fc-4aa4-a80e-21f21f317250` |
 
 ## Hollywood Studios
@@ -91,10 +91,10 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Alien Swirling Saucers |  |  | `d56506e2-6ad3-443a-8065-fea37987248d` |
 | Mickey & Minnie's Runaway Railway |  |  | `6e118e37-5002-408d-9d88-0b5d9cdb5d14` |
 | Millennium Falcon: Smugglers Run |  | falcon.bmp | `34c4916b-989b-4ff1-a7e3-a6a846a3484f` |
-| Rock ’n’ Roller Coaster Starring The Muppets |  |  | `e516f303-e82d-4fd3-8fbf-8e6ab624cf89` |
+| Rock ’n’ Roller Coaster Starring The Muppets |  | rock_roller.bmp | `e516f303-e82d-4fd3-8fbf-8e6ab624cf89` |
 | Slinky Dog Dash |  | slinky_dog.bmp | `399aa0a1-98e2-4d2b-b297-2b451e9665e1` |
-| Star Tours – The Adventures Continue |  |  | `3b290419-8ca2-44bc-a710-a6c83fca76ec` |
-| Star Wars: Rise of the Resistance |  |  | `1a2e70d9-50d5-4140-b69e-799e950f7d18` |
+| Star Tours – The Adventures Continue |  | xwing.bmp | `3b290419-8ca2-44bc-a710-a6c83fca76ec` |
+| Star Wars: Rise of the Resistance |  | xwing.bmp | `1a2e70d9-50d5-4140-b69e-799e950f7d18` |
 | The Twilight Zone™ Tower of Terror |  | tower_of_terror.bmp | `6f6998e8-a629-412c-b964-2cb06af8e26b` |
 | Toy Story Mania! | Jack in the Box Toy | jack_in_box.bmp | `20b5daa8-e1ea-436f-830c-2d7d18d929b5` |
 | Vacation Fun - An Original Animated Short with Mickey & Minnie |  |  | `9211adc9-b296-4667-8e97-b40cf76108e4` |
@@ -110,7 +110,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Expedition Everest - Legend of the Forbidden Mountain | Mountain | everest.bmp | `64a6915f-a835-4226-ba5c-8389fc4cade3` |
 | Gorilla Falls Exploration Trail |  |  | `e7976e25-4322-4587-8ded-fb1d9dcbb83c` |
 | Kali River Rapids |  |  | `d58d9262-ec95-4161-80a0-07ca43b2f5f3` |
-| Kilimanjaro Safaris |  |  | `32e01181-9a5f-4936-8a77-0dace1de836c` |
+| Kilimanjaro Safaris |  | giraffe.bmp | `32e01181-9a5f-4936-8a77-0dace1de836c` |
 | Maharajah Jungle Trek |  |  | `1a8ea967-229a-42a0-8290-59b036c84e14` |
 | Na'vi River Journey | River | river.bmp | `7a5af3b7-9bc1-4962-92d0-3ea9c9ce35f0` |
 | The Oasis Exhibits |  |  | `bc997600-fcc0-4f6f-b908-a1419b26cfd8` |
@@ -157,7 +157,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Minnie's House |  |  | `c02fb82d-0860-4e95-8c61-899fa594d20e` |
 | Mr. Toad's Wild Ride | Frog | frog.bmp | `9d401ad3-49b2-469f-ac73-93eb429428fb` |
 | Opera House - Walt Disney - A Magical Life |  |  | `6e2af074-3a67-4f38-9bcf-2f5a572c87df` |
-| Peter Pan's Flight |  |  | `c23af6ba-8515-406a-8a48-d0818ba0bfc9` |
+| Peter Pan's Flight |  | big_ben.bmp | `c23af6ba-8515-406a-8a48-d0818ba0bfc9` |
 | Pinocchio's Daring Journey |  |  | `90ee50d4-7cc9-4824-b29d-2aac801acc29` |
 | Pirate's Lair on Tom Sawyer Island |  |  | `07952343-3498-404b-8337-734de9a185c1` |
 | Pirates of the Caribbean | Sailing Ship | pirates.bmp | `82aeb29b-504a-416f-b13f-f41fa5b766aa` |
@@ -185,25 +185,25 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Golden Zephyr |  |  | `10a5fc6f-5ad3-414b-9bdd-e6bae097b6ad` |
 | Goofy's Sky School |  |  | `f44a5072-3cda-4c7c-8574-33ad09d16cca` |
 | Grizzly River Run | Bear | bear.bmp | `b1d285a7-2444-4a7c-b7bb-d2d4d6428a85` |
-| Guardians of the Galaxy - Mission: BREAKOUT! |  |  | `b7678dab-5544-48d5-8fdc-c1a0127cfbcd` |
+| Guardians of the Galaxy - Mission: BREAKOUT! |  | cassette.bmp | `b7678dab-5544-48d5-8fdc-c1a0127cfbcd` |
 | Incredicoaster | Roller Coaster Car | coaster_car.bmp | `5d07a2b1-49ca-4de7-9d32-6d08edf69b08` |
 | Inside Out Emotional Whirlwind |  |  | `6d876f4c-c3ff-4ae3-a2d8-d4b831e1039b` |
 | Jessie's Critter Carousel |  |  | `388ad3f1-5cf5-4a9d-8d0e-6dfb817d7822` |
 | Jumpin' Jellyfish | Jellyfish | jellyfish.bmp | `c8a4b7b1-c1b2-4dfe-b73c-4e834b4a73db` |
 | Luigi's Rollickin' Roadsters |  |  | `7a09a2f0-e226-4f3e-86f8-2598ab67ec44` |
 | Mater's Junkyard Jamboree |  |  | `46097afe-a1ea-4807-93d3-14d14f36e55f` |
-| Mickey's PhilharMagic |  |  | `8f586a2f-cef5-46d3-b822-fd622c4e9e33` |
+| Mickey's PhilharMagic |  | mop_bucket.bmp | `8f586a2f-cef5-46d3-b822-fd622c4e9e33` |
 | Monsters, Inc. Mike & Sulley to the Rescue! |  |  | `40524fba-5d84-49e7-9204-f493dbe2d5a4` |
 | Pixar Pal-A-Round - Swinging |  |  | `528016ef-db24-47fa-a0f2-b6d26d61e29f` |
 | Pixar Pal-A-Round – Non-Swinging |  |  | `4ca6cdbf-4c5f-45bf-b0dc-db83393ec208` |
 | Radiator Springs Racers | Race car | race_car.bmp | `c60c768b-3461-465c-8f4f-b44b087506fc` |
 | Redwood Creek Challenge Trail |  |  | `c9803366-6f37-4406-82af-7692357e3ca9` |
 | Silly Symphony Swings |  |  | `4f5b28d0-b78e-482b-8e2e-1f90756d6220` |
-| Soarin' Over California | Hang Glider | hang_glider.bmp | `77f205a4-d482-4d91-a5ff-71e54a086ad2` |
+| Soarin’ Across America | Hang Glider | hang_glider.bmp | `77f205a4-d482-4d91-a5ff-71e54a086ad2` |
 | Sorcerer's Workshop |  |  | `44c1f655-25d3-440c-b1a8-db736a12b105` |
 | The Bakery Tour |  |  | `eb77ee1f-3207-44fd-acfc-d7bc18602007` |
 | The Little Mermaid - Ariel's Undersea Adventure |  |  | `e1fbc7a1-2cd1-4282-b373-ac11d9d9d38a` |
-| Toy Story Midway Mania! |  |  | `86ab3069-110d-49c5-a7e7-29ddf28695a6` |
+| Toy Story Midway Mania! |  | jack_in_box.bmp | `86ab3069-110d-49c5-a7e7-29ddf28695a6` |
 | Turtle Talk with Crush | Turtle | turtle.bmp | `7561bcd8-18ea-4e3f-89d5-c905b7ba3d42` |
 | WEB SLINGERS: A Spider-Man Adventure |  |  | `2295351d-ce6b-4c04-92d5-5b416372c5b5` |
 
@@ -236,7 +236,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Doctor Doom's Fearfall® |  | tower_of_terror.bmp | `2f95b213-daaa-4370-8349-c2cd57be470e` |
 | Dudley Do-Right's Ripsaw Falls® |  | splash.bmp | `905d7888-b866-4e74-90d1-07fc6ef6706f` |
 | Flight of the Hippogriff™ |  | bird.bmp | `23b613e0-ae83-455b-9163-231bdbd5c427` |
-| Hagrid's Magical Creatures Motorbike Adventure™ |  | race_car.bmp | `578bbd12-1975-4ec3-9879-ea641c780342` |
+| Hagrid's Magical Creatures Motorbike Adventure™ |  | motorcycle.bmp | `578bbd12-1975-4ec3-9879-ea641c780342` |
 | Harry Potter and the Forbidden Journey™ |  | castle.bmp | `6af80308-647d-4d8b-bcf6-37517a93bdbc` |
 | Hogwarts Express™ - Hogsmeade™ Station |  | locomotive.bmp | `144450b9-4574-46be-abdf-4b1ca8974d9d` |
 | If I Ran The Zoo™ |  | elephant.bmp | `391dea99-303d-42a1-aa86-a846d1c1fa1f` |
@@ -245,7 +245,7 @@ Re-generate (preserves your notes, adds new rides): `python tools/gen_ride_check
 | Jurassic World VelociCoaster |  | dinosaur.bmp | `61079a31-4165-4fb0-b36f-c01c5971f80a` |
 | Me Ship, The Olive® |  | riverboat.bmp | `8babd50d-c570-423b-bd53-d040cad3e087` |
 | One Fish, Two Fish, Red Fish, Blue Fish™ |  | fish.bmp | `b1e94e05-b360-4e3f-be8a-2a3744a97f97` |
-| Popeye & Bluto's Bilge-Rat Barges® |  | canoe.bmp | `b4445a1c-4d5c-4fca-a04a-f8867f1b6619` |
+| Popeye & Bluto's Bilge-Rat Barges® |  | waves.bmp | `b4445a1c-4d5c-4fca-a04a-f8867f1b6619` |
 | Pteranodon Flyers |  | dinosaur.bmp | `3daca54f-50f0-44e9-a993-d706ce7520a0` |
 | Skull Island: Reign of Kong™ |  | skull.bmp | `370ba4d1-f199-4dc2-be6d-6bb09b442891` |
 | Storm Force Accelatron® |  | tea_cup.bmp | `b694d5a5-155e-4796-af7e-5dbdcf3deba4` |
