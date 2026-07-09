@@ -9,21 +9,21 @@
                                     RRRRRRRRRRRRRRRRRRRRRw
                                    RRRRRRRRRRRRRRRRRRRRRRRw
                                    RRRRRRRRRRRRRRRRRRRRRRRRw
-  o o o                     w     RRRRRRRRRRRRRRRRRRRRRRRRRw
-    K                      wRRR RRKKKRRRKKKRRRsRRsRRRRRRRRRRw
-   KKK  NNNsNNsNNsNNsNNsNNswRRRRRRKoKRRRKoKRRRsRRsRRRRRRRRRRw
-  KKKKK NNNsNNsNNsNNsNNsNNswRRRsssKKKsssKKKsssssssRRRRRRRRRRw
- KKKKKK NNNswNsNNswNsNNswNswRRRRRRKoKRRRKoKRRRsRRsRRRRRRRRRRw
- KKKKKKKNNNsNNsNNsNNsNNsNNwRRRRsssKKKsssKKKsssssssRRRRRRRRRRRw
- KKKKKK NNNswNsNNswNsNNswNswRRRRRRKoKRRRKoKRRRsRRsRRRRRRRRRRw
-  KKKKK NNNsNNsNNsNNsNNsNNswRRRsssKKKsssKKKsssssssRRRRRRRRRRw
-   KKK  NNNsNNsNNsNNsNNsNNswRRRRRRKoKRRRKoKRRRsRRsRRRRoRRRRRw
-    K                      wRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRoRw
-  o o o                     wRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
-                            wRRRRRRRRRwRRRRRRRRRRRRRoRRRRRRw
-                             wRRRRwwwwwwwwwRRRRRRRRRRRRRoRw
-                              wRRwwwwwwwwwwwRRRRRRRRRRRRRw
-                               wwRwwwwwwwwwRRRRRRRRRRRRRw
+                            w     RRRRRRRRRRRRRRRRRRRRRRRRRw
+  o o o                    wRRR RRKKKRRRKKKRRRsRRsRRRRRRRRRRw
+ KKKKKK  NNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
+ KKKKKKKKNNsNNNsNNNsNNNsNNNwRRRsssKoKsssKoKsssssssRRRRRRRRRRw
+  KKKKKKKNNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
+   KKKKKKNNsNwNsNwNsNwNsNNwRRRRsssKKKsssKKKsssssssRRRRRRRRRRRw
+  KKKKKKKNNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRRRw
+ KKKKKKKKNNsNNNsNNNsNNNsNNNwRRRsssKoKsssKoKsssssssRRRRRRRRRRw
+ KKKKKK  NNsNNNsNNNsNNNsNNNwRRRRRRKKKRRRKKKRRRsRRsRRRRoRRRRRw
+  o o o                    wRRRRRRKKKRRRKKKRRRsRRsRRRRRRRRoRw
+                            wRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRw
+                            wRRRRRRRRRRRRRRRRRRRRRRRoRRRRRRw
+                             wRRRRRRRRRRRRRRRRRRRRRRRRRRoRw
+                              wRRRRRRRRRRRRRRRRRRRRRRRRRRw
+                               wwRRRRRRRRRRRRRRRRRRRRRRRw
                                 wwwwRwwRRRRRRRRRRRRRRRww
                                     w  wwRRRRRRRRRRRww
                                          wwwwwRwwwww
