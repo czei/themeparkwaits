@@ -56,6 +56,22 @@ pytest tests/
 
 The simulator talks to the real themeparks.wiki API, renders the real screens, and is how the layouts and ride icons are iterated. `tools/sim_shot.py` grabs headless screenshots for layout work.
 
+### Previewing the ride animations
+
+Each ride's icon plays a short intro animation before its wait time (twinkle, a vehicle crossing, a creature walking, …). `tools/intro_preview.py` drives the **real** intro pipeline (the same `RideScreenContent` + animators that run on the device) so you can look at all of them without booting the app:
+
+```bash
+# Page through EVERY animated ride in a live window
+PYTHONPATH="../ScrollKit Library/src:." python3 tools/intro_preview.py
+#   Right / Space = next   Left = previous   R = replay   Esc / Q = quit
+
+# Or render them all to a GIF gallery you can open in a browser
+PYTHONPATH="../ScrollKit Library/src:." SDL_VIDEODRIVER=dummy python3 tools/intro_preview.py --gif
+#   -> writes media-raw/intro-preview/*.gif + index.html (open that index.html)
+```
+
+With no filter it shows every image that has a registered animation. Append case-insensitive filename substrings to narrow it, e.g. `... intro_preview.py ostrich tron pirates`. Which ride gets which animation is the `_SPECS` table in `src/ui/ride_animations.py`.
+
 ## How it's put together
 
 Everything the library provides — the display abstraction, WiFi, HTTP, settings, the config web server, OTA, effects, and the desktop simulator — lives in `scrollkit.*`. This repo keeps only the theme-park domain:
