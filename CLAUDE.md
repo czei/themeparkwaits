@@ -23,6 +23,9 @@ src/models/*               # ThemePark / Ride / List / Vacation (domain)
 src/ui/ride_screen_content.py   # RideScreenContent + ClosedRideContent (dual-zone)
 src/ui/tpw_display.py      # ThemeParkDisplay(UnifiedDisplay) + draw_text_scaled (2x number)
 src/ui/content_builder.py  # sort/group/filter/vacation/attribution -> ContentQueue
+src/ui/ride_animations.py  # _SPECS: per-icon intro animation registry (+ bespoke swim/sheen)
+src/ui/ride_images.py      # ride UUID -> intro icon lookup (src/images/rides/manifest.json)
+src/images/rides/          # 64x32 icon BMPs, <name>_walk.bmp cel sheets, manifest.json
 src/ui/reveal_splash.py    # opening reveal (all LEDs on -> wink off -> THEME PARK WAITS)
 src/web/config_server.py   # SLDKWebServer + config form handler
 scripts/make_manifest.py   # OTA release manifest generator (devops)
@@ -61,6 +64,21 @@ Device reads a **fixed public `live` channel branch**: `scrollkit.ota.OTAClient.
 - **Hold DOWN (`board.BUTTON_DOWN`) at boot** → device read-only → **Mac can write** (deploy mode; serial prints `Drive mount logic is: True`). Required for `scripts/deploy.sh` or copying any file to `/Volumes/CIRCUITPY`.
 - **No button** → device writable → **Mac read-only** (normal runtime; lets the WiFi setup portal save `settings.json` and the app write `error_log`). A Mac `cp` failing with `Read-only file system` means you're in this mode — reboot holding DOWN to deploy.
 - **Hold UP (`board.BUTTON_UP`) at boot** → deletes `secrets.py`, `settings.json`, `error_log` (WiFi + settings factory reset).
+
+## Ride icons + intro animations
+Every ride icon (64x32 BMP in `src/images/rides/`, ride UUID -> file in its
+`manifest.json`) plays an intro animation during the HOLD: **one data line per image**
+in `_SPECS` (`src/ui/ride_animations.py`); the engine is
+`scrollkit.effects.image_animators`. Invariant: every shipped icon animates, and a new
+icon lands with its spec line. **Authoring guide — archetypes (walkers, flyers,
+vehicles, glows...), kwargs, budgets, owner art rules, validation:
+`docs/ride-intro-animations.md`.** Drawing new icons: `docs/ride-intro-images.md`.
+Engine reference (a GIF of every animator + runnable demos incl. the cel-walk
+ostrich): the library's `docs/guide/effects.md` and `demos/medium/`.
+Verify with `tools/anim_verify.py <name.bmp> <outdir>` (contact sheet + motion metric),
+review via `tools/intro_preview.py --gif`; every `_SPECS` entry is auto-exercised by
+`tests/domain/test_ride_animations.py`. Sim-green is not device-green for animations:
+start()-time stalls are invisible in the simulator (watch serial for `ANIM-*-FAIL`).
 
 ## Conventions
 - `scrollkit/__init__.py` does no eager imports — import submodules on demand (RAM).

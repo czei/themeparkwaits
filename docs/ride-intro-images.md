@@ -4,12 +4,15 @@
 rides as possible (US Disney, Universal, and other parks). Each plays before that
 ride's wait-time screen on the Matrix Portal S3.
 
-**Status (2026-06-29):** framework DONE + verified on hardware. **All 49 ride icons are
-drawn + registered** — every filled-in representation in `docs/ride-icons.md` now maps to a
-BMP (79 ride UUIDs → 49 images in `manifest.json`), sim-verified through the real
-`UnifiedDisplay`. Designs are reproducible via `tools/gen_ride_designs.py`
-(+ `tools/trace_ref_outline.py` for reference-traced ones, e.g. the glass slipper).
-Adding more rides still needs **no code changes** — just a design + a manifest line.
+**Status (2026-07-10):** framework DONE + verified on hardware; ~89 images serve 420
+ride UUIDs (`manifest.json`), and **every shipped icon also has an intro ANIMATION**
+(one `_SPECS` line in `src/ui/ride_animations.py` — see
+`docs/ride-intro-animations.md`, the animation authoring guide). Coverage progress per
+park lives in `docs/ride-icons.md` (regenerate: `python tools/gen_ride_checklist.py`).
+Designs are reproducible via `tools/gen_ride_designs.py`
+(+ `tools/trace_ref_outline.py` for reference-traced ones); rich shading via
+`tools/gen_rich_icons.py` from `designs/originals/`. Adding more rides still needs
+**no code changes** — a design, a manifest line, and a spec line.
 
 ---
 
@@ -72,8 +75,16 @@ python tools/make_ride_image.py designs/<name>.txt --name <name> \
 # 5. Verify in the simulator (edit the UUID in the script, or generalize it):
 PYTHONPATH="../ScrollKit Library/src:." SDL_VIDEODRIVER=dummy python3 tools/intro_shots.py /tmp/x
 
-# 6. Commit, then deploy to the device (see below) and watch.
+# 6. ANIMATE it — every icon ships with an intro animation. Add the one _SPECS line in
+#    src/ui/ride_animations.py and validate (anim_verify contact sheet + pytest):
+#    full loop, archetypes, budgets, and art rules in docs/ride-intro-animations.md.
+
+# 7. Commit, then deploy to the device (see below) and watch.
 ```
+
+**Intro hold length:** the 32-frame (~1.6 s) `_INTRO_HOLD_FRAMES` constant applies only
+when an image has NO animator; an animator overrides it via its `HOLD_FRAMES`
+(typically 96-108, ~5 s) — see `docs/ride-intro-animations.md`.
 
 **Image format spec:** 64×32, indexed BMP (Pillow `P` mode), ≤16 colors (panel is
 `bit_depth=4`). Palette **index 0 = sky**, and the **top-left pixel must be sky** — the
