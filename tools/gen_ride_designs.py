@@ -898,26 +898,6 @@ def canoe():
     write("canoe", g)
 
 
-# ---------------------------------------------------------------- WAVE (Tiana's)
-def wave():
-    g = grid()
-    _water(g, (28, 29, 30))
-    # breaking wave: a tall hump peaking on the left (the curl) sloping down right
-    def peak(x):
-        return 7 + 17 * math.exp(-((x - 24) ** 2) / 120.0)
-    for x in range(8, 58):
-        top = int(27 - peak(x))
-        vline(g, x, top, 27, "~")
-    ellipse(g, 19, 16, 6, 5, " ")                  # carve the barrel (open scoop)
-    for x in range(8, 58):                         # white foam crest
-        top = int(27 - peak(x))
-        put(g, x, top, "w"); put(g, x, top + 1, "w")
-    ring(g, 19, 16, 6, "w")                        # foam lining the barrel
-    for fx, fy in ((13, 5), (9, 8), (27, 3), (31, 6), (17, 3)):  # spray off the crest
-        put(g, fx, fy, "w")
-    write("wave", g)
-
-
 # ---------------------------------------------------------------- JELLYFISH
 def jellyfish():
     g = grid()
@@ -1862,12 +1842,16 @@ def indiana_hat():
             vline(g, x, 17, 17 + int(3 * d), "n")
     ellipse(g, cx, 18, 17, 1, "N")                     # underbrim shadow
     put(g, cx - 19, 18, "n"); put(g, cx + 19, 18, "n")  # turned-down brim tips
-    # coiled bullwhip, lower-right: ONE loose loop + a long cracking lash (not a snail spiral)
-    ring(g, 52, 27, 4, "n")
-    ellipse(g, 52, 27, 1, 1, "N")
-    lash = ((55, 24), (59, 22), (61, 17), (58, 12), (62, 7))
-    for i in range(len(lash) - 1):
-        line(g, lash[i][0], lash[i][1], lash[i + 1][0], lash[i + 1][1], "n")
+    # coiled bullwhip, lower-right: nested elliptical loops (a coil seen at a slight
+    # angle) + a straight rigid HANDLE angled up-right. The handle is the whip tell —
+    # a lone loop with a long wavy lash read as a sperm.
+    ellipse(g, 52, 25, 6, 4, "n")                      # outer loop...
+    ellipse(g, 52, 25, 4, 2, " ")                      # ...carved to a band
+    ellipse(g, 52, 25, 3, 1, "n")                      # inner loop
+    put(g, 52, 25, "N")                                # coil eye (tucked rope end)
+    thick_line(g, 56, 21, 61, 14, "N", 2)              # stiff leather handle
+    put(g, 62, 13, "o"); put(g, 62, 12, "o")           # gold pommel knob
+    line(g, 47, 28, 44, 30, "n")                       # fall tip trailing from the coil
     write("indiana_hat", g)
 
 
@@ -2377,7 +2361,6 @@ if __name__ == "__main__":
     submarine()
     riverboat()
     canoe()
-    wave()
     jellyfish()
     river()
     # batch 6

@@ -399,19 +399,6 @@ def spaceship_earth():
                   light_fn=_radial(0.34, 0.30, 1.9))
 
 
-def wave():
-    water = ramp3((0x0A, 0x44, 0x77), (0x1F, 0x6F, 0xD6), (0x66, 0xCC, 0xFF), 6)
-    foam = ramp((0xCC, 0xEE, 0xFF), (0xFF, 0xFF, 0xFF), 3)
-    R = {"1f6fd6": (water, 0.0), "eadfc4": (foam, 0.1)}
-
-    def extras(out, pal, mask, bbox):
-        for (sx, sy, c) in [(18, 2, (0xCC, 0xF0, 0xFF)), (24, 1, (0xFF, 0xFF, 0xFF)),
-                            (12, 4, (0x88, 0xDD, 0xFF))]:
-            if (sx, sy) not in mask:
-                _dot(out, pal, sx, sy, c)
-    return _shade("wave", R, extras, occlude=True, light_fn=_vertical)
-
-
 # ---- Efteling hero icons ----------------------------------------------------------
 # These 15 silhouettes drive Efteling's marquee rides (Joris en de Draak, Python,
 # Droomvlucht, Piraña, Pagode, Fata Morgana, ...). They were previously auto-shaded (a
@@ -665,7 +652,7 @@ HEROES = {"minion": minion, "panda": panda, "transformers": transformers,
           "space_mountain": space_mountain, "tron": tron,
           "everest": everest, "castle": castle, "big_thunder_goat": big_thunder_goat,
           "haunted_mansion": haunted_mansion, "skull": skull, "splash": splash,
-          "seashell": seashell, "spaceship_earth": spaceship_earth, "wave": wave,
+          "seashell": seashell, "spaceship_earth": spaceship_earth,
           "bird": bird, "canoe": canoe, "carousel_horse": carousel_horse, "child": child,
           "coaster_car": coaster_car, "dragon": dragon, "fairy": fairy, "fish": fish,
           "locomotive": locomotive, "magic_carpet": magic_carpet, "mushroom": mushroom,

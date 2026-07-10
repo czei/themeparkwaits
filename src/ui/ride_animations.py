@@ -243,10 +243,15 @@ _SPECS = {
     "clownfish.bmp": ("combo", (("motion", dict(path='traverse_rl', amp=1, bob_amp=1)), ("region_shift", dict(box=(44, 6, 56, 27), axis='y', amp=1, period=20)))),
     "coaster_car.bmp": ("lift", dict(boxes=((22, 6, 38, 16),), exclude_colors=(0xAABBCC, 0x888899, 0x444455), tol=28, path='lr', bob_amp=0, slope=0.4, loop=True)),
     "crocodile.bmp": ("combo", (("motion", dict(path='traverse_rl', bob_amp=1)), ("region_shift", dict(box=(3, 20, 24, 23), axis='y', amp=2, period=32, wave='sine', half='pos')))),
+    # T-rex roar: a TRUE rotation of the head about the neck base, clamped up-only
+    # (half='pos') so it always reads as rearing back to roar, never pecking; the body,
+    # spikes and tail are excluded and hold still. One spec animates all 15 Jurassic rides.
+    "dinosaur.bmp": ("region_rotate", dict(box=(45, 3, 63, 15), pivot=(46, 13), amp_deg=9, period=64, half='pos', exclude=(0, 8, 44, 31))),
     "donut.bmp": ("vanish", dict(boxes=((40, 5, 46, 9), (38, 10, 46, 14), (40, 15, 46, 17)), start=35, interval=16)),
     "door.bmp": ("combo", (("region_shift", dict(box=(32, 5, 41, 29), axis='x', amp=-9, period=30, wave='ramp', delay=12)), ("orbiter", dict(cx=35, cy=13, rx=0, ry=0, period=32, delay=55, sprite=((0, 0, 0xFFFFFF), (3, 0, 0xFFFFFF)))))),
     "dragon.bmp": ("combo", (("cover", dict(box=(22, 18, 31, 19), dx=0, dy=-3, until=35, blank=True)), ("region_shift", dict(box=(0, 6, 16, 24), axis='x', amp=0, period=96, wave='sine', delay=35, hide_before=True)), ("emitter", dict(box=(12, 12, 18, 18), vx=-0.9, vy=0, jitter=0.3, rate=3, life=16, max_live=6, colors=(0xFFFFCC, 0xFFEE66, 0xFFBB22, 0xCC4411), delay=35)))),
     "elephant.bmp": ("combo", (("region_shift", dict(box=(13, 9, 23, 25), axis='y', amp=1, period=10, wave='sine', phase=0)), ("region_shift", dict(box=(41, 9, 51, 25), axis='y', amp=1, period=10, wave='sine', phase=5)))),
+    "everest.bmp": ("combo", (("emitter", dict(box=(26, 5, 28, 7), vx=0.7, vy=-0.15, rate=3, life=16, colors=(0xFFFFFF, 0xCCDDEE, 0x667788), max_live=4, jitter=0.25)), ("emitter", dict(box=(33, 5, 35, 7), vx=0.7, vy=-0.15, rate=3, life=16, colors=(0xFFFFFF, 0xCCDDEE, 0x667788), max_live=4, jitter=0.25, delay=5)))),
     "fairy.bmp": ("combo", (("motion", dict(path='traverse_rl', amp=0, bob_amp=1, delay=40)), ("region_shift", dict(box=(9, 3, 22, 17), axis='x', amp=1, period=6, wave='sine', half='neg')), ("region_shift", dict(box=(36, 3, 45, 17), axis='x', amp=1, period=6, wave='sine', half='pos')))),
     "falcon.bmp": ("combo", (("motion", dict(path='traverse_lr', amp=1, bob_amp=1)), ("palette_pulse", dict(match=(0x3399FF, 0x2288EE, 0x2277DD, 0xEEEEDD, 0xFFEEEE), tol=16, lo=0.6, hi=1.35, period=30)))),
     "firetruck.bmp": ("combo", (("motion", dict(path='traverse_lr', amp=1, bob_amp=1)), ("palette_pulse", dict(match=(0xFFEE55,), tol=24, lo=0.4, hi=1.6, period=26)))),
@@ -263,6 +268,9 @@ _SPECS = {
     "haunted_mansion.bmp": ("combo", (("region_shift", dict(box=(15, 10, 22, 20), axis='y', amp=1, period=22, phase=0, wave='sine')), ("region_shift", dict(box=(42, 10, 49, 20), axis='y', amp=1, period=22, phase=3.14, wave='sine')))),
     "helicopter.bmp": ("combo", (("motion", dict(path='traverse_rl', amp=1, bob_amp=1)), ("blink", dict(box=(5, 4, 60, 7), color=0, period=6, duty=3, delay=0)))),
     "honey_pot.bmp": ("orbiter", dict(cx=32, cy=19, rx=15, ry=10, period=50, wobble=1, clockwise=True, sprite=((0, 0, 0xFFCC00), (1, 0, 0x442200), (2, 0, 0xFFCC00)))),
+    # Indy tips his hat: the fedora lifts up to 2px (half='neg' = up-only) after a beat
+    # while the coiled whip stays planted, so it reads as a doff, not a floating icon.
+    "indiana_hat.bmp": ("region_shift", dict(box=(8, 6, 49, 20), axis='y', amp=2, period=44, wave='sine', half='neg', delay=16)),
     "iron_man.bmp": ("palette_pulse", dict(match=(0xFFFFFF, 0xEEEEEE, 0xDDDDDD), tol=24, lo=0.45, hi=1.2, period=40)),
     "jack_in_box.bmp": ("region_shift", dict(box=(27, 0, 37, 12), axis='y', amp=2, period=14, wave='sine', half='neg', delay=40, hide_before=True)),
     "jellyfish.bmp": ("region_shift", dict(box=(21, 16, 43, 29), axis='x', amp=1, period=24, phase=0, wave='ripple', wavelength=7)),
@@ -280,9 +288,17 @@ _SPECS = {
     "mushroom.bmp": ("twinkle", dict(colors=(0x663333, 0xEE9988, 0xFFFFFF), count=8, box=(12, 3, 54, 16))),
     "old_car.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "ostrich.bmp": ("cel_walk", dict(period=6, bob=0)),
+    "pagoda.bmp": ("palette_pulse", dict(match=(0xFFEEAA, 0xFFEE99, 0xFFDD77, 0xFFDD66, 0xEEBB33), tol=12, lo=0.5, hi=1.5, period=44)),
     "panda.bmp": ("blink", dict(box=(23, 12, 29, 18), color=0x555555, period=48, duty=9, delay=28)),
+    # Living with the Land: each leaf rotates INDEPENDENTLY about its own stem joint
+    # (pivot at the inner base of each blade), on five different periods so no two move
+    # together — the crown rosette turns gentlest and slowest. Stem and soil never move.
+    "plant.bmp": ("combo", (("region_rotate", dict(box=(22, 14, 30, 18), pivot=(30, 16), amp_deg=8, period=40)), ("region_rotate", dict(box=(34, 14, 42, 18), pivot=(34, 16), amp_deg=8, period=46)), ("region_rotate", dict(box=(23, 19, 31, 22), pivot=(31, 20), amp_deg=7, period=52)), ("region_rotate", dict(box=(33, 19, 41, 22), pivot=(33, 20), amp_deg=7, period=44)), ("region_rotate", dict(box=(27, 9, 38, 13), pivot=(32, 13), amp_deg=6, period=58)))),
     "poison_apple.bmp": ("palette_pulse", dict(match=(0x88DD55, 0x88CC55, 0x77BB55), tol=20, lo=0.5, hi=1.55, period=36)),
     "pirates.bmp": ("lift", dict(boxes=((1, 4, 62, 27),), exclude_colors=(0x88DDFF, 0x66BBEE, 0x4499EE, 0x2277CC, 0x1166BB, 0x1155AA), tol=28, path='rl', bob_amp=0, slope=0, loop=True)),
+    # Gran Fiesta Tour: a tiny red bird (Panchito, yellow crest, fading tail) loops the
+    # temple summit — the barn.bmp swallow idiom over the Mexico pavilion pyramid.
+    "pyramid.bmp": ("orbiter", dict(cx=32, cy=9, rx=20, ry=6, period=64, clockwise=True, sprite=((0, 0, 0xEE3333), (-1, 0, 0xBB2222), (-2, 0, 0x771111), (0, -1, 0xFFEE55)))),
     "race_car.bmp": ("motion", dict(path='traverse_lr', bob_amp=1)),
     "rat.bmp": ("region_shift", dict(box=(4, 7, 14, 21), axis='y', amp=2, period=18, wave='sine')),
     "river.bmp": ("twinkle", dict(colors=(0x112233, 0x3388AA, 0xCCFFFF), count=18)),
@@ -299,6 +315,9 @@ _SPECS = {
     "splash.bmp": ("emitter", dict(box=(18, 22, 47, 25), vx=0, vy=-1, rate=2, life=12, colors=(0xFFFFFF, 0x99CCEE, 0x3377BB), max_live=8, jitter=0.3)),
     "submarine.bmp": ("emitter", dict(box=(46, 4, 54, 12), vx=0.1, vy=-0.45, rate=4, life=16, colors=(0xAADDFF, 0x88AACC, 0x445577), max_live=6, jitter=0.2)),
     "tea_cup.bmp": ("emitter", dict(box=(24, 8, 42, 11), vx=0, vy=-0.4, rate=4, life=18, colors=(0xFFFFEE, 0xCCCCCC, 0x777777), max_live=6, jitter=0.2)),
+    # Both eyes blink at once; each blink part covers its eye with the fur gold local to
+    # that side of the face (the right side is shaded darker).
+    "tiger.bmp": ("combo", (("blink", dict(box=(24, 11, 29, 14), color=0xFFDD55, period=52, duty=8, delay=32)), ("blink", dict(box=(34, 11, 40, 14), color=0xFFCC44, period=52, duty=8, delay=32)))),
     "tiki_bird.bmp": ("region_shift", dict(box=(43, 10, 50, 19), axis='y', amp=1, period=20, wave='sine')),
     "tower_of_terror.bmp": ("palette_pulse", dict(match=(0xFFEE55, 0xFFDD55, 0xFFCC44, 0xFFFF66), tol=20, lo=0.4, hi=1.5, period=28)),
     "transformers.bmp": ("palette_pulse", dict(match=(0xCCEEFF, 0xBBDDFF, 0xBBEEFF), tol=8, lo=0.5, hi=1.6, period=40)),
