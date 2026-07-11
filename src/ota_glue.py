@@ -147,6 +147,18 @@ class OTAGlue:
         per-pool, so the listening socket is untouchable from here. Digs the
         pool out of the session via vendored-bundle internals — acceptable
         because the bundle is USB-frozen (version-locked to this flash)."""
+        # Prefer the library's supported API (scrollkit >= the 2026-07-11
+        # hygiene fix); fall back to the direct dig for an older on-device lib
+        # (releases ship app+lib atomically, so the skew window is boot-time
+        # only).
+        closer = getattr(self._http_client, "close_pooled_sockets", None)
+        if closer is not None:
+            ok = bool(closer())
+            import gc
+            gc.collect()
+            if ok:
+                print("OTA: evicted data-session sockets (native TLS contexts freed)")
+            return ok
         session = getattr(self._http_client, "session", None)
         if session is None:
             return False

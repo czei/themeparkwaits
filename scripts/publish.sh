@@ -248,6 +248,12 @@ PUB="$WORK/pub"
 mkdir -p "$PUB"
 cp "$OUT/manifest.json" "$PUB/"
 cp -R "$OUT/files" "$PUB/"
+# version.txt: the ~6-byte fast path for the device's update CHECK. Fetching the
+# full manifest (~31 KB, flash-streamed, JSON-parsed) just to compare a version
+# number was wasteful and slow; the client reads this first and only fetches the
+# manifest when the version is actually newer (with a 404 fallback for channels
+# published before this existed).
+printf '%s\n' "$VERSION" > "$PUB/version.txt"
 cd "$PUB"
 git init -q
 git checkout -q -b "$LIVE_BRANCH"
