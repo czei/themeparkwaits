@@ -103,7 +103,12 @@ def test_ota_client_uses_injected_session_not_module_get():
                                   current_version="1.95", session=sess)
     has_update, info = client.check_for_updates()      # 3.0 > 1.95
     assert has_update is True, info
+    # The ~6-byte version.txt fast-path probe fires first (it falls through
+    # here: this fake session serves the manifest payload for every URL, and the
+    # strict-semver guard rejects that as a version, sending the check on to the
+    # manifest).
     assert sess.calls == [
+        "https://raw.githubusercontent.com/czei/themeparkwaits/live/version.txt",
         "https://raw.githubusercontent.com/czei/themeparkwaits/live/manifest.json"]
 
 

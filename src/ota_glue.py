@@ -129,6 +129,12 @@ class OTAGlue:
         """
         if self._http_client is None:
             return
+        # Evict pooled sockets BEFORE every check, not only on failure: it frees
+        # the previous check's GitHub TLS context (~40 KB of internal SRAM)
+        # instead of pinning it between checks, and removes the pooled-corpse
+        # variable entirely — every check pays one predictable fresh handshake
+        # rather than gambling on whether GitHub kept an idle socket alive.
+        self._evict_data_sockets()
         import gc
         gc.collect()
         self.client.session = getattr(self._http_client, "session", None)
@@ -185,6 +191,17 @@ class OTAGlue:
         decides whether to install. Returns ``(available, version, message)``; never
         raises. Splitting this out of schedule_update() is what lets the web UI ask
         the user before touching the device (the fused check+download auto-installed)."""
+        # Timed on every exit path: a slow click's serial line lands in sequence
+        # with the park-refresh log lines, so "the box froze for 30 s" events
+        # name their culprit instead of spawning theories.
+        import time
+        t0 = time.monotonic()
+        try:
+            return self._check_update_timed()
+        finally:
+            print("OTA check took %.1fs" % (time.monotonic() - t0))
+
+    def _check_update_timed(self):
         self._prep_session()
         print("OTA check heap:", self._heap_probe())
         # NB: OTAGlue.last_error is a read-only property delegating to _progress, so
@@ -228,10 +245,7 @@ class OTAGlue:
         if staged; the caller reboots so ``install_pending()`` applies it next boot.
         Assumes a prior ``check_update()`` found one; ``download_update()`` re-checks
         if needed. Never raises."""
-        self._prep_session()
-        # Unconditional eviction here: a ~2 s re-handshake is nothing next to the
-        # download, and the install path should start with maximum native headroom.
-        self._evict_data_sockets()
+        self._prep_session()                  # includes the pre-check eviction
         self._progress.last_error = None      # read-only property on self; set _progress
         try:
             # Re-check to get a FRESH manifest and pass it explicitly, rather than
