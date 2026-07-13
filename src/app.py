@@ -555,7 +555,10 @@ class ThemeParkApp(ScrollKitApp):
             return  # desktop / simulator: nothing to bring up
         try:
             from scrollkit.network.wifi_manager import WiFiManager
-            self.wifi = WiFiManager(self.settings)
+            # ap_name brands the onboarding portal's access point: the customer
+            # joins "ThemeParkWaits-XXXX" (MAC tail appended by the library for
+            # uniqueness), not a generic "WifiManager_..." mystery network.
+            self.wifi = WiFiManager(self.settings, ap_name="ThemeParkWaits")
             await self._status("Wi-Fi", transition=True)
             # Join the network; on failure fall through to onboarding (the setup
             # portal for a first boot, or retry-then-portal-then-reboot for known
