@@ -26,8 +26,8 @@ from scrollkit.effects.text_render import pixels_from_font_text, font_text_width
 # desktop). A bare ``import displayio`` can grab a stray Blinka PyPI package on desktop.
 from scrollkit.display.unified import displayio
 
-# Wait-number reveal styles the user can pick (settings: wait_time_effect). The
-# value stored is one of these labels; "Rain" is the default and the fallback for
+# Wait-number reveal styles, chosen at random per ride by content_builder (not a
+# user setting). "Rain" is the default and the fallback for
 # any unrecognized value. "Rain" drips the digits into place (from a RANDOM edge —
 # see DRIP_DIRECTIONS), "Swarm" flies a flock in (lazily imported — heavier boids
 # code + ``random`` — so a board using the default never loads it), "SplitFlap"

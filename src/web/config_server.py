@@ -37,7 +37,6 @@ import sys
 from scrollkit.utils.url_utils import url_decode
 from scrollkit.utils.error_handler import ErrorHandler
 from src.ui.content_builder import build_content_queue
-from src.ui.ride_screen_content import WAIT_EFFECTS
 
 # Persist OTA install outcomes: error() writes to error_log in BOTH modes (info is
 # console-only in PRODUCTION), so a silent download failure leaves a readable reason.
@@ -187,8 +186,7 @@ def apply_settings(app, params) -> None:
         sm.set("current_park_id", ids[0] if ids else "")
 
     # Scalars.
-    for key in ("sort_mode", "scroll_speed", "wait_time_effect", "wait_color_mode",
-                "domain_name"):
+    for key in ("sort_mode", "scroll_speed", "wait_color_mode", "domain_name"):
         if key in params and params[key]:
             sm.set(key, params[key])
     if "brightness_scale" in params:
@@ -464,8 +462,6 @@ def render_page_chunks(app):
     fields = dict(
         sort=select("sort_mode", SORT_MODES, sm.get("sort_mode", "alphabetical")),
         scroll=select("scroll_speed", SCROLL_SPEEDS, sm.get("scroll_speed", "Medium")),
-        wait_effect=select("wait_time_effect", WAIT_EFFECTS,
-                           sm.get("wait_time_effect", "Rain")),
         wait_color_mode=select("wait_color_mode", WAIT_COLOR_MODES,
                                sm.get("wait_color_mode", "severity")),
         brightness=brightness,
@@ -694,7 +690,6 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <h3>Display</h3>
 {sort}
 {scroll}
-{wait_effect}
 <div class="form-group"><label>Brightness</label>
 <input class="form-control" type="range" name="brightness_scale" min="0" max="1" step="0.05" value="{brightness}"></div>
 {group}

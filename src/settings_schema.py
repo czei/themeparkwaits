@@ -25,7 +25,6 @@ DEFAULTS = {
     "ride_name_color": ColorUtils.colors["Blue"],
     "ride_wait_time_color": ColorUtils.colors["Old Lace"],
     "scroll_speed": "Medium",
-    "wait_time_effect": "Rain",
     # Vertical two-tone gradient on the scrolling ride NAME (lighter top -> deeper
     # bottom, derived from ride_name_color). Off -> flat single-colour name.
     "ride_name_gradient": True,
