@@ -275,6 +275,15 @@ echo "==> done: v$VERSION is live on '$LIVE_BRANCH'"
 OTA_HOST="${OTA_CHECK_HOST:-ec2-user@webperformance.com}"
 OTA_KEY="${OTA_CHECK_KEY:-$HOME/.ssh/michael-2.pem}"
 OTA_DIR="/opt/themeparkwaits.com/ota"
+if [ ! -f "$OTA_KEY" ]; then
+  # CI (publish-live.yml) has no server key: the live branch is mirrored but the
+  # check endpoint is NOT updated — devices keep seeing the previous version
+  # until someone with the key runs this step. Shout, don't fail the mirror.
+  echo "WARNING: no server key at $OTA_KEY — SKIPPING the version.txt publish." >&2
+  echo "         Devices will not see v$VERSION until you run, from a machine with the key:" >&2
+  echo "         printf '%s\n' \"$VERSION\" | ssh -i \"$OTA_KEY\" \"$OTA_HOST\" \"cat > $OTA_DIR/version.txt\"" >&2
+  exit 0
+fi
 echo "==> publishing version.txt to themeparkwaits.com/ota/"
 if ssh -i "$OTA_KEY" "$OTA_HOST" "sudo mkdir -p '$OTA_DIR' && sudo chown ec2-user: '$OTA_DIR'" \
    && printf '%s\n' "$VERSION" | ssh -i "$OTA_KEY" "$OTA_HOST" "cat > '$OTA_DIR/version.txt' && chmod 644 '$OTA_DIR/version.txt'"; then
