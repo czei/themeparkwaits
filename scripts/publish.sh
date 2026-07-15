@@ -264,3 +264,24 @@ git commit -q -m "Publish v$VERSION to $LIVE_BRANCH (from $REF @ ${SHA:0:9})"
 echo "==> pushing to $LIVE_BRANCH"
 git push --force "$PUBLISH_REMOTE" "$LIVE_BRANCH"
 echo "==> done: v$VERSION is live on '$LIVE_BRANCH'"
+
+# 7) update-check endpoint: devices CHECK against themeparkwaits.com/ota/version.txt
+#    (ECDSA chain — cheap handshake), never raw.githubusercontent.com (RSA-2048
+#    chain: mbedtls PK_ALLOC_FAILED / OSError -16256 on a running box; see
+#    docs/ota-check-failure-ledger.md attempt #5). Same bytes as the live
+#    branch's version.txt. The site deploy's rsync --delete excludes /ota, so
+#    this survives website deploys. A failure here FAILS the release: a stale
+#    check endpoint makes every device silently believe it is up to date.
+OTA_HOST="${OTA_CHECK_HOST:-ec2-user@webperformance.com}"
+OTA_KEY="${OTA_CHECK_KEY:-$HOME/.ssh/michael-2.pem}"
+OTA_DIR="/opt/themeparkwaits.com/ota"
+echo "==> publishing version.txt to themeparkwaits.com/ota/"
+if ssh -i "$OTA_KEY" "$OTA_HOST" "sudo mkdir -p '$OTA_DIR' && sudo chown ec2-user: '$OTA_DIR'" \
+   && printf '%s\n' "$VERSION" | ssh -i "$OTA_KEY" "$OTA_HOST" "cat > '$OTA_DIR/version.txt' && chmod 644 '$OTA_DIR/version.txt'"; then
+  echo "==> check endpoint updated: https://themeparkwaits.com/ota/version.txt = $VERSION"
+else
+  echo "ERROR: version.txt publish to the website FAILED — devices would check against a stale endpoint." >&2
+  echo "       Fix and re-run, or publish manually:" >&2
+  echo "       printf '%s\n' \"$VERSION\" | ssh -i \"$OTA_KEY\" \"$OTA_HOST\" \"cat > $OTA_DIR/version.txt\"" >&2
+  exit 1
+fi

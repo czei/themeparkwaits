@@ -292,15 +292,22 @@ def check_update(app):
 
 
 def install_update(app) -> bool:
-    """POST /install: start the user-confirmed install and return immediately so the
-    'update started' page flushes FIRST. A background task then paints
-    'Updating / DO NOT / UNPLUG!' on the panel, downloads the staged files (blocking
-    — the message holds on screen through it), and reboots so the next boot's
-    install_pending() applies them. Returns whether the task was scheduled."""
+    """POST /install: persist the user's install request and reboot. The DOWNLOAD
+    happens at early boot (``OTAGlue.stage_pending_request``), not here — a runtime
+    fetch from raw.githubusercontent.com dies with mbedtls PK_ALLOC_FAILED
+    (``OSError: -16256``): its RSA-2048 chain needs more internal SRAM than the
+    running app leaves free (ledger attempt #5, 2026-07-15). The response flushes
+    first, a background task paints 'Updating / DO NOT / UNPLUG!', then the reboot
+    hands off to setup()'s stage-then-apply. Returns whether the request was
+    persisted."""
     import asyncio
     ota = getattr(app, "ota", None)
-    if ota is None or not hasattr(ota, "stage_update"):
+    if ota is None or not hasattr(ota, "request_stage"):
         return False
+    if not ota.request_stage():
+        logger.error(None, "OTA: could not persist install request")
+        return False
+    logger.error(None, "OTA: install requested, rebooting to stage at boot")
 
     async def _run():
         await asyncio.sleep(0.4)               # let the HTTP response flush first
@@ -308,30 +315,13 @@ def install_update(app) -> bool:
             await ota.show_updating()          # "Updating / DO NOT / UNPLUG!" on the panel
         except Exception as e:
             print("show_updating failed:", e)
-        _reclaim_display_mem(app)              # free heap for the download GETs
-        staged = False
-        try:
-            staged = bool(ota.stage_update())  # blocking download; the panel message holds
-        except Exception as e:
-            print("OTA stage failed:", e)
-        if staged:
-            logger.error(None, "OTA: staged update, rebooting to apply")
-            _schedule_reboot(app, delay=0.4)   # reboot -> install_pending applies + reboots
-        else:
-            # PERSIST why it didn't stage (last_error is otherwise invisible — not on
-            # the web page or serial), so a silent download failure is diagnosable.
-            logger.error(None, "OTA: install did NOT stage: %s"
-                         % (getattr(ota, "last_error", None) or "unknown"))
-            try:
-                await ota.show_failed()
-            except Exception:
-                pass
 
     try:
         asyncio.get_running_loop().create_task(_run())
-        return True
     except RuntimeError:
-        return False                           # no running loop (tests)
+        pass                                   # no running loop (tests)
+    _schedule_reboot(app, delay=1.0)           # reboot -> boot-time stage + apply
+    return True
 
 
 def _schedule_reboot(app, delay=2.0):

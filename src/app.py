@@ -52,8 +52,17 @@ class ThemeParkApp(ScrollKitApp):
         # socket — self-recovers via reset instead of sitting black until a
         # power-cycle. The timeout (and its clamp to the ESP32-S3 hardware max) and
         # the HTTP request timeout are the library's defaults now.
+        # enable_auto_reboot: last-resort self-heal, fed via note_refresh_result()
+        # in update_data(). 12 consecutive failures at the 60 s stale-retry cadence
+        # ≈ 12+ minutes of continuous outage before the hammer — long enough that a
+        # brief API/server blip never reboot-loops the box, short enough that the
+        # 2026-07-15 outbound-EBUSY wedge (which stranded the box for 90+ min with
+        # no self-heal rung at all) ends without a hand on the reset button. The
+        # radio bounce at every 3rd failure (see _escalate_fetch_failures) should
+        # cure that wedge long before this fires.
         super().__init__(enable_web=enable_web, update_interval=update_interval,
-                         enable_watchdog=True)
+                         enable_watchdog=True, enable_auto_reboot=True,
+                         max_refresh_failures=12)
         self.settings = settings or make_settings()
         if http_client is None:
             from scrollkit.network.http_client import HttpClient
@@ -197,6 +206,15 @@ class ThemeParkApp(ScrollKitApp):
         if self.ota is not None:
             try:
                 self.ota.attach_display(self.display)
+                # A persisted /install request downloads HERE — right after
+                # network bring-up, before parks/content/web allocate — because
+                # the GitHub RSA-2048 handshake dies at runtime (mbedtls
+                # PK_ALLOC_FAILED; ledger attempt #5). Staging success makes
+                # has_pending() true and install_pending() applies it below.
+                try:
+                    await self.ota.stage_pending_request()
+                except AttributeError:
+                    pass  # older glue without boot-time staging
                 had_pending = self.ota.has_pending()
                 installed = await self.ota.install_pending()
                 if had_pending and not installed:
@@ -710,10 +728,51 @@ class ThemeParkApp(ScrollKitApp):
             self.update_interval = self._stale_retry_interval
             logger.error(None, "refresh failed; keeping last-good content "
                                "(consecutive=%d)" % self._consecutive_fetch_failures)
+            await self._escalate_fetch_failures()
+        # Feed the base watchdog ladder (enable_auto_reboot): without this call
+        # the last-resort reboot can never fire — exactly how the 2026-07-15
+        # wedge stranded the box.
+        try:
+            self.note_refresh_result(ok, reason=None if ok else "fetch failed")
+        except Exception:
+            pass
         try:
             self.diagnostics.note_fetch_result(ok, self._consecutive_fetch_failures)
         except Exception:
             pass
+
+    # Radio-bounce escalation: every this-many consecutive fetch failures, force
+    # a WiFi disconnect+reassociate before the base watchdog's last-resort
+    # reboot (which fires at max_refresh_failures=12). Proven cure for the
+    # 2026-07-15 wedge: outbound connects all EBUSY while inbound worked, so
+    # nothing that watches "is the link up" ever acted.
+    RADIO_BOUNCE_EVERY = 3
+
+    async def _escalate_fetch_failures(self) -> None:
+        """Rung 2 of the failure ladder (rung 1 = retries/session rebuild inside
+        HttpClient; rung 3 = the base auto-reboot). Never raises."""
+        n = self._consecutive_fetch_failures
+        if n == 0 or n % self.RADIO_BOUNCE_EVERY != 0:
+            return
+        wifi_mgr = getattr(self, "wifi", None)
+        bounce = getattr(wifi_mgr, "bounce", None)
+        if bounce is None:
+            return  # desktop, or an older library without bounce()
+        logger.error(None, "escalation: bouncing the radio after %d consecutive "
+                           "fetch failures" % n)
+        try:
+            ok = await bounce()
+            # The pooled sockets belonged to the dead association — drop them so
+            # the next fetch handshakes fresh instead of reusing corpses.
+            closer = getattr(self.http_client, "close_pooled_sockets", None)
+            if closer is not None:
+                closer()
+            import gc
+            gc.collect()
+            logger.error(None, "escalation: radio bounce %s"
+                               % ("reassociated" if ok else "FAILED"))
+        except Exception as e:
+            logger.error(e, "escalation: radio bounce crashed")
 
     async def _teardown_active_content(self) -> None:
         """Release the on-screen content's persistent overlay before a status frame.

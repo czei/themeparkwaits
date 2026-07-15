@@ -254,15 +254,16 @@ async def test_post_update_checks_only_offers_install(mock_http_client, settings
         assert "Updating&hellip;" not in body              # did NOT start the install itself
 
 
-async def test_check_is_readonly_and_install_schedules(mock_http_client, settings_factory):
+async def test_check_is_readonly_and_install_requests_boot_stage(mock_http_client, settings_factory):
     """check_update() is READ-ONLY (returns the (available, version, message) tuple,
-    never stages); install_update() is the ONLY path that stages, and it schedules a
-    background task (which needs the running asyncio loop the device's server runs
-    inside; the threaded test HTTP server has none, so this drives the functions
-    directly). OTA is stubbed so nothing hits the network or downloads."""
+    never stages). install_update() never downloads at runtime either — the GitHub
+    RSA handshake dies with PK_ALLOC_FAILED while the app runs (ledger attempt #5) —
+    it persists a stage request and reboots; setup()'s stage_pending_request()
+    downloads at early boot. OTA is stubbed so nothing hits the network."""
     from src.web.config_server import check_update, install_update
     app = await _app(mock_http_client, settings_factory)
     staged = {"n": 0}
+    requested = {"n": 0}
     async def _noop(): pass
     app.ota.check_update = lambda: (True, "9.9.9", "")
     app.ota.show_updating = _noop
@@ -271,6 +272,10 @@ async def test_check_is_readonly_and_install_schedules(mock_http_client, setting
         staged["n"] += 1
         return True
     app.ota.stage_update = _stage
+    def _request():
+        requested["n"] += 1
+        return True
+    app.ota.request_stage = _request
 
     available, version, message = check_update(app)
     assert available is True and version == "9.9.9"
@@ -279,9 +284,10 @@ async def test_check_is_readonly_and_install_schedules(mock_http_client, setting
 
     started = install_update(app)                           # inside the async loop
     assert started is True
+    assert requested["n"] == 1                              # request persisted once
     import asyncio
-    await asyncio.sleep(0.6)                                # let _run() call stage_update
-    assert staged["n"] == 1                                 # install staged exactly once
+    await asyncio.sleep(0.6)                                # let show_updating run
+    assert staged["n"] == 0                                 # runtime NEVER downloads
 
 
 async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):

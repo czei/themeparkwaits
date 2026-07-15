@@ -33,6 +33,17 @@ DEFAULT_OWNER = "czei"
 DEFAULT_REPO = "themeparkwaits"
 DEFAULT_BRANCH = "live"
 
+# The update CHECK reads a ~6-byte version.txt from themeparkwaits.com, NOT
+# from raw.githubusercontent.com (ledger attempt #5, 2026-07-15): GitHub raw
+# serves an RSA-2048 chain whose mbedtls PK verify needs more internal SRAM
+# than the running app has free (OSError -16256 on EVERY check, fresh boot
+# included), while themeparkwaits.com is ECDSA P-256 — the same chain shape as
+# the park API that has never failed a handshake. publish.sh pushes
+# version.txt to the server on every release; the GitHub manifest/files are
+# only fetched at EARLY BOOT (see stage_pending_request), where headroom is
+# maximal.
+DEFAULT_CHECK_URL = "https://themeparkwaits.com/ota/version.txt"
+
 
 def read_current_version(default="0.0.0"):
     """Read the shipped version from src/.version.
@@ -55,7 +66,8 @@ class OTAGlue:
     display-progress + staged-install adapter. Thin: config + delegation."""
 
     def __init__(self, current_version=None, *, owner=DEFAULT_OWNER, repo=DEFAULT_REPO,
-                 branch=DEFAULT_BRANCH, display=None, http_client=None):
+                 branch=DEFAULT_BRANCH, display=None, http_client=None,
+                 check_url=DEFAULT_CHECK_URL):
         from scrollkit.ota.client import OTAClient
         from scrollkit.ota.display_progress import OTAProgressDisplay
         self.current_version = current_version or read_current_version()
@@ -66,7 +78,8 @@ class OTAGlue:
         self._http_client = http_client
         client = OTAClient.for_github(owner, repo, branch=branch,
                                       current_version=self.current_version,
-                                      session=getattr(http_client, "session", None))
+                                      session=getattr(http_client, "session", None),
+                                      check_url=check_url)
         self._progress = OTAProgressDisplay(client, display=display)
 
     def _heap_probe(self):
@@ -239,6 +252,71 @@ class OTAGlue:
         # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.
         self._progress.last_error = reason
         return (False, None, reason)
+
+    # ---------------------------------------------------------------- #
+    # Boot-time staging (ledger attempt #5)
+    #
+    # A RUNTIME download from raw.githubusercontent.com dies with mbedtls
+    # PK_ALLOC_FAILED (-16256): its RSA-2048 chain needs more internal SRAM
+    # than the running app leaves free. So /install no longer downloads —
+    # it persists a flag and reboots; setup() calls stage_pending_request()
+    # right after network bring-up, BEFORE parks/content/web allocate, where
+    # the same handshake provably succeeds (bare-REPL falsification,
+    # 2026-07-15). The flag is cleared BEFORE the attempt: one download try
+    # per user request, never a failed-download boot loop.
+    # ---------------------------------------------------------------- #
+
+    def _stage_request_path(self):
+        return self.client.update_dir + "/.stage_request"
+
+    def request_stage(self):
+        """Persist the user's install request (the download runs next boot).
+        Returns False (never raises) if the flag can't be written."""
+        import os
+        try:
+            try:
+                os.mkdir(self.client.update_dir)
+            except OSError:
+                pass  # already exists (or unwritable — the open below decides)
+            with open(self._stage_request_path(), "w") as f:
+                f.write("requested\n")
+            return True
+        except OSError as e:
+            print("OTA: could not write stage request:", e)
+            return False
+
+    def has_stage_request(self):
+        import os
+        try:
+            os.stat(self._stage_request_path())
+            return True
+        except OSError:
+            return False
+
+    def clear_stage_request(self):
+        import os
+        try:
+            os.remove(self._stage_request_path())
+        except OSError:
+            pass
+
+    async def stage_pending_request(self):
+        """EARLY-BOOT: honor a persisted install request. Returns True if the
+        release was downloaded to the staging dir (the caller's existing
+        ``install_pending()`` then applies it). Never raises."""
+        if not self.has_stage_request():
+            return False
+        self.clear_stage_request()          # one attempt per request
+        try:
+            await self.show_updating()
+            staged = self.stage_update()
+            if not staged:
+                print("OTA: boot-time stage failed:", self.last_error)
+                await self.show_failed()
+            return staged
+        except Exception as e:
+            print("OTA: boot-time stage crashed:", e)
+            return False
 
     def stage_update(self):
         """Download the pending release into the staging dir (no reboot). Returns True

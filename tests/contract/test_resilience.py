@@ -233,3 +233,73 @@ def test_config_page_shows_diagnostics(mock_http_client, settings_factory):
     assert "Diagnostics" in html
     assert "Last reset reason" in html
     assert "Status" in html
+
+
+# --- radio-bounce escalation + auto-reboot wiring (the 2026-07-15 wedge) ------
+
+async def test_radio_bounce_fires_every_third_consecutive_failure(
+        mock_http_client, settings_factory):
+    """Outbound-EBUSY wedge cure: at failures 3, 6, 9... the app must force a
+    radio bounce and drop the pooled sockets of the dead association. (The wedge:
+    inbound worked, the radio reported connected, so no link-watcher ever acted —
+    the box stayed dead for 90+ min until a manual reset.)"""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=mock_http_client, settings=sm)
+    await app._initialize_display()
+    await app.setup()
+    await app.update_data()               # consume the no-op initial refresh
+
+    bounces = []
+
+    class _Wifi:
+        async def bounce(self):
+            bounces.append(app._consecutive_fetch_failures)
+            return True
+    app.wifi = _Wifi()
+
+    closed = {"n": 0}
+    def _close_pooled():
+        closed["n"] += 1
+        return True
+    app.http_client.close_pooled_sockets = _close_pooled
+
+    async def _boom():
+        raise RuntimeError("network down")
+    app.service.update_selected_parks = _boom
+
+    for _ in range(7):
+        await app.update_data()
+
+    assert bounces == [3, 6], bounces     # every 3rd failure, not every failure
+    assert closed["n"] == 2               # dead-association sockets dropped per bounce
+
+
+async def test_failures_feed_base_watchdog_and_success_resets(
+        mock_http_client, settings_factory):
+    """enable_auto_reboot is only as real as its diet: update_data() must call
+    note_refresh_result() so the base ladder counts, and a success must reset it.
+    (The wedge review found the app never fed the hook, so the watchdog could
+    never fire regardless of settings.)"""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=mock_http_client, settings=sm)
+    await app._initialize_display()
+    await app.setup()
+    await app.update_data()               # consume the no-op initial refresh
+
+    assert app.enable_auto_reboot is True
+    assert app.max_refresh_failures == 12
+
+    async def _boom():
+        raise RuntimeError("network down")
+    good = app.service.update_selected_parks
+    app.service.update_selected_parks = _boom
+
+    await app.update_data()
+    await app.update_data()
+    assert app.consecutive_refresh_failures == 2
+
+    app.service.update_selected_parks = good
+    await app.update_data()
+    assert app.consecutive_refresh_failures == 0

@@ -130,3 +130,57 @@ def test_ota_glue_threads_live_http_client_session():
     glue._progress.schedule_update = lambda: "ok"      # don't hit the network/filesystem
     assert glue.schedule_update() == "ok"
     assert glue.client.session is sentinel             # live session was threaded in
+
+
+def test_ota_glue_checks_against_website_not_github():
+    """Ledger attempt #5: the frequent CHECK reads themeparkwaits.com (ECDSA
+    chain), never raw.githubusercontent.com (RSA-2048 chain — PK_ALLOC_FAILED
+    at runtime)."""
+    from src.ota_glue import OTAGlue, DEFAULT_CHECK_URL
+
+    g = OTAGlue(current_version="1.95")
+    assert g.client.check_url == DEFAULT_CHECK_URL
+    assert "themeparkwaits.com" in DEFAULT_CHECK_URL
+    assert "githubusercontent" not in DEFAULT_CHECK_URL
+
+
+def test_ota_glue_stage_request_lifecycle(tmp_path):
+    """/install persists a flag; boot-time staging consumes it exactly once —
+    the flag is cleared BEFORE the download attempt so a failed download can
+    never become a reboot-download loop."""
+    import asyncio
+    from src.ota_glue import OTAGlue
+
+    g = OTAGlue(current_version="1.95")
+    g.client.update_dir = str(tmp_path / "updates")   # desktop-safe staging dir
+
+    async def _noop():
+        pass
+    g.show_updating = _noop
+    g.show_failed = _noop
+
+    # No request -> no-op.
+    assert asyncio.run(g.stage_pending_request()) is False
+
+    assert g.request_stage() is True
+    assert g.has_stage_request() is True
+
+    calls = {"n": 0}
+    def _fail_stage():
+        calls["n"] += 1
+        return False
+    g.stage_update = _fail_stage
+
+    assert asyncio.run(g.stage_pending_request()) is False
+    assert calls["n"] == 1
+    assert g.has_stage_request() is False             # consumed: one attempt per request
+
+    # The failed attempt does not resurrect: another boot stages nothing.
+    assert asyncio.run(g.stage_pending_request()) is False
+    assert calls["n"] == 1
+
+    # A fresh request with a successful download stages.
+    assert g.request_stage() is True
+    g.stage_update = lambda: True
+    assert asyncio.run(g.stage_pending_request()) is True
+    assert g.has_stage_request() is False
