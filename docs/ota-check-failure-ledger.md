@@ -110,3 +110,37 @@ ledger lacked. Findings, in the order they overturned assumptions:
    check definitive. The radio-bounce rung is expected to make the ~26 h wedge
    self-heal invisibly; a wedge that survives a bounce escalates to the
    watchdog reboot at 12 consecutive failures.
+
+## 2026-07-15 evening: attempt #5 verified end-to-end; the warm-radio law
+
+**Shipped and hardware-verified (3.5.11 → 3.5.12):**
+- The ECDSA-host check answers definitively on a healthy boot ("You're up to
+  date", "Update available") — first definitive answers from a running app in
+  this ledger's history.
+- Boot-time staging works: ~100 sequential RSA GETs from
+  raw.githubusercontent at early boot, download → apply → reboot, TWICE
+  (drill 3.5.9→3.5.11, then a fully-OTA self-update 3.5.11→3.5.12).
+
+**New law (3-for-3 both ways, then reproduced again post-apply):** a
+``microcontroller.reset()`` issued while the station is associated carries
+warm radio state into the next session; that session then degrades until
+every NEW outbound TCP connect fails ``OSError: 16`` while pooled keep-alive
+flows (the park fetches) keep working — which is why the box always "looked
+fine" while checks failed. A cold-radio boot (radio disabled before reset, or
+full power cycle) is healthy. 3.5.12 therefore cold-resets on every
+deliberate reboot (OTA apply, watchdog, web install, crash handler).
+
+**Open item (rung 3):** the in-handler synchronous radio bounce fired live
+(ESP-IDF scan visible on serial — note: the site WiFi is a multi-node mesh,
+two APs same SSID at -43/-58 dBm) but did NOT cure an already-degraded warm
+boot, unlike the REPL-sequence cure (which had longer settle + separate
+reconnect). Suspect the 1 s settle is too short or the mesh reassociation
+lands on a different node mid-handler. The state it guards against should now
+be rare (cold resets remove the known trigger); the soak will tell. If it
+recurs, try: longer settle, connect retry loop, or escalate rung 3 to a
+cold_reset instead of a bounce.
+
+**Residue:** one transient boot crash was recorded during the 3.5.12 apply
+window (``themeparkwaits.py:33 AttributeError: 'module' object has no
+attribute 'run'``) — self-recovered (streak 0, status OK). Likely the reload
+racing the half-applied /src; worth an eye during the soak.

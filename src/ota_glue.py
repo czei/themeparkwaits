@@ -258,10 +258,14 @@ class OTAGlue:
                 continue
             # Rung 3 — the warm-radio EBUSY state: new outbound connects fail
             # while pooled flows work; eviction can't touch it, only a radio
-            # bounce does (verified on hardware 2026-07-15, 3-for-3 both ways).
-            # bounce_sync blocks ~3-6 s inside the handler; the check already
-            # freezes the display and is timed/logged, so a slow-but-definitive
-            # answer beats a fast failure.
+            # bounce does. CRITICAL (2026-07-15/16 falsification): the bounce
+            # must be completed by a FULL session rebuild AND the client must
+            # be re-pointed at the fresh session — reassociation alone leaves
+            # the stale SocketPool plumbing and the retry still fails (why
+            # rung 3 fired but didn't cure on 07-15, and why the overnight
+            # ladder bounces at 3/6/9 cured nothing). bounce_sync blocks
+            # ~3-6 s inside the handler; a slow-but-definitive answer beats a
+            # fast failure.
             if attempt == 2:
                 bounce = getattr(self.wifi_manager, "bounce_sync", None)
                 if bounce is None:
@@ -269,7 +273,17 @@ class OTAGlue:
                 print("OTA check: bouncing the radio (rung 3)")
                 if not bounce():
                     break
-                self._evict_data_sockets()  # pooled sockets died with the radio
+                rebuild = getattr(self._http_client, "rebuild_session", None)
+                if rebuild is not None:
+                    rebuild()
+                else:
+                    self._evict_data_sockets()  # older library: best effort
+                import gc
+                gc.collect()
+                # Re-point the OTA client at the REBUILT session — the loop
+                # does not re-run _prep_session, so without this the retry
+                # would GET on the dead pre-bounce session object.
+                self.client.session = getattr(self._http_client, "session", None)
                 continue
             break
         # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.

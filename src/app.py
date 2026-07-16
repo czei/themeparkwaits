@@ -751,29 +751,52 @@ class ThemeParkApp(ScrollKitApp):
     # nothing that watches "is the link up" ever acted.
     RADIO_BOUNCE_EVERY = 3
 
+    @staticmethod
+    def _bssid() -> str:
+        """Current AP's BSSID, or '?'. The site WiFi is a multi-node mesh (two
+        APs, same SSID): if the BSSID in the failure-onset log differs from the
+        boot-time one, the wedge follows a ROAM — the leading theory for why
+        onset intervals vary (26 h stationary vs <1 h after the box moved)."""
+        try:
+            import wifi
+            return ":".join("%02x" % b for b in wifi.radio.ap_info.bssid)
+        except Exception:
+            return "?"
+
     async def _escalate_fetch_failures(self) -> None:
         """Rung 2 of the failure ladder (rung 1 = retries/session rebuild inside
         HttpClient; rung 3 = the base auto-reboot). Never raises."""
         n = self._consecutive_fetch_failures
         if n == 0 or n % self.RADIO_BOUNCE_EVERY != 0:
             return
+        if n >= self.max_refresh_failures:
+            return  # the auto-reboot fires right after — don't waste a bounce
         wifi_mgr = getattr(self, "wifi", None)
         bounce = getattr(wifi_mgr, "bounce", None)
         if bounce is None:
             return  # desktop, or an older library without bounce()
         logger.error(None, "escalation: bouncing the radio after %d consecutive "
-                           "fetch failures" % n)
+                           "fetch failures (bssid=%s)" % (n, self._bssid()))
         try:
             ok = await bounce()
-            # The pooled sockets belonged to the dead association — drop them so
-            # the next fetch handshakes fresh instead of reusing corpses.
-            closer = getattr(self.http_client, "close_pooled_sockets", None)
-            if closer is not None:
-                closer()
+            # Reassociation alone does NOT cure the wedge: a session built on
+            # the pre-bounce association keeps its stale SocketPool plumbing
+            # (2026-07-15 overnight: bounces at 3/6/9 logged "reassociated",
+            # fetches kept failing, the box rode the ladder to auto-reboot).
+            # A FULL session rebuild — fresh pool + ssl + Session — is what the
+            # REPL cure always did.
+            rebuild = getattr(self.http_client, "rebuild_session", None)
+            if rebuild is not None:
+                rebuild()
+            else:  # older library: best effort
+                closer = getattr(self.http_client, "close_pooled_sockets", None)
+                if closer is not None:
+                    closer()
             import gc
             gc.collect()
-            logger.error(None, "escalation: radio bounce %s"
-                               % ("reassociated" if ok else "FAILED"))
+            logger.error(None, "escalation: radio bounce %s, session rebuilt "
+                               "(bssid=%s)"
+                               % ("reassociated" if ok else "FAILED", self._bssid()))
         except Exception as e:
             logger.error(e, "escalation: radio bounce crashed")
 

@@ -234,3 +234,43 @@ def test_check_stops_after_two_attempts_without_wifi_manager(tmp_path):
 
     assert ok is False
     assert attempts["n"] == 2                 # no rung 3 without a wifi manager
+
+
+def test_check_rung3_rebuilds_session_and_repoints_client(tmp_path):
+    """Reassociation alone leaves the client GETting on the dead pre-bounce
+    session (why rung 3 fired but didn't cure, 2026-07-15/16): after the
+    bounce, the session must be REBUILT and the client re-pointed at it."""
+    from src.ota_glue import OTAGlue
+
+    fresh_session = object()
+
+    class _Http:
+        def __init__(self):
+            self.session = object()          # the stale pre-bounce session
+            self.rebuilds = 0
+        def rebuild_session(self):
+            self.rebuilds += 1
+            self.session = fresh_session     # a real rebuild installs a new one
+            return True
+        def close_pooled_sockets(self):
+            return True
+
+    http = _Http()
+    g = OTAGlue(current_version="1.95", http_client=http)
+    g.client.update_dir = str(tmp_path)
+    attempts = {"n": 0}
+    def _failing_check():
+        attempts["n"] += 1
+        return (False, "Update check failed: OSError: 16")
+    g.client.check_for_updates = _failing_check
+    class _Wifi:
+        def bounce_sync(self):
+            return True
+    g.wifi_manager = _Wifi()
+
+    ok, version, reason = g.check_update()
+
+    assert ok is False
+    assert attempts["n"] == 3
+    assert http.rebuilds == 1                # exactly one rebuild, at rung 3
+    assert g.client.session is fresh_session # retry runs on the NEW session

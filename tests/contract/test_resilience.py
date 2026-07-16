@@ -258,11 +258,11 @@ async def test_radio_bounce_fires_every_third_consecutive_failure(
             return True
     app.wifi = _Wifi()
 
-    closed = {"n": 0}
-    def _close_pooled():
-        closed["n"] += 1
+    rebuilds = {"n": 0}
+    def _rebuild():
+        rebuilds["n"] += 1
         return True
-    app.http_client.close_pooled_sockets = _close_pooled
+    app.http_client.rebuild_session = _rebuild
 
     async def _boom():
         raise RuntimeError("network down")
@@ -272,7 +272,9 @@ async def test_radio_bounce_fires_every_third_consecutive_failure(
         await app.update_data()
 
     assert bounces == [3, 6], bounces     # every 3rd failure, not every failure
-    assert closed["n"] == 2               # dead-association sockets dropped per bounce
+    # Reassociation alone does not cure the wedge (2026-07-15 overnight):
+    # every bounce must be completed by a FULL session rebuild.
+    assert rebuilds["n"] == 2
 
 
 async def test_failures_feed_base_watchdog_and_success_resets(
