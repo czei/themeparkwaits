@@ -81,6 +81,10 @@ class OTAGlue:
                                       session=getattr(http_client, "session", None),
                                       check_url=check_url)
         self._progress = OTAProgressDisplay(client, display=display)
+        # Late-bound by the app after _init_network (WiFi doesn't exist at
+        # construction). Enables the check's last rung: a radio bounce — the
+        # only cure for the warm-radio EBUSY state (2026-07-15, ledger).
+        self.wifi_manager = None
 
     def _heap_probe(self):
         """One-line heap snapshot for the serial log around OTA GETs.
@@ -92,6 +96,8 @@ class OTAGlue:
         means the starved region is the ~320 KB internal SRAM (where mbedtls
         contexts must live; hardware crypto can't touch PSRAM)."""
         import gc
+        if not hasattr(gc, "mem_free"):
+            return "gc_free=n/a (desktop)"
         parts = ["gc_free=%d" % gc.mem_free()]
         try:
             import espidf
@@ -222,7 +228,7 @@ class OTAGlue:
         # raises "no setter").
         self._progress.last_error = None
         reason = ""
-        for attempt in (1, 2):
+        for attempt in (1, 2, 3):
             try:
                 has_update, info = self.client.check_for_updates()
             except Exception as e:  # never crash the request
@@ -241,12 +247,29 @@ class OTAGlue:
                         % getattr(self.client, "current_version", "?"))
             print("OTA check FAILED (attempt %d), heap: %s"
                   % (attempt, self._heap_probe()))
-            # Allocation-shaped first failure: free the park TLS context and give
-            # the handshake one more shot with maximum native headroom. The first
-            # attempt deliberately doesn't evict — the warm pooled socket is the
-            # fast path.
-            if attempt == 1 and self._is_transient(reason):
+            if not self._is_transient(reason):
+                break
+            # Rung 2 — allocation-shaped first failure: free the park TLS
+            # context and give the handshake one more shot with maximum native
+            # headroom. The first attempt deliberately doesn't evict — the warm
+            # pooled socket is the fast path.
+            if attempt == 1:
                 self._evict_data_sockets()
+                continue
+            # Rung 3 — the warm-radio EBUSY state: new outbound connects fail
+            # while pooled flows work; eviction can't touch it, only a radio
+            # bounce does (verified on hardware 2026-07-15, 3-for-3 both ways).
+            # bounce_sync blocks ~3-6 s inside the handler; the check already
+            # freezes the display and is timed/logged, so a slow-but-definitive
+            # answer beats a fast failure.
+            if attempt == 2:
+                bounce = getattr(self.wifi_manager, "bounce_sync", None)
+                if bounce is None:
+                    break  # no wifi manager attached (desktop/tests)
+                print("OTA check: bouncing the radio (rung 3)")
+                if not bounce():
+                    break
+                self._evict_data_sockets()  # pooled sockets died with the radio
                 continue
             break
         # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.

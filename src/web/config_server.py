@@ -332,10 +332,18 @@ def _schedule_reboot(app, delay=2.0):
     async def _reboot():
         await asyncio.sleep(delay)
         try:
-            import supervisor
-            supervisor.reload()
+            # COLD reset, not supervisor.reload(): a warm-radio restart leaves
+            # the next session's new outbound connects failing EBUSY (ledger,
+            # 2026-07-15) — which would sabotage the very boot-time staging
+            # this reboot exists to reach.
+            from scrollkit.utils.system_utils import cold_reset
+            cold_reset()
         except Exception:
-            print("reboot skipped (desktop) — staged OTA would install on next boot")
+            try:
+                import supervisor
+                supervisor.reload()
+            except Exception:
+                print("reboot skipped (desktop) — staged OTA would install on next boot")
     try:
         asyncio.get_running_loop().create_task(_reboot())
     except RuntimeError:

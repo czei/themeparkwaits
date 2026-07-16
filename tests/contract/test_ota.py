@@ -184,3 +184,53 @@ def test_ota_glue_stage_request_lifecycle(tmp_path):
     g.stage_update = lambda: True
     assert asyncio.run(g.stage_pending_request()) is True
     assert g.has_stage_request() is False
+
+
+def test_check_rung3_bounces_radio_then_retries(tmp_path):
+    """The warm-radio EBUSY state: eviction can't cure it, a radio bounce can.
+    Attempt 1 fails -> evict; attempt 2 fails -> bounce + evict; attempt 3 runs."""
+    from src.ota_glue import OTAGlue
+
+    g = OTAGlue(current_version="1.95")
+    g.client.update_dir = str(tmp_path)
+    attempts = {"n": 0}
+    def _failing_check():
+        attempts["n"] += 1
+        return (False, "Update check failed: OSError: 16")
+    g.client.check_for_updates = _failing_check
+    evictions = {"n": 0}
+    g._evict_data_sockets = lambda: evictions.__setitem__("n", evictions["n"] + 1) or True
+    bounces = {"n": 0}
+    class _Wifi:
+        def bounce_sync(self):
+            bounces["n"] += 1
+            return True
+    g.wifi_manager = _Wifi()
+
+    ok, version, reason = g.check_update()
+
+    assert ok is False and "OSError: 16" in reason
+    assert attempts["n"] == 3                 # all three rungs ran
+    assert bounces["n"] == 1                  # exactly one radio bounce
+    # evictions: after attempt 1 + after the bounce (the _prep_session eviction
+    # is skipped here — this glue has no http_client attached)
+    assert evictions["n"] == 2
+
+
+def test_check_stops_after_two_attempts_without_wifi_manager(tmp_path):
+    from src.ota_glue import OTAGlue
+
+    g = OTAGlue(current_version="1.95")
+    g.client.update_dir = str(tmp_path)
+    attempts = {"n": 0}
+    def _failing_check():
+        attempts["n"] += 1
+        return (False, "Update check failed: OSError: 16")
+    g.client.check_for_updates = _failing_check
+    g._evict_data_sockets = lambda: True
+    assert g.wifi_manager is None             # nothing attached (desktop)
+
+    ok, version, reason = g.check_update()
+
+    assert ok is False
+    assert attempts["n"] == 2                 # no rung 3 without a wifi manager

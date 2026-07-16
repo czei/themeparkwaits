@@ -58,6 +58,14 @@ except Exception as e:  # last-resort recovery
         except Exception:
             pass
         try:
+            # Radio off first (inline — don't trust library imports in a crash
+            # handler): a warm-radio reset degrades the next session's outbound
+            # connects (EBUSY; ledger 2026-07-15).
+            import wifi
+            wifi.radio.enabled = False
+        except Exception:
+            pass
+        try:
             import microcontroller
             microcontroller.reset()
         except Exception as reset_err:

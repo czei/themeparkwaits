@@ -590,6 +590,9 @@ class ThemeParkApp(ScrollKitApp):
                         self.http_client.session = session
                 except Exception as e:
                     logger.error(e, "create_http_session failed")
+                # Give the OTA check its rung-3 radio bounce (see ota_glue).
+                if self.ota is not None:
+                    self.ota.wifi_manager = self.wifi
                 # Always sync the clock via NTP (fast, ~1-2s). The vacation
                 # countdown is its only consumer, but setting it unconditionally
                 # means it's already correct if a vacation is ever configured — no
