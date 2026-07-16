@@ -144,3 +144,49 @@ cold_reset instead of a bounce.
 window (``themeparkwaits.py:33 AttributeError: 'module' object has no
 attribute 'run'``) — self-recovered (streak 0, status OK). Likely the reload
 racing the half-applied /src; worth an eye during the soak.
+
+## 2026-07-16: overnight verdict, the 3.5.13 split-brain, and the review roadmap
+
+**Overnight (the "bricked morning"):** telemetry shows the ladder WORKED — ~4
+cycles of wedge → 12 failures (~12 min) → cold auto-reboot → healthy; the
+device answered its config page and checks at 07:00/08:00. The bounces at
+3/6/9 reassociated but did not cure (the app kept its pre-bounce
+SocketPool/Session — fixed in 3.5.13/3.5.14 by completing every bounce with
+a full session rebuild + re-pointing the OTA client's session). The morning
+"brick" sighting is best explained by the OR-fed hardware watchdog: display
+loop OR fetch path feed it, so a frozen panel with a live backend never
+starves it (3-model consensus). AND-watchdog is the fix — not yet built.
+
+**3.5.13 split-brain regression:** pushing a release-* branch triggers
+publish-live.yml, which bundles scrollkit from that repo's GITHUB MASTER.
+The attempt-#5 library changes were uncommitted, so CI's force-push shipped
+app-3.5.13 + lib-without-check_url; fielded as "OTA unavailable: unexpected
+keyword argument 'check_url'" (OTA constructor-dead; no self-heal — needed a
+REPL hand-rescue of client.mpy). RULE: the library must be committed+pushed
+BEFORE any release branch. Fixed in 3.5.14; scrollkit master now carries all
+attempt-#5 changes. Bonus finds: /lib accumulated interleaved stale .py
+(USB-deploy era) + .mpy (OTA era) — installing X.mpy now removes X.py.
+
+**First-ever post-apply check success:** after 3.5.14's cold-reset-on-apply,
+the first check after the OTA apply returned "You're up to date (3.5.14)" —
+previously that check always failed on the warm-radio state.
+
+**3-model review roadmap (gpt-5.2/5.4/5.5, consolidated):** (A) cold_reset as
+the single unavoidable primitive incl. breadcrumbs — DONE except breadcrumbs;
+WiFiManager.reset() footgun fixed 14059f4. (B) bounce = full network-stack
+lifecycle event: 3-5 s/state-based settle; evaluate config-server + mDNS
+rebind; bounce_sync is_connected fixed. (C) global network-operation lock;
+web-triggered recovery should ACK-then-recover async (bounce inside a sync
+handler can kill the very HTTP response). (D) failure CLASSIFICATION (EBUSY
+vs PK_ALLOC vs DNS vs 5xx) — escalate only on local-stack classes; reboot
+BUDGET with degraded safe mode. (E) mode-aware AND-watchdog (per-task
+heartbeats; UPDATING/RECOVERY modes exempt). (F) instrumentation:
+/status.json (frame counter!), pre-reset breadcrumb capsule, corner-pixel
+panel heartbeat, numeric-IP-vs-hostname probe during a wedge, mDNS-off A/B
+soak, BSSID/channel/RSSI at every rung. (G) hygiene: connect() discards a
+Session; _prep_session comment/policy mismatch; _is_transient too broad.
+
+**Open questions:** roam theory unconfirmed (BSSID logging shipped, awaiting
+data); exact errno-16 mechanism (upstream CircuitPython/ESP-IDF reproducer
+worth building once instrumented); the panel-dark-vs-loop-dead distinction
+needs the frame-counter instrumentation.

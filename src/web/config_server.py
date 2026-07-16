@@ -388,6 +388,12 @@ def _diagnostics_html(app) -> str:
         ("App version", _read_version()),
         ("OTA", ("ready" if getattr(app, "ota", None) is not None
                  else "unavailable: %s" % (getattr(app, "ota_error", None) or "?"))),
+        # A DISARMED watchdog must be visible (2026-07-16: the serial-console
+        # arming guard silently left the box unprotected all night).
+        ("Watchdog", getattr(app, "watchdog_state", "?")),
+        # The panel-liveness discriminator: frozen number = display loop dead;
+        # advancing number + dark panel = output path died below Python.
+        ("Frames rendered", getattr(app, "frames_rendered", "?")),
     )
     items = "".join(
         '<div class="form-group"><label>%s</label><div>%s</div></div>'
