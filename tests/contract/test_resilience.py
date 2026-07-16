@@ -292,6 +292,10 @@ async def test_failures_feed_base_watchdog_and_success_resets(
 
     assert app.enable_auto_reboot is True
     assert app.max_refresh_failures == 12
+    # Regression guard for the v3.5.15 watchdog reset loop: the timeout must
+    # exceed the app's longest legitimate event-loop block (~20 s synchronous
+    # update check). The library's 8 s default is NOT survivable here.
+    assert app.watchdog_timeout >= 30
 
     async def _boom():
         raise RuntimeError("network down")

@@ -50,8 +50,16 @@ class ThemeParkApp(ScrollKitApp):
         # enable_watchdog=True: opt this app into the hardware watchdog (CircuitPython
         # only; a no-op in the simulator) so a true freeze — e.g. a hung synchronous
         # socket — self-recovers via reset instead of sitting black until a
-        # power-cycle. The timeout (and its clamp to the ESP32-S3 hardware max) and
-        # the HTTP request timeout are the library's defaults now.
+        # power-cycle.
+        # watchdog_timeout=60: the timeout MUST exceed the app's longest LEGITIMATE
+        # event-loop block, and this app's is ~20 s (a synchronous update check in
+        # the web handler — 18-19 s observed in the soak log; a slow 90 KB park
+        # fetch can also breach 8 s). The library's 8 s default put v3.5.15 into a
+        # hardware-watchdog reset loop the moment always-arm shipped — the old
+        # serial-connected arming guard had masked the misfit for months (this
+        # box's port was held, so it never actually ran armed). 60 s still turns a
+        # frozen box into a self-heal within a minute, which is what matters; the
+        # 8 s figure was precision the workload never supported.
         # enable_auto_reboot: last-resort self-heal, fed via note_refresh_result()
         # in update_data(). 12 consecutive failures at the 60 s stale-retry cadence
         # ≈ 12+ minutes of continuous outage before the hammer — long enough that a
@@ -61,8 +69,8 @@ class ThemeParkApp(ScrollKitApp):
         # radio bounce at every 3rd failure (see _escalate_fetch_failures) should
         # cure that wedge long before this fires.
         super().__init__(enable_web=enable_web, update_interval=update_interval,
-                         enable_watchdog=True, enable_auto_reboot=True,
-                         max_refresh_failures=12)
+                         enable_watchdog=True, watchdog_timeout=60,
+                         enable_auto_reboot=True, max_refresh_failures=12)
         self.settings = settings or make_settings()
         if http_client is None:
             from scrollkit.network.http_client import HttpClient

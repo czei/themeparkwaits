@@ -190,3 +190,27 @@ Session; _prep_session comment/policy mismatch; _is_transient too broad.
 data); exact errno-16 mechanism (upstream CircuitPython/ESP-IDF reproducer
 worth building once instrumented); the panel-dark-vs-loop-dead distinction
 needs the frame-counter instrumentation.
+
+## 2026-07-16 (later): the blank-box guarantee (3.5.15)
+
+Why the watchdog never fired on the frozen morning — two mechanisms, both
+now closed:
+1. **It may never have been armed.** Arming skipped whenever a host held the
+   CDC serial port open (`supervisor.runtime.serial_connected`) — a browser
+   Web-Serial tab or any attached computer silently disabled the watchdog
+   for the whole boot. Now: arms UNCONDITIONALLY on hardware; interactive
+   debugging opts out explicitly via a `/no_watchdog` marker file (create it
+   BEFORE rebooting into a debug session — RESET-mode watchdogs can't always
+   be stopped from the REPL). Armed/disarmed state shows on the diagnostics
+   page.
+2. **Even armed, it couldn't see a dead panel.** The display loop caught
+   render errors and RE-FED the watchdog (and if the loop itself had died,
+   an armed watchdog WOULD have fired — the fetch-path feeds can't bridge an
+   8 s timeout across a 300 s cycle; so the frozen panel means the loop ran
+   while its output didn't). Now: 10 consecutive render errors stop the
+   feeding and the box hardware-resets within seconds. The below-Python
+   case (RGBMatrix DMA death with a happily-rendering loop) is still only
+   DETECTABLE (frames-rendered counter on the diagnostics page: advancing
+   number + dark panel = output layer dead), not self-healing — the
+   mode-aware AND-watchdog with a rendered-frame heartbeat remains the
+   roadmap item for that.
