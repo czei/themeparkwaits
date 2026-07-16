@@ -214,3 +214,25 @@ now closed:
    number + dark panel = output layer dead), not self-healing — the
    mode-aware AND-watchdog with a rendered-frame heartbeat remains the
    roadmap item for that.
+
+## 2026-07-16 (later still): 3.5.15's own reset loop, fixed in 3.5.16
+
+Shipping always-arm put the box into a hardware-watchdog reset loop
+(ResetReason.WATCHDOG, no traceback; box reset every ~2-4 min shortly after
+arming). The 8 s library-default timeout NEVER fit this app: synchronous
+update checks block the event loop 10-19 s (the soak log itself recorded
+18.2 s and 19.4 s checks) and a slow 90 KB park fetch can breach 8 s. The
+old serial-connected arming guard had masked the misfit for months — the
+desk box's port was always held, so this app has effectively never run
+armed until 3.5.15. Debug path for an armed reset-looping box: break into
+the REPL DURING the boot print phase (arming happens after setup()), create
+/no_watchdog, reboot — then investigate at leisure. 3.5.16 sets
+watchdog_timeout=60 (still a sub-minute self-heal for a frozen box; the 8 s
+figure was precision the workload never supported) with a test guard
+(>= 30 s). Verified on hardware: armed 60 s, survives checks and fetch
+cycles, boot count static.
+
+Lesson for the ledger's method: "the watchdog worked for 26 h during the
+soak" was FALSE HISTORY — it was disarmed the whole time and nobody could
+tell. The diagnostics page now shows the armed/disarmed state precisely so
+an assumption like that can never go unexamined again.
