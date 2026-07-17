@@ -30,6 +30,24 @@ Live theme-park ride wait times on a 64×32 LED matrix that sits on your desk or
 
 The same code also runs on a desktop **simulator**, so you can develop and preview screens without any hardware (see below).
 
+## Installing the app on the board
+
+The easy install is the ready-made zip on the website: every file the board needs, already laid out. Flash [CircuitPython 10.2.1](https://themeparkwaits.com/downloads/circuitpython-matrixportal-s3-10.2.1.uf2), then copy the [zip's](https://themeparkwaits.com/downloads/themeparkwaits-usb-install.zip) contents onto the `CIRCUITPY` drive. The full walkthrough, including what to do when the drive shows up read-only, is at [Flash & Set Up](https://themeparkwaits.com/products/setup.html).
+
+Installing by hand from the repos instead? The on-device layout is:
+
+```
+/code.py            this repo
+/boot.py            this repo
+/src/               this repo (src/lib is the Adafruit driver bundle; it stays inside src)
+/lib/scrollkit/     the ScrollKit repo's src/scrollkit folder
+```
+
+Two things trip people up:
+
+- **This repo has no top-level `lib` folder.** The board's `/lib/scrollkit` comes from the separate [ScrollKit repo](https://github.com/czei/scrollkit): copy its `src/scrollkit` folder onto the drive as `lib/scrollkit`, skipping `scrollkit/simulator` and `scrollkit/dev` (desktop-only, and they waste flash).
+- **`src/lib` is not that `lib`.** It's the Adafruit driver bundle, and it stays where it is, inside `src`.
+
 ## First-time setup
 
 1. **Flash and power on.** The sign shows an opening reveal splash, then looks for WiFi.
