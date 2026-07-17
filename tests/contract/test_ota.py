@@ -186,14 +186,14 @@ def test_ota_glue_stage_request_lifecycle(tmp_path):
     assert g.has_stage_request() is False
 
 
-def test_check_is_single_attempt_and_read_only(tmp_path):
-    """3.5.17 contract (3-model consensus, 2026-07-16): a failing check runs
-    EXACTLY ONE attempt and never touches the data path — no pooled-socket
-    eviction, no session rebuild, no radio bounce. The old in-handler ladder
-    destroyed the pooled park socket that the selective wedge had left alive
-    (converting a parks-alive box into a parks-dead one) and blocked the event
-    loop 40-45 s without ever curing the wedge. Recovery is out-of-band now
-    (app.note_check_result -> budgeted cold reset)."""
+def test_check_is_single_attempt_readonly_then_drains(tmp_path):
+    """3.5.17/3.5.18 contract: a failing check runs EXACTLY ONE attempt and
+    never mutates the network mid-check — no session rebuild, no radio bounce,
+    no retry ladder (the old in-handler ladder destroyed the surviving park
+    socket and blocked the loop 40-45 s without curing anything). AFTER the
+    check, the pool is drained exactly once — the box idles with zero open
+    outbound sockets (owner's rule, 2026-07-16); a parked keep-alive socket
+    both rots across the idle gap and masks the wedge from the ledger."""
     from src.ota_glue import OTAGlue
 
     class _Http:
@@ -214,6 +214,7 @@ def test_check_is_single_attempt_and_read_only(tmp_path):
     attempts = {"n": 0}
     def _failing_check():
         attempts["n"] += 1
+        assert http.evictions == 0            # NOTHING closed mid-check
         return (False, "Update check failed: OSError: 16")
     g.client.check_for_updates = _failing_check
 
@@ -222,7 +223,7 @@ def test_check_is_single_attempt_and_read_only(tmp_path):
     assert ok is False and "OSError: 16" in reason
     assert attempts["n"] == 1                 # one attempt, no retry ladder
     assert http.rebuilds == 0                 # data session never rebuilt
-    assert http.evictions == 0                # pooled park sockets never closed
+    assert http.evictions == 1                # drained once, AFTER the check
     assert g.client.session is http.session  # still pointed at the live session
 
 

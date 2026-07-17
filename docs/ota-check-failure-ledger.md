@@ -313,3 +313,42 @@ check, zero in-band bounces/rebuilds, ledger escalation + budget + reboot
 persistence). Shippable only after a ≥72 h hardware soak: hourly checks, ride
 data stays fresh through failed checks, frames_rendered keeps advancing, any
 wedge self-heals via one budgeted cold reset, zero manual power-cycles.
+
+## 2026-07-17: the flapping falsification — 3.5.17's counters were blind (3.5.18)
+
+The owner's hand-reinstall of 3.5.17 "still broken" report led to the richest
+evidence night yet (pal debug + live specimen, all read-only):
+
+1. **3.5.17 was correctly installed and its check code never ran.** OTA:
+   ready, page serving (on port 80 — :8080 is desktop-only; a probe mistake
+   briefly claimed inbound death), zero completed-check log lines.
+2. **The wedge developed IN-SESSION from a POWER_ON (cold) boot in <1 h** —
+   falsifying warm-reset poisoning as the only path in. Live serial: every
+   new outbound connect EBUSY, heap healthy, park API included.
+3. **The wedge FLAPS.** A settings save mid-episode fetched new parks
+   successfully (new connections!) with no reboot in between (boot count
+   static), then a later cycle failed again. Sick ↔ healthy, minutes-scale.
+4. **Therefore every consecutive counter was structurally blind:** brief
+   healthy phases — or ONE park succeeding on a surviving pooled socket
+   (`update_selected_parks() > 0` counted as success) — reset both the
+   12-strike fetch budget and the 4-strike check counter forever. One
+   "consecutive=1" line all night; no escalation ever fired.
+
+**3.5.18 (built, 216 tests green):** the wedge ledger — WINDOWED, CLASSIFIED
+strikes (errno-16 only; -16256/DNS/5xx never reboot) from refreshes AND
+checks; strikes expire by TIME only (success re-arms the reset budget but
+never erases evidence); 6 strikes/30 min → one budgeted cold reset. Partial
+success with wedge evidence keeps content but stays on the 60 s retry and
+strikes. **Sockets are closed until needed** (owner's design rule): every
+refresh and check drains the pool afterward — the box idles with zero open
+outbound sockets, so each burst honestly probes new-connect health and no
+surviving socket can mask the wedge. Warm-boot normalization in the
+bootstrap: RESET_PIN/WATCHDOG reset reasons get ONE marker-guarded cold
+reset before the first join (a hardware button press can never run radio-off
+first; skipped when the FS is read-only, i.e. USB-deploy sessions). WiFi
+modem power-save disabled (PowerManagement.NONE) as the A/B discriminator —
+if wedges stop recurring, the doze/wake path was the trigger all along.
+Cadence: 600 s (product intent). Instrumentation: boot banner (version/
+reason/boot#) anchors the log; strikes log t=<monotonic>+bssid; POST /update
+logs a handler-entry breadcrumb. Install instructions must end with FULL
+POWER REMOVAL, never the RESET button (pending: README/upgrade/setup pages).

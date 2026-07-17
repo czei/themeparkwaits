@@ -622,6 +622,10 @@ class ThemeParkConfigServer:
         @server.route("/update", [POST])
         def _update(request):  # noqa: ANN001
             # CHECK ONLY: report whether an update exists and let the user choose.
+            # Handler-entry breadcrumb (serial): distinguishes "the click never
+            # arrived" from "the check ran and failed" — the exact ambiguity
+            # that stalled the 2026-07-16 night's diagnosis.
+            print("POST /update: check requested")
             available, version, message = check_update(app)
             if available:
                 body = _styled_page(

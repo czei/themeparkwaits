@@ -158,6 +158,16 @@ class OTAGlue:
         try:
             return self._check_update_timed()
         finally:
+            # Idle with zero open outbound sockets (owner's rule, 2026-07-16):
+            # don't leave the check's connection parked in the shared pool —
+            # a stale pooled socket masks the wedge and rots across the idle
+            # gap. The next check pays one cheap ECDSA handshake instead.
+            try:
+                closer = getattr(self._http_client, "close_pooled_sockets", None)
+                if closer is not None:
+                    closer()
+            except Exception:
+                pass
             print("OTA check took %.1fs" % (time.monotonic() - t0))
 
     def _check_update_timed(self):

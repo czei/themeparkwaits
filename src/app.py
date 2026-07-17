@@ -45,7 +45,10 @@ class ThemeParkApp(ScrollKitApp):
     # reconnects on the next boot instead of the sign sitting in setup mode).
     WIFI_PORTAL_TIMEOUT_S = 300
 
-    def __init__(self, *, enable_web: bool = True, update_interval: int = 300,
+    # Refresh cadence: wait times move slowly; ~10 minutes is the product's
+    # intent (owner, 2026-07-16). Halving network activity also halves the
+    # box's exposure to the connect-path wedge. Stale retry stays at 60 s.
+    def __init__(self, *, enable_web: bool = True, update_interval: int = 600,
                  http_client=None, settings=None) -> None:
         # enable_watchdog=True: opt this app into the hardware watchdog (CircuitPython
         # only; a no-op in the simulator) so a true freeze — e.g. a hung synchronous
@@ -124,10 +127,16 @@ class ThemeParkApp(ScrollKitApp):
         # data. Drives a faster retry and is surfaced for diagnostics.
         self._data_stale = False
         self._consecutive_fetch_failures = 0
-        # Update-check health (see note_check_result): counts consecutive
-        # non-definitive checks — the selective-wedge signature the fetch
-        # counter above cannot see (pooled park fetches keep succeeding).
+        # Kept for the diagnostics log line only; escalation now runs on the
+        # windowed wedge ledger below (see note_wedge_strike).
         self._consecutive_check_failures = 0
+        # The wedge ledger: monotonic timestamps of classified errno-16 events
+        # (refreshes AND checks). Windowed, not consecutive — the 2026-07-16
+        # night proved the wedge FLAPS: brief healthy phases (or one park
+        # succeeding on a surviving pooled socket) reset every consecutive
+        # counter forever, so the box never qualified for its own cure.
+        # Strikes expire only by TIME; success never erases them.
+        self._wedge_strikes = []
         # Refresh cadence: the normal interval, plus a shorter one used to retry
         # quickly while data is stale (a flaky network shouldn't make the user
         # wait a full cycle for fresh times). The base data loop reads
@@ -138,6 +147,17 @@ class ThemeParkApp(ScrollKitApp):
         # Crash/boot diagnostics in NVM: boot-loop breaker + post-mortem surfaced
         # on the config web UI. No-op on desktop. record_boot() runs in setup().
         self.diagnostics = diagnostics.open()
+        # Boot banner: anchor every subsequent error_log line to a boot. The
+        # 2026-07-16 debugging session could not tell which boot wrote which
+        # log line (entries carry no timestamps) — that ambiguity cost hours.
+        try:
+            from src.ota_glue import read_current_version
+            logger.error(None, "boot: v%s reason=%s boot#%s"
+                         % (read_current_version(),
+                            self.diagnostics.summary().get("reset_reason", "?"),
+                            getattr(self.diagnostics, "boot_count", "?")))
+        except Exception:
+            pass
         # Set when repeated fault-reboots tripped the breaker: skip network fetches
         # and just keep the config UI reachable so the user can fix the cause.
         self._safe_mode = False
@@ -605,6 +625,20 @@ class ThemeParkApp(ScrollKitApp):
             # step row via the callback threaded through in _connect_wifi.
             connected = await self._connect_wifi(self.wifi)
             if connected:
+                # Disable WiFi modem power-save (the A/B discriminator for the
+                # wedge, 2026-07-16): ESP32 station firmware naps between
+                # beacons by default, and that doze/wake handshake against
+                # certain APs/mesh nodes is a known source of degraded-
+                # connectivity states. If the wedge stops recurring with this
+                # off, we've found the trigger. Costs a little power; this is
+                # a mains-powered sign. Older CircuitPython without the API
+                # just logs and moves on.
+                try:
+                    import wifi as _wifi
+                    _wifi.radio.power_management = _wifi.PowerManagement.NONE
+                    logger.error(None, "wifi power-save: disabled (NONE)")
+                except Exception as e:
+                    print("wifi power-save disable unavailable:", e)
                 try:
                     session = self.wifi.create_http_session()
                     if session is not None and hasattr(self.http_client, "session"):
@@ -738,12 +772,29 @@ class ThemeParkApp(ScrollKitApp):
             self._initial_refresh_done = True
             ok = await self._fetch_and_build()
 
+        # Wedge evidence for THIS run: any park whose terminal error carried
+        # the errno-16 signature. Checked on success too — a refresh that
+        # updated one park over a surviving pooled socket while another died
+        # EBUSY is NOT healthy; treating it as healthy is exactly how the box
+        # sat wedged for hours with every counter at zero (2026-07-16).
+        errors = getattr(self.service, "last_refresh_errors", None) or []
+        wedge_evidence = any(self._is_wedge_error(e) for e in errors)
+
         # Track staleness and retry faster while stale, so a transient network
         # blip doesn't strand the user on hours-old times.
         self._data_stale = not ok
+        reset_wanted = False
         if ok:
             self._consecutive_fetch_failures = 0
-            self.update_interval = self._default_update_interval
+            if wedge_evidence:
+                # Partial success with wedge evidence: keep the content, but
+                # keep the short retry cadence and count the strike.
+                self.update_interval = self._stale_retry_interval
+                reset_wanted = self.note_wedge_strike(
+                    "refresh-partial", errors[-1] if errors else "?")
+            else:
+                self.update_interval = self._default_update_interval
+                self._write_recovery_reset_count(0)   # full health re-arms budget
         else:
             self._consecutive_fetch_failures += 1
             self.update_interval = self._stale_retry_interval
@@ -753,12 +804,12 @@ class ThemeParkApp(ScrollKitApp):
             logger.error(None, "refresh failed; keeping last-good content "
                                "(consecutive=%d bssid=%s)"
                                % (self._consecutive_fetch_failures, self._bssid()))
-        # Feed the base watchdog ladder (enable_auto_reboot): without this call
-        # the last-resort reboot can never fire — exactly how the 2026-07-15
-        # wedge stranded the box. Persistent failures ride this budget straight
-        # to the base class's cold reset — no intermediate radio bounce (the
-        # 2026-07-16 soak proved bounce+rebuild does not cure the wedge; it
-        # only tears down association mid-flight).
+            if wedge_evidence:
+                reset_wanted = self.note_wedge_strike(
+                    "refresh", errors[-1] if errors else "?")
+        # Feed the base watchdog ladder (enable_auto_reboot): the 12-consecutive
+        # budget stays as the total-outage backstop behind the windowed wedge
+        # ledger. No intermediate radio bounce (falsified on hardware).
         try:
             self.note_refresh_result(ok, reason=None if ok else "fetch failed")
         except Exception:
@@ -767,6 +818,24 @@ class ThemeParkApp(ScrollKitApp):
             self.diagnostics.note_fetch_result(ok, self._consecutive_fetch_failures)
         except Exception:
             pass
+        # Idle with ZERO open outbound sockets (owner's design rule, 2026-07-16):
+        # a keep-alive socket parked across the 10-minute gap is unreliable on
+        # this stack, and a surviving one actively MASKS the wedge from the
+        # ledger. Sockets are closed until needed; the next burst reconnects
+        # (ECDSA handshakes — cheap, never failed for memory). The web server
+        # owns a separate pool; this cannot touch its listening socket.
+        try:
+            closer = getattr(self.http_client, "close_pooled_sockets", None)
+            if closer is not None:
+                closer()
+        except Exception:
+            pass
+        if reset_wanted:
+            # The one proven cure, applied from the data loop (not a handler —
+            # nothing to flush). Brief sleep lets the log line reach flash.
+            logger.error(None, "wedge confirmed: cold reset now")
+            await asyncio.sleep(0.5)
+            self._hardware_reset()   # cold reset on device; no-op on desktop
 
     @staticmethod
     def _bssid() -> str:
@@ -780,73 +849,120 @@ class ThemeParkApp(ScrollKitApp):
         except Exception:
             return "?"
 
-    # ----- update-check health: the selective-wedge detector ----------------
-    # The 2026-07-16 wedge signature: NEW outbound connects fail (EBUSY) while
-    # the POOLED park socket keeps working — park fetches succeed, the fetch
-    # budget stays at zero, and the box sits degraded for hours. Update checks
-    # are the app's only regular consumer of NEW connections, so THEY detect
-    # the wedge: consecutive non-definitive checks escalate to the one proven
-    # cure (a cold reset), scheduled by the WEB LAYER after its response
-    # flushes — never inside the handler. Park-fetch success must NOT clear
-    # this counter (a pooled-socket success can't see the wedge).
-    MAX_CHECK_FAILURES = 4        # hourly checks -> ~4 h of wedge before the hammer
-    CHECK_RESET_BUDGET = 3        # consecutive recovery resets before giving up
-    CHECK_RESET_BUDGET_PATH = "/check_reset_count"
+    # ----- the wedge ledger: windowed, classified escalation -----------------
+    # The one failure this box cannot repair in place is the local-stack wedge:
+    # the ESP32's WiFi/lwIP session degrades until NEW outbound connects fail
+    # OSError 16 (EBUSY) while surviving pooled flows and inbound keep working.
+    # In-band repairs (session rebuild, socket eviction, radio bounce) were all
+    # falsified on hardware; the only 100% cure is a cold reset. The ledger's
+    # job is therefore pure DETECTION: classified errno-16 events from BOTH
+    # refreshes and checks add timestamped strikes; enough strikes inside a
+    # rolling window prove the wedge and buy exactly one budgeted cold reset.
+    # Two hard-won rules (2026-07-16 night):
+    #   * Windowed, never consecutive — the wedge FLAPS, and healthy moments
+    #     (or one park riding a surviving pooled socket) reset any consecutive
+    #     counter forever. Strikes expire ONLY by time; success never erases.
+    #   * Classified, never generic — DNS failures, 5xx, a down check host,
+    #     or the RSA PK_ALLOC error (-16256) are NOT cured by a reset and
+    #     must never trigger one.
+    WEDGE_STRIKES_MAX = 6         # ~6 min of full wedge (60 s stale retry), or
+                                  # a flapping half-hour — both self-cure
+    WEDGE_WINDOW_S = 30 * 60      # rolling evidence window
+    RECOVERY_RESET_BUDGET = 3     # resets per unhealthy epoch; health re-arms
+    RECOVERY_BUDGET_PATH = "/check_reset_count"   # keep the fielded 3.5.17 name
 
-    def _read_check_reset_count(self) -> int:
+    @staticmethod
+    def _is_wedge_error(reason) -> bool:
+        """True when a failure string carries the errno-16 (EBUSY) signature.
+
+        Matches the shapes CircuitPython actually produces ("OSError: 16",
+        "[Errno 16]", HttpClient's "...failed after 3 attempts: 16") and
+        explicitly rejects mbedtls -16256 (PK_ALLOC — a memory condition,
+        not the wedge)."""
+        r = str(reason)
+        if "-16256" in r:
+            return False
+        return ("OSError: 16" in r or "Errno 16" in r
+                or r.rstrip().endswith(": 16"))
+
+    def _read_recovery_reset_count(self) -> int:
         try:
-            with open(self.CHECK_RESET_BUDGET_PATH) as f:
+            with open(self.RECOVERY_BUDGET_PATH) as f:
                 return int(f.read().strip() or 0)
         except (OSError, ValueError):
             return 0
 
-    def _write_check_reset_count(self, n: int) -> None:
-        # Written only on escalation (rare) and cleared on a definitive answer,
-        # so flash wear is negligible. Unwritable FS (USB-deploy mode, desktop
-        # without permission) just means the budget isn't persisted.
+    def _write_recovery_reset_count(self, n: int) -> None:
+        # Written only on escalation (rare) and cleared on health, so flash
+        # wear is negligible. Unwritable FS (USB-deploy mode, desktop without
+        # permission) just means the budget isn't persisted.
         import os
         try:
             if n <= 0:
-                os.remove(self.CHECK_RESET_BUDGET_PATH)
+                os.remove(self.RECOVERY_BUDGET_PATH)
             else:
-                with open(self.CHECK_RESET_BUDGET_PATH, "w") as f:
+                with open(self.RECOVERY_BUDGET_PATH, "w") as f:
                     f.write("%d\n" % n)
         except OSError:
             pass
 
-    def note_check_result(self, definitive: bool, reason: str = "") -> bool:
-        """Feed one update-check outcome into the check-health ledger.
+    def note_wedge_strike(self, source: str, reason) -> bool:
+        """Record one classified wedge event. Returns True when the caller
+        should perform ONE budgeted cold reset (web handlers schedule it AFTER
+        their response flushes; the data loop resets directly). Never raises."""
+        try:
+            import time
+            now = time.monotonic()
+            self._wedge_strikes.append(now)
+            self._wedge_strikes = [t for t in self._wedge_strikes
+                                   if now - t <= self.WEDGE_WINDOW_S][-16:]
+            n = len(self._wedge_strikes)
+            logger.error(None, "wedge strike %d/%d (%s t=%d bssid=%s): %s"
+                               % (n, self.WEDGE_STRIKES_MAX, source, int(now),
+                                  self._bssid(), reason))
+            if n < self.WEDGE_STRIKES_MAX:
+                return False
+            self._wedge_strikes = []          # count afresh toward the next reset
+            spent = self._read_recovery_reset_count()
+            if spent >= self.RECOVERY_RESET_BUDGET:
+                logger.error(None, "recovery reset budget exhausted (%d/%d) — "
+                                   "not resetting"
+                                   % (spent, self.RECOVERY_RESET_BUDGET))
+                return False
+            self._write_recovery_reset_count(spent + 1)
+            logger.error(None, "escalation: %d wedge strikes in %d min -> cold "
+                               "reset (budget %d/%d)"
+                               % (self.WEDGE_STRIKES_MAX,
+                                  self.WEDGE_WINDOW_S // 60, spent + 1,
+                                  self.RECOVERY_RESET_BUDGET))
+            return True
+        except Exception:
+            return False
 
-        ``definitive`` means the check produced a real answer ("update
-        available" / "you're up to date") — anything else counts toward
-        escalation. Returns True when the caller should schedule ONE budgeted
-        cold reset AFTER flushing its HTTP response. The budget (persisted
-        across reboots) caps consecutive recovery resets so an external outage
-        (check host down, DNS broken) can never reboot-loop the box; any
-        definitive answer re-arms it. Never raises."""
-        if definitive:
-            self._consecutive_check_failures = 0
-            self._write_check_reset_count(0)     # a real answer re-arms the budget
+    def note_check_result(self, definitive: bool, reason: str = "") -> bool:
+        """Feed one update-check outcome into the health accounting.
+
+        A definitive answer (update available / up to date) re-arms the
+        recovery-reset budget — it does NOT erase wedge strikes (the wedge
+        flaps; one lucky check between episodes must not destroy the
+        evidence). A failed check adds a wedge strike only when its reason
+        carries the errno-16 signature; other failures (DNS, host down, TLS
+        memory) are logged but never rebooted for. Returns True when the
+        caller should schedule ONE budgeted cold reset AFTER its HTTP
+        response flushes. Never raises."""
+        try:
+            if definitive:
+                self._consecutive_check_failures = 0
+                self._write_recovery_reset_count(0)   # health re-arms the budget
+                return False
+            self._consecutive_check_failures += 1
+            logger.error(None, "update check failed (consecutive=%d): %s"
+                               % (self._consecutive_check_failures, reason))
+            if self._is_wedge_error(reason):
+                return self.note_wedge_strike("check", reason)
             return False
-        self._consecutive_check_failures += 1
-        n = self._consecutive_check_failures
-        logger.error(None, "update check failed (consecutive=%d bssid=%s): %s"
-                           % (n, self._bssid(), reason))
-        if n < self.MAX_CHECK_FAILURES:
+        except Exception:
             return False
-        self._consecutive_check_failures = 0     # count afresh toward the next reset
-        spent = self._read_check_reset_count()
-        if spent >= self.CHECK_RESET_BUDGET:
-            logger.error(None, "check-failure reset budget exhausted (%d/%d) — "
-                               "not resetting (external outage?)"
-                               % (spent, self.CHECK_RESET_BUDGET))
-            return False
-        self._write_check_reset_count(spent + 1)
-        logger.error(None, "escalation: %d consecutive check failures -> cold "
-                           "reset (budget %d/%d)"
-                           % (self.MAX_CHECK_FAILURES, spent + 1,
-                              self.CHECK_RESET_BUDGET))
-        return True
 
     async def _teardown_active_content(self) -> None:
         """Release the on-screen content's persistent overlay before a status frame.

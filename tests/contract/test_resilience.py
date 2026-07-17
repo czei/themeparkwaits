@@ -277,80 +277,160 @@ async def test_fetch_failures_never_bounce_the_radio(
     assert app.consecutive_refresh_failures == 7   # the budget still counts
 
 
-# --- update-check health ledger: the selective-wedge detector -----------------
+# --- the wedge ledger: windowed, classified escalation (3.5.18) ---------------
+
+EBUSY = "GET https://api.themeparks.wiki/v1/entity/x/live failed after 3 attempts: 16"
+
 
 def _check_app(mock_http_client, settings_factory, tmp_path):
     sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
     app = ThemeParkApp(http_client=mock_http_client, settings=sm)
     # Persist the reset budget somewhere writable (on-device this is "/...").
-    app.CHECK_RESET_BUDGET_PATH = str(tmp_path / "check_reset_count")
+    app.RECOVERY_BUDGET_PATH = str(tmp_path / "check_reset_count")
     return app
 
 
-def test_check_failures_escalate_to_one_budgeted_reset(
+def test_wedge_classifier_matches_ebusy_only():
+    """Only the errno-16 signature is reset-curable; everything else (DNS,
+    HTTP status, the mbedtls -16256 memory error) must never trigger one."""
+    f = ThemeParkApp._is_wedge_error
+    assert f("Update check failed: OSError: 16")
+    assert f(EBUSY)
+    assert f("[Errno 16] EBUSY")
+    assert not f("Update check failed: OSError: -16256")     # PK_ALLOC, not wedge
+    assert not f("Update check failed: [Errno -2] Name or service not known")
+    assert not f("Server error: 500")
+    assert not f("check failed: MemoryError")
+
+
+def test_wedge_strikes_escalate_and_survive_flapping(
         mock_http_client, settings_factory, tmp_path):
-    """The selective wedge: park fetches succeed on their pooled socket while
-    every check (a NEW connection) fails — only the CHECK counter can see it.
-    After MAX_CHECK_FAILURES consecutive failures the app asks for exactly one
-    cold reset (returns True); the count restarts toward the next one."""
+    """THE 2026-07-16 lesson: the wedge flaps, so healthy moments must not
+    erase the evidence. Strikes from refreshes and checks accumulate in one
+    window; a definitive check between them re-arms the budget but keeps the
+    strikes; the threshold buys exactly one reset."""
     app = _check_app(mock_http_client, settings_factory, tmp_path)
 
-    results = [app.note_check_result(False, "check failed: OSError: 16")
-               for _ in range(app.MAX_CHECK_FAILURES)]
-    assert results[:-1] == [False] * (app.MAX_CHECK_FAILURES - 1)
-    assert results[-1] is True            # the threshold asks for the reset
-    assert app._consecutive_check_failures == 0   # re-counts toward the next
+    results = []
+    for i in range(app.WEDGE_STRIKES_MAX - 1):
+        src = "refresh" if i % 2 else "check"
+        results.append(app.note_wedge_strike(src, EBUSY))
+        if i == 2:
+            # A lucky definitive check mid-flap: must NOT clear the strikes.
+            assert app.note_check_result(True) is False
+    assert results == [False] * (app.WEDGE_STRIKES_MAX - 1)
+    assert len(app._wedge_strikes) == app.WEDGE_STRIKES_MAX - 1
 
-    # Park-fetch success must NOT have cleared the ledger meanwhile — that is
-    # the whole point (pooled-socket success can't see the wedge). Simulate by
-    # confirming a fresh failure run escalates again on schedule.
-    for _ in range(app.MAX_CHECK_FAILURES - 1):
-        assert app.note_check_result(False, "still wedged") is False
+    assert app.note_wedge_strike("refresh", EBUSY) is True   # threshold: reset
+    assert app._wedge_strikes == []                          # fresh count after
 
 
-def test_check_reset_budget_caps_consecutive_resets(
+def test_non_wedge_check_failures_never_escalate(
         mock_http_client, settings_factory, tmp_path):
-    """An external outage (check host down, DNS broken) is NOT curable by a
-    reset: after CHECK_RESET_BUDGET escalations with no definitive answer in
-    between, the app stops asking for resets instead of reboot-looping."""
+    """A check-host outage or DNS failure is not curable by a reset — any
+    number of them must produce zero strikes and zero resets."""
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+    for _ in range(20):
+        assert app.note_check_result(False, "check failed: [Errno -2] DNS") is False
+    assert app._wedge_strikes == []
+
+
+def test_wedge_strikes_expire_by_time_not_success(
+        mock_http_client, settings_factory, tmp_path):
+    """Strikes outside the rolling window drop out of the count: five stale
+    strikes plus one fresh one must NOT reach a threshold of six."""
+    import time
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+    stale = time.monotonic() - app.WEDGE_WINDOW_S - 60
+    app._wedge_strikes = [stale] * (app.WEDGE_STRIKES_MAX - 1)
+
+    assert app.note_wedge_strike("check", EBUSY) is False    # stale ones pruned
+    assert len(app._wedge_strikes) == 1
+
+
+def test_ebusy_check_failures_ride_the_budget(
+        mock_http_client, settings_factory, tmp_path):
+    """Budget semantics: one reset per unhealthy epoch, max 3 without health;
+    a definitive answer re-arms; the budget file survives 'reboots' (fresh
+    app instances)."""
     app = _check_app(mock_http_client, settings_factory, tmp_path)
 
     fired = 0
-    for _ in range(app.CHECK_RESET_BUDGET + 2):        # budget + 2 extra rounds
-        for _ in range(app.MAX_CHECK_FAILURES):
-            if app.note_check_result(False, "host down"):
+    for _ in range(app.RECOVERY_RESET_BUDGET + 2):           # budget + 2 rounds
+        for _ in range(app.WEDGE_STRIKES_MAX):
+            if app.note_check_result(False, EBUSY):
                 fired += 1
-    assert fired == app.CHECK_RESET_BUDGET
+    assert fired == app.RECOVERY_RESET_BUDGET                # capped, no loop
 
-    # A definitive answer re-arms the budget (and clears the counter).
-    assert app.note_check_result(True) is False
-    for _ in range(app.MAX_CHECK_FAILURES - 1):
-        assert app.note_check_result(False, "wedged again") is False
-    assert app.note_check_result(False, "wedged again") is True
-
-
-def test_check_reset_budget_survives_reboot(
-        mock_http_client, settings_factory, tmp_path):
-    """The budget must persist across the very reboots it triggers — a fresh
-    app instance (post-reset boot) continues the same budget file."""
-    app = _check_app(mock_http_client, settings_factory, tmp_path)
-    for _ in range(app.MAX_CHECK_FAILURES):
-        app.note_check_result(False, "wedged")         # spends budget slot 1
-
+    # A fresh instance (post-reboot) sees the spent budget on disk.
     app2 = _check_app(mock_http_client, settings_factory, tmp_path)
-    assert app2._read_check_reset_count() == 1
+    assert app2._read_recovery_reset_count() == app.RECOVERY_RESET_BUDGET
 
-    # Spend the remaining budget across "reboots"...
-    fired = 0
-    for _ in range(app2.CHECK_RESET_BUDGET + 1):
-        for _ in range(app2.MAX_CHECK_FAILURES):
-            if app2.note_check_result(False, "wedged"):
-                fired += 1
-    assert fired == app2.CHECK_RESET_BUDGET - 1        # slot 1 already spent
+    # Health re-arms; the next full strike round fires again.
+    assert app2.note_check_result(True) is False
+    assert app2._read_recovery_reset_count() == 0
+    fired2 = sum(1 for _ in range(app2.WEDGE_STRIKES_MAX)
+                 if app2.note_check_result(False, EBUSY))
+    assert fired2 == 1
 
-    # ...and a definitive answer clears the file for good.
-    app2.note_check_result(True)
-    assert app2._read_check_reset_count() == 0
+
+async def test_partial_success_with_wedge_evidence_strikes_and_stays_hot(
+        mock_http_client, settings_factory, tmp_path):
+    """One park succeeding on a surviving pooled socket must NOT mask the
+    wedge: the cycle keeps its content (ok) but counts a strike, keeps the
+    short retry cadence, and drains the socket pool afterward."""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+    await app._initialize_display()
+    await app.setup()
+    await app.update_data()               # consume the no-op initial refresh
+
+    drained = {"n": 0}
+    app.http_client.close_pooled_sockets = lambda: drained.__setitem__("n", drained["n"] + 1) or True
+
+    async def _partial():
+        app.service.last_refresh_errors = [EBUSY]
+        return 1                          # one park updated, one died EBUSY
+    app.service.update_selected_parks = _partial
+
+    await app.update_data()
+
+    assert not app.content_queue.is_empty          # content kept (it IS a success)
+    assert app._data_stale is False
+    assert app.update_interval == app._stale_retry_interval   # but stay hot
+    assert len(app._wedge_strikes) == 1                       # and count it
+    assert drained["n"] >= 1                                  # idle = zero sockets
+
+
+async def test_healthy_refresh_closes_sockets_and_rearms_budget(
+        mock_http_client, settings_factory, tmp_path):
+    """Fully healthy cycles idle with the pool drained and the budget re-armed
+    — but do NOT erase wedge strikes (only time does)."""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+    await app._initialize_display()
+    await app.setup()
+    await app.update_data()               # consume the no-op initial refresh
+
+    drained = {"n": 0}
+    app.http_client.close_pooled_sockets = lambda: drained.__setitem__("n", drained["n"] + 1) or True
+    app._write_recovery_reset_count(2)    # pretend two resets were spent
+    app.note_wedge_strike("check", EBUSY)
+
+    await app.update_data()               # healthy refresh (mock data)
+
+    assert drained["n"] >= 1
+    assert app._read_recovery_reset_count() == 0   # health re-armed the budget
+    assert len(app._wedge_strikes) == 1            # strikes survive success
+    assert app.update_interval == app._default_update_interval
+
+
+def test_default_cadence_is_ten_minutes(mock_http_client, settings_factory):
+    """Product intent (owner, 2026-07-16): ~10-minute refreshes."""
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=mock_http_client, settings=sm)
+    assert app._default_update_interval == 600
+    assert app._stale_retry_interval == 60
 
 
 async def test_failures_feed_base_watchdog_and_success_resets(

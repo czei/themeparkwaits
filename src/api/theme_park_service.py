@@ -80,6 +80,13 @@ class ThemeParkService:
         # sequential park fetches (a multi-park refresh blocks the event loop
         # longer than the watchdog timeout). None off-device / when disabled.
         self.watchdog_feed = None
+        # Terminal error strings from the most recent update_selected_parks()
+        # run (bounded). The app classifies these after each refresh: a park
+        # that died with errno 16 (EBUSY, the selective-wedge signature) must
+        # count as wedge evidence EVEN IF another park succeeded on a surviving
+        # pooled socket — partial success masking the wedge is how the box sat
+        # degraded for hours with its failure counter at zero (2026-07-16).
+        self.last_refresh_errors = []
 
     async def initialize(self):
         """Initialize the service by fetching park list and setting clock"""
@@ -295,6 +302,11 @@ class ThemeParkService:
                 logger.error(e, "Error fetching park data for park ID %s (attempt %d)%s"
                              % (park_id, retry_count + 1,
                                 (" [heap: " + note + "]") if note else ""))
+                try:  # surface the terminal error for the app's wedge classifier
+                    self.last_refresh_errors.append(str(e))
+                    del self.last_refresh_errors[:-8]     # bound the evidence list
+                except Exception:
+                    pass
                 retry_count += 1
                 if retry_count < max_retries:
                     await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
@@ -337,6 +349,7 @@ class ThemeParkService:
             return 0
 
         total_parks = len(self.park_list.selected_parks)
+        self.last_refresh_errors = []   # fresh evidence set for this run
 
         logger.info(f"Starting sequential update of {total_parks} selected parks")
 
