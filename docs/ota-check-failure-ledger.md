@@ -314,6 +314,54 @@ persistence). Shippable only after a ≥72 h hardware soak: hourly checks, ride
 data stays fresh through failed checks, frames_rendered keeps advancing, any
 wedge self-heals via one budgeted cold reset, zero manual power-cycles.
 
+## 2026-07-17 (evening): THE FIRMWARE EXPERIMENT — 3.5.19 on CircuitPython 9.1.0
+
+The 2.x-vs-3.x network-design investigation (10-agent workflow; full result in
+the session archive) refuted every app-level design change as the origin of
+the 2.x→3.x connection-reliability regression — connect frequency at onset
+matched 2.x (temporal inversion), the lost 5x retry loop can't mask a
+persistent wedge, the 6 s timeout is per-operation not per-request (10-19 s
+transfers complete fine), and the lwIP slot-poisoning theory died on our own
+hardware facts (reassociation alone cured once; the warm-radio law carries the
+disease ACROSS a chip reset, i.e. the state lives in the RADIO DRIVER layer,
+not lwIP's structures). What survives: the regression boarded with commit
+08c8da5 (2026-06-24), which changed the CircuitPython firmware generation
+(9.x → 10.2.1 = new ESP-IDF/WiFi-driver) AND the requests stack in one step —
+the 2.x app shape ran ~2 years on CP 9.x without this failure mode.
+
+**The deciding experiment (started tonight):** desk box flashed to
+CP 9.1.0 (2024-07-10 build) with UNMODIFIED 3.5.19 — filesystem survived the
+downgrade; power_management API absent on 9.1 so power-save runs at the
+2.x-era default ON (logged at boot); same room, same mesh, same parks; .mpy
+bundle loads fine (format stable across 9/10). First boot: 140-park catalog +
+4/4 parks on first attempts. Baseline to beat: on CP 10.2.1 the wedge struck
+MULTIPLE times per day with 20-40 min session onsets (strike ledger logs every
+one with t=/bssid). Verdicts: 24 h with zero strikes on 9.1.0 = firmware
+generation convicted (fix = track/bisect CP releases + upstream reproducer);
+wedge recurs on 9.1.0 = firmware exonerated, driver-state hunt continues.
+Discord/community search for the fingerprint (errno 16, new-connects-only,
+power-cycle-not-reset cures): no hits as of tonight.
+
+**Same night, first status: THE INSTRUMENT BROKE — resource misfit, not the
+wedge.** On 9.1.0 the check button dies "RuntimeError: pystack exhausted"
+(the deep handler→OTA→requests-4.x call chain overflows the 2024 firmware's
+default Python call-stack BEFORE any network I/O — button clicks probe
+nothing), and park refreshes died MemoryError (16x) until the GENERIC
+12-strike backstop auto-rebooted — NOT the 6-strike errno-16 wedge ledger,
+which correctly refused to classify pystack/MemoryError as wedge evidence
+(zero false strikes; classifier integrity proven in the field). Sessions
+therefore never reach the 20-40 min onset window: "no wedge on 9.1.0" is
+UNFALSIFIABLE until the instrument is repaired. The 2026 app does not fit
+2024 firmware defaults (consistent with the much-smaller 2.x app fitting 9.x
+comfortably). Repair options, owner to choose ("fix one thing at a time"):
+(a) CIRCUITPY_PYSTACK_SIZE bump in /settings.toml (one line, REPL-writable
+— mind the 60 s armed watchdog at the REPL), retest, see if MemoryError
+persists; (b) if the full app won't fit: a MINIMAL REPRODUCER script
+(always-on listener + timed fresh HTTPS connects, few KB) run identically on
+9.1.0 and 10.2.1 — cleaner science and the upstream-issue artifact anyway.
+CP 9.2.x is the fallback old-generation testbed. Full investigation record:
+docs/network-design-2x-vs-3x.md.
+
 ## 2026-07-17: the flapping falsification — 3.5.17's counters were blind (3.5.18)
 
 The owner's hand-reinstall of 3.5.17 "still broken" report led to the richest
