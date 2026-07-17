@@ -271,14 +271,21 @@ def check_update(app):
     """POST /update: CHECK ONLY. Does a newer release exist? No download — the user
     decides whether to install (the old fused check+stage auto-installed with no
     consent). Returns ``(available: bool, version: str|None, message: str)``; never
-    raises. Failures surface to the browser (OTA errors were serial-only before)."""
+    raises. Failures surface to the browser (OTA errors were serial-only before).
+
+    ACK-then-recover: the handler does ONE check attempt and answers. A failed
+    check feeds the app's check-health ledger (``note_check_result`` — the
+    selective-wedge detector), and when that ledger says escalate, the cold
+    reset is scheduled AFTER this response flushes. No recovery ever runs
+    inside the handler (the old in-handler evict/bounce/rebuild ladder froze
+    the box for 40-45 s and killed the surviving park socket; 2026-07-16)."""
     ota = getattr(app, "ota", None)
     if ota is None or not hasattr(ota, "check_update"):
         return (False, None, "OTA unavailable: %s"
                 % (getattr(app, "ota_error", None) or "not constructed"))
-    _reclaim_display_mem(app)          # free heap for the manifest GET's TLS socket
+    _reclaim_display_mem(app)          # free heap for the version GET's TLS socket
     try:
-        return ota.check_update()
+        available, version, message = ota.check_update()
     except Exception as e:
         # Same MemoryError-on-TLS-socket class as the data fetch; attach a heap note
         # so a repeat failure is diagnosable from the browser without a serial cable.
@@ -287,8 +294,25 @@ def check_update(app):
             hn = _heap_note()
         except Exception:
             hn = ""
-        return (False, None, "check failed: %s%s"
-                % (e, (" [heap: " + hn + "]") if hn else ""))
+        available, version, message = (
+            False, None, "check failed: %s%s"
+            % (e, (" [heap: " + hn + "]") if hn else ""))
+    # Definitive = a real answer, either way. The up-to-date message is built by
+    # OTAGlue._check_update_timed in this repo, so the prefix is a stable
+    # app-internal contract.
+    definitive = available or str(message).startswith("You're up to date")
+    notify = getattr(app, "note_check_result", None)
+    if notify is not None:
+        try:
+            if notify(definitive, message):
+                # Budgeted cold reset — the one proven wedge cure. Scheduled so
+                # the browser gets this answer FIRST (ACK-then-recover).
+                _schedule_reboot(app, delay=2.0)
+                message = ("%s — the sign is restarting itself to recover; "
+                           "give it a minute, then try again." % message)
+        except Exception as e:
+            print("note_check_result failed:", e)
+    return (available, version, message)
 
 
 def install_update(app) -> bool:

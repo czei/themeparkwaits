@@ -65,16 +65,24 @@ class ThemeParkApp(ScrollKitApp):
         # ≈ 12+ minutes of continuous outage before the hammer — long enough that a
         # brief API/server blip never reboot-loops the box, short enough that the
         # 2026-07-15 outbound-EBUSY wedge (which stranded the box for 90+ min with
-        # no self-heal rung at all) ends without a hand on the reset button. The
-        # radio bounce at every 3rd failure (see _escalate_fetch_failures) should
-        # cure that wedge long before this fires.
+        # no self-heal rung at all) ends without a hand on the reset button.
+        # A cold reset is the ONLY automatic recovery this app performs: the
+        # 2026-07-16 3-model consensus removed every in-band rung (socket
+        # eviction, radio bounce, session rebuild) after the soak showed they
+        # destroyed the surviving park connection without curing the wedge.
         super().__init__(enable_web=enable_web, update_interval=update_interval,
                          enable_watchdog=True, watchdog_timeout=60,
                          enable_auto_reboot=True, max_refresh_failures=12)
         self.settings = settings or make_settings()
         if http_client is None:
             from scrollkit.network.http_client import HttpClient
-            http_client = HttpClient()
+            # session_rebuild_threshold: effectively OFF. Auto-rebuild was the
+            # third uncoordinated recovery actor (with the app's failure budget
+            # and the OTA check's old ladder) mutating one shared session; the
+            # long-uptime wedge lives BELOW the session, so a rebuild can't
+            # cure it — the failure budget's cold reset does. Response/socket
+            # cleanup in the client is unaffected.
+            http_client = HttpClient(session_rebuild_threshold=1_000_000)
         self.http_client = http_client
         self.service = ThemeParkService(self.http_client, self.settings)
         # Feed the watchdog between sequential per-park fetches: a multi-park
@@ -116,6 +124,10 @@ class ThemeParkApp(ScrollKitApp):
         # data. Drives a faster retry and is surfaced for diagnostics.
         self._data_stale = False
         self._consecutive_fetch_failures = 0
+        # Update-check health (see note_check_result): counts consecutive
+        # non-definitive checks — the selective-wedge signature the fetch
+        # counter above cannot see (pooled park fetches keep succeeding).
+        self._consecutive_check_failures = 0
         # Refresh cadence: the normal interval, plus a shorter one used to retry
         # quickly while data is stale (a flaky network shouldn't make the user
         # wait a full cycle for fresh times). The base data loop reads
@@ -219,10 +231,11 @@ class ThemeParkApp(ScrollKitApp):
                 # the GitHub RSA-2048 handshake dies at runtime (mbedtls
                 # PK_ALLOC_FAILED; ledger attempt #5). Staging success makes
                 # has_pending() true and install_pending() applies it below.
-                try:
-                    await self.ota.stage_pending_request()
-                except AttributeError:
-                    pass  # older glue without boot-time staging
+                # getattr, not except AttributeError: an AttributeError raised
+                # INSIDE the method must surface, not read as "older glue".
+                stage_pending = getattr(self.ota, "stage_pending_request", None)
+                if stage_pending is not None:
+                    await stage_pending()
                 had_pending = self.ota.has_pending()
                 installed = await self.ota.install_pending()
                 if had_pending and not installed:
@@ -598,9 +611,6 @@ class ThemeParkApp(ScrollKitApp):
                         self.http_client.session = session
                 except Exception as e:
                     logger.error(e, "create_http_session failed")
-                # Give the OTA check its rung-3 radio bounce (see ota_glue).
-                if self.ota is not None:
-                    self.ota.wifi_manager = self.wifi
                 # Always sync the clock via NTP (fast, ~1-2s). The vacation
                 # countdown is its only consumer, but setting it unconditionally
                 # means it's already correct if a vacation is ever configured — no
@@ -737,12 +747,18 @@ class ThemeParkApp(ScrollKitApp):
         else:
             self._consecutive_fetch_failures += 1
             self.update_interval = self._stale_retry_interval
+            # BSSID in the failure log: the site WiFi is a two-AP mesh — if the
+            # failure-onset BSSID differs from boot's, the wedge followed a
+            # ROAM (the open roam-correlation question in the ledger).
             logger.error(None, "refresh failed; keeping last-good content "
-                               "(consecutive=%d)" % self._consecutive_fetch_failures)
-            await self._escalate_fetch_failures()
+                               "(consecutive=%d bssid=%s)"
+                               % (self._consecutive_fetch_failures, self._bssid()))
         # Feed the base watchdog ladder (enable_auto_reboot): without this call
         # the last-resort reboot can never fire — exactly how the 2026-07-15
-        # wedge stranded the box.
+        # wedge stranded the box. Persistent failures ride this budget straight
+        # to the base class's cold reset — no intermediate radio bounce (the
+        # 2026-07-16 soak proved bounce+rebuild does not cure the wedge; it
+        # only tears down association mid-flight).
         try:
             self.note_refresh_result(ok, reason=None if ok else "fetch failed")
         except Exception:
@@ -751,13 +767,6 @@ class ThemeParkApp(ScrollKitApp):
             self.diagnostics.note_fetch_result(ok, self._consecutive_fetch_failures)
         except Exception:
             pass
-
-    # Radio-bounce escalation: every this-many consecutive fetch failures, force
-    # a WiFi disconnect+reassociate before the base watchdog's last-resort
-    # reboot (which fires at max_refresh_failures=12). Proven cure for the
-    # 2026-07-15 wedge: outbound connects all EBUSY while inbound worked, so
-    # nothing that watches "is the link up" ever acted.
-    RADIO_BOUNCE_EVERY = 3
 
     @staticmethod
     def _bssid() -> str:
@@ -771,42 +780,73 @@ class ThemeParkApp(ScrollKitApp):
         except Exception:
             return "?"
 
-    async def _escalate_fetch_failures(self) -> None:
-        """Rung 2 of the failure ladder (rung 1 = retries/session rebuild inside
-        HttpClient; rung 3 = the base auto-reboot). Never raises."""
-        n = self._consecutive_fetch_failures
-        if n == 0 or n % self.RADIO_BOUNCE_EVERY != 0:
-            return
-        if n >= self.max_refresh_failures:
-            return  # the auto-reboot fires right after — don't waste a bounce
-        wifi_mgr = getattr(self, "wifi", None)
-        bounce = getattr(wifi_mgr, "bounce", None)
-        if bounce is None:
-            return  # desktop, or an older library without bounce()
-        logger.error(None, "escalation: bouncing the radio after %d consecutive "
-                           "fetch failures (bssid=%s)" % (n, self._bssid()))
+    # ----- update-check health: the selective-wedge detector ----------------
+    # The 2026-07-16 wedge signature: NEW outbound connects fail (EBUSY) while
+    # the POOLED park socket keeps working — park fetches succeed, the fetch
+    # budget stays at zero, and the box sits degraded for hours. Update checks
+    # are the app's only regular consumer of NEW connections, so THEY detect
+    # the wedge: consecutive non-definitive checks escalate to the one proven
+    # cure (a cold reset), scheduled by the WEB LAYER after its response
+    # flushes — never inside the handler. Park-fetch success must NOT clear
+    # this counter (a pooled-socket success can't see the wedge).
+    MAX_CHECK_FAILURES = 4        # hourly checks -> ~4 h of wedge before the hammer
+    CHECK_RESET_BUDGET = 3        # consecutive recovery resets before giving up
+    CHECK_RESET_BUDGET_PATH = "/check_reset_count"
+
+    def _read_check_reset_count(self) -> int:
         try:
-            ok = await bounce()
-            # Reassociation alone does NOT cure the wedge: a session built on
-            # the pre-bounce association keeps its stale SocketPool plumbing
-            # (2026-07-15 overnight: bounces at 3/6/9 logged "reassociated",
-            # fetches kept failing, the box rode the ladder to auto-reboot).
-            # A FULL session rebuild — fresh pool + ssl + Session — is what the
-            # REPL cure always did.
-            rebuild = getattr(self.http_client, "rebuild_session", None)
-            if rebuild is not None:
-                rebuild()
-            else:  # older library: best effort
-                closer = getattr(self.http_client, "close_pooled_sockets", None)
-                if closer is not None:
-                    closer()
-            import gc
-            gc.collect()
-            logger.error(None, "escalation: radio bounce %s, session rebuilt "
-                               "(bssid=%s)"
-                               % ("reassociated" if ok else "FAILED", self._bssid()))
-        except Exception as e:
-            logger.error(e, "escalation: radio bounce crashed")
+            with open(self.CHECK_RESET_BUDGET_PATH) as f:
+                return int(f.read().strip() or 0)
+        except (OSError, ValueError):
+            return 0
+
+    def _write_check_reset_count(self, n: int) -> None:
+        # Written only on escalation (rare) and cleared on a definitive answer,
+        # so flash wear is negligible. Unwritable FS (USB-deploy mode, desktop
+        # without permission) just means the budget isn't persisted.
+        import os
+        try:
+            if n <= 0:
+                os.remove(self.CHECK_RESET_BUDGET_PATH)
+            else:
+                with open(self.CHECK_RESET_BUDGET_PATH, "w") as f:
+                    f.write("%d\n" % n)
+        except OSError:
+            pass
+
+    def note_check_result(self, definitive: bool, reason: str = "") -> bool:
+        """Feed one update-check outcome into the check-health ledger.
+
+        ``definitive`` means the check produced a real answer ("update
+        available" / "you're up to date") — anything else counts toward
+        escalation. Returns True when the caller should schedule ONE budgeted
+        cold reset AFTER flushing its HTTP response. The budget (persisted
+        across reboots) caps consecutive recovery resets so an external outage
+        (check host down, DNS broken) can never reboot-loop the box; any
+        definitive answer re-arms it. Never raises."""
+        if definitive:
+            self._consecutive_check_failures = 0
+            self._write_check_reset_count(0)     # a real answer re-arms the budget
+            return False
+        self._consecutive_check_failures += 1
+        n = self._consecutive_check_failures
+        logger.error(None, "update check failed (consecutive=%d bssid=%s): %s"
+                           % (n, self._bssid(), reason))
+        if n < self.MAX_CHECK_FAILURES:
+            return False
+        self._consecutive_check_failures = 0     # count afresh toward the next reset
+        spent = self._read_check_reset_count()
+        if spent >= self.CHECK_RESET_BUDGET:
+            logger.error(None, "check-failure reset budget exhausted (%d/%d) — "
+                               "not resetting (external outage?)"
+                               % (spent, self.CHECK_RESET_BUDGET))
+            return False
+        self._write_check_reset_count(spent + 1)
+        logger.error(None, "escalation: %d consecutive check failures -> cold "
+                           "reset (budget %d/%d)"
+                           % (self.MAX_CHECK_FAILURES, spent + 1,
+                              self.CHECK_RESET_BUDGET))
+        return True
 
     async def _teardown_active_content(self) -> None:
         """Release the on-screen content's persistent overlay before a status frame.

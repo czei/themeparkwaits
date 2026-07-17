@@ -276,13 +276,16 @@ OTA_HOST="${OTA_CHECK_HOST:-ec2-user@webperformance.com}"
 OTA_KEY="${OTA_CHECK_KEY:-$HOME/.ssh/michael-2.pem}"
 OTA_DIR="/opt/themeparkwaits.com/ota"
 if [ ! -f "$OTA_KEY" ]; then
-  # CI (publish-live.yml) has no server key: the live branch is mirrored but the
-  # check endpoint is NOT updated — devices keep seeing the previous version
-  # until someone with the key runs this step. Shout, don't fail the mirror.
-  echo "WARNING: no server key at $OTA_KEY — SKIPPING the version.txt publish." >&2
-  echo "         Devices will not see v$VERSION until you run, from a machine with the key:" >&2
-  echo "         printf '%s\n' \"$VERSION\" | ssh -i \"$OTA_KEY\" \"$OTA_HOST\" \"cat > $OTA_DIR/version.txt\"" >&2
-  exit 0
+  # A release is NOT done until the check endpoint matches the payload: exiting
+  # 0 here (the pre-3.5.17 behavior) let CI mirror the live branch while every
+  # fielded device kept answering "up to date" against the stale version.txt —
+  # the same silent split-brain class as the 3.5.13 incident. Fail the release.
+  echo "ERROR: no server key at $OTA_KEY — cannot publish version.txt." >&2
+  echo "       The live branch may already be mirrored, but the release FAILED:" >&2
+  echo "       devices check version.txt and will not see v$VERSION." >&2
+  echo "       From a machine with the key, finish the release with:" >&2
+  echo "       printf '%s\n' \"$VERSION\" | ssh -i \"$OTA_KEY\" \"$OTA_HOST\" \"cat > $OTA_DIR/version.txt\"" >&2
+  exit 1
 fi
 echo "==> publishing version.txt to themeparkwaits.com/ota/"
 if ssh -i "$OTA_KEY" "$OTA_HOST" "sudo mkdir -p '$OTA_DIR' && sudo chown ec2-user: '$OTA_DIR'" \
@@ -294,3 +297,17 @@ else
   echo "       printf '%s\n' \"$VERSION\" | ssh -i \"$OTA_KEY\" \"$OTA_HOST\" \"cat > $OTA_DIR/version.txt\"" >&2
   exit 1
 fi
+
+# 8) trust nothing: read the endpoint back the way a DEVICE does and require an
+#    exact match. Catches a wrong vhost/docroot, an Apache alias eating /ota,
+#    or a permissions miss — every failure mode ends as "the fleet silently
+#    believes it is up to date", so it must fail the release here instead.
+PUBLISHED="$(curl -fsS --max-time 15 "https://themeparkwaits.com/ota/version.txt" | tr -d '[:space:]')" || {
+  echo "ERROR: could not read back https://themeparkwaits.com/ota/version.txt" >&2
+  exit 1
+}
+if [ "$PUBLISHED" != "$VERSION" ]; then
+  echo "ERROR: check endpoint verification FAILED: published '$PUBLISHED' != release '$VERSION'." >&2
+  exit 1
+fi
+echo "==> check endpoint verified: version.txt reads back exactly '$VERSION'"

@@ -81,10 +81,6 @@ class OTAGlue:
                                       session=getattr(http_client, "session", None),
                                       check_url=check_url)
         self._progress = OTAProgressDisplay(client, display=display)
-        # Late-bound by the app after _init_network (WiFi doesn't exist at
-        # construction). Enables the check's last rung: a radio bounce — the
-        # only cure for the warm-radio EBUSY state (2026-07-15, ledger).
-        self.wifi_manager = None
 
     def _heap_probe(self):
         """One-line heap snapshot for the serial log around OTA GETs.
@@ -128,82 +124,26 @@ class OTAGlue:
         return getattr(self._progress, "last_error", None)
 
     def _prep_session(self):
-        """Point the OTA client at the app's LIVE session — and NEVER rebuild it.
+        """Point the OTA client at the app's LIVE session. READ-ONLY: never
+        rebuild it, never evict its pooled sockets.
 
-        History, because this exact spot has now caused two eras of OTA failure:
-        this used to call http_client._rebuild_session() before every GET (fresh
-        SocketPool + TLS context), a defense from the EBUSY socket-leak era.
-        That leak was later properly fixed at the source (responses are closed),
-        but the rebuild survived — and became the disease: every rebuild drops
-        the old pool to the GC WITHOUT native teardown, orphaning its socket and
-        its mbedtls TLS context in the ESP32-S3's ~320 KB internal SRAM (TLS
-        cannot live in the 2 MB PSRAM — hardware crypto can't reach it). Each
-        button press leaked another; the starvation surfaced as
-        "MemoryError" (internal SRAM) or "RuntimeError: Out of sockets"
-        (global socket table) on the NEXT handshake. Observed live: 2 checks
-        passed then 3 consecutive "Out of sockets" as back-to-back checks ate
-        the table. Reusing the one long-lived session lets the pooled GitHub
-        socket be REUSED instead of leaked. Multi-model consensus + on-device
-        falsification, 2026-07-09.
+        History, because this exact spot has now caused THREE eras of OTA
+        failure: (1) it used to call http_client._rebuild_session() before
+        every GET — each rebuild orphaned a native socket + mbedtls TLS context
+        in internal SRAM until checks died (fixed 2026-07-09 by reusing the one
+        session). (2) It then evicted the data session's pooled sockets before
+        every check to free SRAM for GitHub's RSA-2048 handshake — but in the
+        selective wedge (new outbound connects dead, POOLED park socket alive;
+        ledger 2026-07-16) that eviction killed the one connection still
+        working, turning a parks-alive box into a parks-dead box. The ECDSA
+        check_url made the eviction pointless anyway: the check's handshake is
+        as cheap as a park fetch, and the RSA fetches moved to early boot.
+        3-model consensus, 2026-07-16: the check must be read-only with respect
+        to the data path.
         """
         if self._http_client is None:
             return
-        # Evict pooled sockets BEFORE every check, not only on failure: it frees
-        # the previous check's GitHub TLS context (~40 KB of internal SRAM)
-        # instead of pinning it between checks, and removes the pooled-corpse
-        # variable entirely — every check pays one predictable fresh handshake
-        # rather than gambling on whether GitHub kept an idle socket alive.
-        self._evict_data_sockets()
-        import gc
-        gc.collect()
         self.client.session = getattr(self._http_client, "session", None)
-
-    def _evict_data_sockets(self):
-        """Properly close every socket pooled by the app's data session, freeing
-        their native TLS contexts (~40 KB of internal SRAM each) ahead of a
-        fresh handshake. This is the consensus 'Phase B': when internal SRAM is
-        too tight to allocate the GitHub TLS context alongside the park API's
-        (mbedtls -0x3F80 PK_ALLOC_FAILED / OSError -16256), evict the park
-        socket first — its fetch loop reconnects on the next 5-minute tick and
-        retries 3x, so a miss there is invisible, unlike the user's button.
-
-        Scoped strictly to the DATA pool: the web server builds its own
-        SocketPool (config_server.py:16), and connection_manager_close_all is
-        per-pool, so the listening socket is untouchable from here. Digs the
-        pool out of the session via vendored-bundle internals — acceptable
-        because the bundle is USB-frozen (version-locked to this flash)."""
-        # Prefer the library's supported API (scrollkit >= the 2026-07-11
-        # hygiene fix); fall back to the direct dig for an older on-device lib
-        # (releases ship app+lib atomically, so the skew window is boot-time
-        # only).
-        closer = getattr(self._http_client, "close_pooled_sockets", None)
-        if closer is not None:
-            ok = bool(closer())
-            import gc
-            gc.collect()
-            if ok:
-                print("OTA: evicted data-session sockets (native TLS contexts freed)")
-            return ok
-        session = getattr(self._http_client, "session", None)
-        if session is None:
-            return False
-        try:
-            from adafruit_connection_manager import connection_manager_close_all
-            pool = session._connection_manager._socket_pool
-            connection_manager_close_all(socket_pool=pool)
-            import gc
-            gc.collect()
-            print("OTA: evicted data-session sockets (native TLS contexts freed)")
-            return True
-        except Exception as e:
-            print("OTA: socket eviction skipped:", e)
-            return False
-
-    @staticmethod
-    def _is_transient(reason):
-        """Allocation-shaped failures worth one evict-and-retry."""
-        r = str(reason)
-        return ("MemoryError" in r or "Out of sockets" in r or "OSError" in r)
 
     def check_update(self):
         """CHECK ONLY: is a newer release on the channel? No download — the caller
@@ -221,71 +161,37 @@ class OTAGlue:
             print("OTA check took %.1fs" % (time.monotonic() - t0))
 
     def _check_update_timed(self):
+        # ONE attempt, read-only, no recovery. The old 3-rung in-handler ladder
+        # (evict -> evict -> radio bounce + session rebuild) blocked the single
+        # asyncio loop for 40-45 s, destroyed the pooled park socket the
+        # selective wedge had left alive, and — per the soak evidence — never
+        # cured the wedge it targeted. Recovery is now out-of-band: the app's
+        # note_check_result() counts consecutive failures and escalates to a
+        # budgeted cold reset AFTER the HTTP response flushes (the one proven
+        # cure). 3-model consensus, 2026-07-16.
         self._prep_session()
         print("OTA check heap:", self._heap_probe())
         # NB: OTAGlue.last_error is a read-only property delegating to _progress, so
         # diagnostics state is set on _progress.last_error (assigning self.last_error
         # raises "no setter").
         self._progress.last_error = None
-        reason = ""
-        for attempt in (1, 2, 3):
-            try:
-                has_update, info = self.client.check_for_updates()
-            except Exception as e:  # never crash the request
-                has_update, info = False, "check failed: %s" % (e,)
-            if has_update:
-                return (True, getattr(info, "version", None), "")
-            # ``info`` is the reason string. The up-to-date sentinel is the literal
-            # "No updates available" (scrollkit.ota.client.UP_TO_DATE). Compare to
-            # the LITERAL rather than importing the name: a device running an OLDER
-            # library than this app does not export UP_TO_DATE, and a hard import
-            # there raises "can't import name UP_TO_DATE" and fails the whole
-            # check. The value is stable; the name is not.
-            reason = str(info)
-            if reason == "No updates available":
-                return (False, None, "You're up to date (%s)."
-                        % getattr(self.client, "current_version", "?"))
-            print("OTA check FAILED (attempt %d), heap: %s"
-                  % (attempt, self._heap_probe()))
-            if not self._is_transient(reason):
-                break
-            # Rung 2 — allocation-shaped first failure: free the park TLS
-            # context and give the handshake one more shot with maximum native
-            # headroom. The first attempt deliberately doesn't evict — the warm
-            # pooled socket is the fast path.
-            if attempt == 1:
-                self._evict_data_sockets()
-                continue
-            # Rung 3 — the warm-radio EBUSY state: new outbound connects fail
-            # while pooled flows work; eviction can't touch it, only a radio
-            # bounce does. CRITICAL (2026-07-15/16 falsification): the bounce
-            # must be completed by a FULL session rebuild AND the client must
-            # be re-pointed at the fresh session — reassociation alone leaves
-            # the stale SocketPool plumbing and the retry still fails (why
-            # rung 3 fired but didn't cure on 07-15, and why the overnight
-            # ladder bounces at 3/6/9 cured nothing). bounce_sync blocks
-            # ~3-6 s inside the handler; a slow-but-definitive answer beats a
-            # fast failure.
-            if attempt == 2:
-                bounce = getattr(self.wifi_manager, "bounce_sync", None)
-                if bounce is None:
-                    break  # no wifi manager attached (desktop/tests)
-                print("OTA check: bouncing the radio (rung 3)")
-                if not bounce():
-                    break
-                rebuild = getattr(self._http_client, "rebuild_session", None)
-                if rebuild is not None:
-                    rebuild()
-                else:
-                    self._evict_data_sockets()  # older library: best effort
-                import gc
-                gc.collect()
-                # Re-point the OTA client at the REBUILT session — the loop
-                # does not re-run _prep_session, so without this the retry
-                # would GET on the dead pre-bounce session object.
-                self.client.session = getattr(self._http_client, "session", None)
-                continue
-            break
+        try:
+            has_update, info = self.client.check_for_updates()
+        except Exception as e:  # never crash the request
+            has_update, info = False, "check failed: %s" % (e,)
+        if has_update:
+            return (True, getattr(info, "version", None), "")
+        # ``info`` is the reason string. The up-to-date sentinel is the literal
+        # "No updates available" (scrollkit.ota.client.UP_TO_DATE). Compare to
+        # the LITERAL rather than importing the name: a device running an OLDER
+        # library than this app does not export UP_TO_DATE, and a hard import
+        # there raises "can't import name UP_TO_DATE" and fails the whole
+        # check. The value is stable; the name is not.
+        reason = str(info)
+        if reason == "No updates available":
+            return (False, None, "You're up to date (%s)."
+                    % getattr(self.client, "current_version", "?"))
+        print("OTA check FAILED, heap: %s" % self._heap_probe())
         # A failed check (fetch/parse/validate) keeps its specific reason, not a lie.
         self._progress.last_error = reason
         return (False, None, reason)
@@ -360,7 +266,7 @@ class OTAGlue:
         if staged; the caller reboots so ``install_pending()`` applies it next boot.
         Assumes a prior ``check_update()`` found one; ``download_update()`` re-checks
         if needed. Never raises."""
-        self._prep_session()                  # includes the pre-check eviction
+        self._prep_session()
         self._progress.last_error = None      # read-only property on self; set _progress
         try:
             # Re-check to get a FRESH manifest and pass it explicitly, rather than

@@ -236,3 +236,80 @@ Lesson for the ledger's method: "the watchdog worked for 26 h during the
 soak" was FALSE HISTORY — it was disarmed the whole time and nobody could
 tell. The diagnostics page now shows the armed/disarmed state precisely so
 an assumption like that can never go unexamined again.
+
+## 2026-07-16 (evening): the selective wedge outlasts rung 3 — two design gaps
+
+Episode: soak shows checks failing 14:00-16:00+ with `status=OK` — the
+SELECTIVE wedge (new connects dead, pooled park socket fine) persisting for
+HOURS on 3.5.16. Owner-visible symptom: "the web server isn't responding" —
+the UI was alive but starved (each hourly check ran the full rung ladder,
+~40-45 s INSIDE the synchronous handler). A live-specimen REPL probe landed
+mid-bounce (radio unassociated, ap_info None), so the numeric-IP-vs-hostname
+discriminator REMAINS unanswered — future probes must check ap_info first.
+Cold reset cured it, as always.
+
+Findings:
+1. **rung-3 bounce+rebuild does NOT reliably cure the selective wedge** —
+   hourly soak checks kept failing with it firing every time. The full
+   session rebuild was necessary but is evidently not sufficient.
+2. **Design gap: only FETCH failures escalate.** In selective-wedge mode the
+   park fetches ride their pooled socket, the failure counter stays at 0,
+   and the auto-reboot never fires — the box can sit degraded indefinitely.
+   Check failures need to feed an escalation counter (a few consecutive
+   definitive-check failures while fetches succeed = the selective
+   signature; escalate to cold reset).
+3. **Field-validated (gpt-5.4's review concern): in-handler recovery makes
+   the box feel dead.** The check should answer fast (return the failure,
+   schedule recovery async) — ACK-then-recover — or drop rung 3 from the
+   handler entirely and leave bounce+rebuild to background escalation.
+
+Next fix set (proposed, not yet shipped): check-failure escalation counter →
+cold reset; move rung 3 out of the handler; then the roam correlation +
+upstream reproducer work continues under the soak.
+
+## 2026-07-16 (night): the consensus tear-down — 3.5.17 deletes the recovery layer
+
+A 3-model adversarial review (gpt-5.6-sol, gemini-3.1-pro, claude-opus-4.5;
+two rounds + synthesis) of the whole 07-12→07-16 change set, prompted by the
+owner's verdict ("unshippable — worse with every release"), converged
+unanimously on a sharper diagnosis than any single entry above:
+
+1. **The check was destroying the data path.** `_prep_session()` evicted the
+   data session's pooled sockets before EVERY check. In the selective wedge
+   (new connects dead, POOLED park socket alive) the hourly check therefore
+   killed the one connection still working — "I fixed the check and now all
+   ride updates fail" was literally the mechanism. The ECDSA check_url had
+   already made the eviction pointless (the check's handshake costs what a
+   park fetch costs; the RSA fetches live at early boot).
+2. **The in-handler ladder was the hang.** Rungs 2-3 (evict → bounce_sync +
+   rebuild) ran synchronously inside the web handler: 40-45 s with the single
+   event loop frozen (display dead, web dead, watchdog margin ~15 s of 60) —
+   and the evening episode above had already shown the ladder never cured the
+   wedge. All damage, no benefit.
+3. **Three uncoordinated recovery actors** (HttpClient auto-rebuild at 2
+   failures, app bounce-every-3, the check ladder) shared one radio and one
+   session with no lock, no cooldown, no shared state.
+
+**3.5.17 (net-negative diff):** check is ONE attempt and read-only (no
+eviction, no bounce, no rebuild — `_evict_data_sockets`/`_is_transient`/the
+ladder deleted); app-level radio bounce deleted (fetch failures ride the
+12-strike budget straight to the base cold reset); HttpClient auto-rebuild
+effectively disabled (threshold 1e6) — cold reset is the ONLY automatic
+recovery primitive. NEW: check failures finally escalate — `note_check_result`
+counts consecutive non-definitive checks (park success cannot clear it; the
+pooled-socket success is blind to the wedge), 4 strikes → ONE cold reset
+scheduled AFTER the response flushes (ACK-then-recover), with a persisted
+3-reset budget so a check-host/DNS outage can't reboot-loop the box (any
+definitive answer re-arms it). publish.sh: a missing server key now FAILS the
+release (the exit-0 skip was a fleet-wide silent "up to date" split-brain
+waiting to happen), and the endpoint is read back post-publish and must match
+exactly. KEPT (hardware-verified): ECDSA check_url, boot-time staging +
+persisted install flag, cold_reset on deliberate reboots, always-arm watchdog
+@60 s, diagnostics visibility, .mpy/.py cleanup.
+
+**Verification standard (unchanged in spirit):** 211-test suite green
+(rewritten ladder tests now assert the INVERSE: single-attempt read-only
+check, zero in-band bounces/rebuilds, ledger escalation + budget + reboot
+persistence). Shippable only after a ≥72 h hardware soak: hourly checks, ride
+data stays fresh through failed checks, frames_rendered keeps advancing, any
+wedge self-heals via one budgeted cold reset, zero manual power-cycles.

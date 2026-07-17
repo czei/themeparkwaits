@@ -186,73 +186,26 @@ def test_ota_glue_stage_request_lifecycle(tmp_path):
     assert g.has_stage_request() is False
 
 
-def test_check_rung3_bounces_radio_then_retries(tmp_path):
-    """The warm-radio EBUSY state: eviction can't cure it, a radio bounce can.
-    Attempt 1 fails -> evict; attempt 2 fails -> bounce + evict; attempt 3 runs."""
+def test_check_is_single_attempt_and_read_only(tmp_path):
+    """3.5.17 contract (3-model consensus, 2026-07-16): a failing check runs
+    EXACTLY ONE attempt and never touches the data path — no pooled-socket
+    eviction, no session rebuild, no radio bounce. The old in-handler ladder
+    destroyed the pooled park socket that the selective wedge had left alive
+    (converting a parks-alive box into a parks-dead one) and blocked the event
+    loop 40-45 s without ever curing the wedge. Recovery is out-of-band now
+    (app.note_check_result -> budgeted cold reset)."""
     from src.ota_glue import OTAGlue
-
-    g = OTAGlue(current_version="1.95")
-    g.client.update_dir = str(tmp_path)
-    attempts = {"n": 0}
-    def _failing_check():
-        attempts["n"] += 1
-        return (False, "Update check failed: OSError: 16")
-    g.client.check_for_updates = _failing_check
-    evictions = {"n": 0}
-    g._evict_data_sockets = lambda: evictions.__setitem__("n", evictions["n"] + 1) or True
-    bounces = {"n": 0}
-    class _Wifi:
-        def bounce_sync(self):
-            bounces["n"] += 1
-            return True
-    g.wifi_manager = _Wifi()
-
-    ok, version, reason = g.check_update()
-
-    assert ok is False and "OSError: 16" in reason
-    assert attempts["n"] == 3                 # all three rungs ran
-    assert bounces["n"] == 1                  # exactly one radio bounce
-    # evictions: after attempt 1 + after the bounce (the _prep_session eviction
-    # is skipped here — this glue has no http_client attached)
-    assert evictions["n"] == 2
-
-
-def test_check_stops_after_two_attempts_without_wifi_manager(tmp_path):
-    from src.ota_glue import OTAGlue
-
-    g = OTAGlue(current_version="1.95")
-    g.client.update_dir = str(tmp_path)
-    attempts = {"n": 0}
-    def _failing_check():
-        attempts["n"] += 1
-        return (False, "Update check failed: OSError: 16")
-    g.client.check_for_updates = _failing_check
-    g._evict_data_sockets = lambda: True
-    assert g.wifi_manager is None             # nothing attached (desktop)
-
-    ok, version, reason = g.check_update()
-
-    assert ok is False
-    assert attempts["n"] == 2                 # no rung 3 without a wifi manager
-
-
-def test_check_rung3_rebuilds_session_and_repoints_client(tmp_path):
-    """Reassociation alone leaves the client GETting on the dead pre-bounce
-    session (why rung 3 fired but didn't cure, 2026-07-15/16): after the
-    bounce, the session must be REBUILT and the client re-pointed at it."""
-    from src.ota_glue import OTAGlue
-
-    fresh_session = object()
 
     class _Http:
         def __init__(self):
-            self.session = object()          # the stale pre-bounce session
+            self.session = object()
             self.rebuilds = 0
+            self.evictions = 0
         def rebuild_session(self):
             self.rebuilds += 1
-            self.session = fresh_session     # a real rebuild installs a new one
             return True
         def close_pooled_sockets(self):
+            self.evictions += 1
             return True
 
     http = _Http()
@@ -263,14 +216,32 @@ def test_check_rung3_rebuilds_session_and_repoints_client(tmp_path):
         attempts["n"] += 1
         return (False, "Update check failed: OSError: 16")
     g.client.check_for_updates = _failing_check
-    class _Wifi:
-        def bounce_sync(self):
-            return True
-    g.wifi_manager = _Wifi()
 
     ok, version, reason = g.check_update()
 
-    assert ok is False
-    assert attempts["n"] == 3
-    assert http.rebuilds == 1                # exactly one rebuild, at rung 3
-    assert g.client.session is fresh_session # retry runs on the NEW session
+    assert ok is False and "OSError: 16" in reason
+    assert attempts["n"] == 1                 # one attempt, no retry ladder
+    assert http.rebuilds == 0                 # data session never rebuilt
+    assert http.evictions == 0                # pooled park sockets never closed
+    assert g.client.session is http.session  # still pointed at the live session
+
+
+def test_prep_session_repoints_without_evicting():
+    """_prep_session must be side-effect-free: re-point the OTA client at the
+    LIVE session and nothing else (the pre-3.5.17 version evicted the data
+    session's pooled sockets before EVERY check — see the ledger, 2026-07-16)."""
+    from src.ota_glue import OTAGlue
+
+    class _Http:
+        def __init__(self):
+            self.session = object()
+            self.evictions = 0
+        def close_pooled_sockets(self):
+            self.evictions += 1
+            return True
+
+    http = _Http()
+    g = OTAGlue(current_version="1.95", http_client=http)
+    g._prep_session()
+    assert g.client.session is http.session
+    assert http.evictions == 0

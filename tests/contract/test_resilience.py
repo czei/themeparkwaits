@@ -235,14 +235,15 @@ def test_config_page_shows_diagnostics(mock_http_client, settings_factory):
     assert "Status" in html
 
 
-# --- radio-bounce escalation + auto-reboot wiring (the 2026-07-15 wedge) ------
+# --- failure budget -> cold reset, with NO in-band recovery (2026-07-16) ------
 
-async def test_radio_bounce_fires_every_third_consecutive_failure(
+async def test_fetch_failures_never_bounce_the_radio(
         mock_http_client, settings_factory):
-    """Outbound-EBUSY wedge cure: at failures 3, 6, 9... the app must force a
-    radio bounce and drop the pooled sockets of the dead association. (The wedge:
-    inbound worked, the radio reported connected, so no link-watcher ever acted —
-    the box stayed dead for 90+ min until a manual reset.)"""
+    """3.5.17 contract: consecutive fetch failures ride the failure budget
+    straight to the base auto-reboot (cold reset) — the app must NOT bounce the
+    radio or rebuild the session along the way. The 2026-07-16 soak proved
+    bounce+rebuild does not cure the selective wedge, while a failed bounce can
+    leave the radio unassociated mid-run (observed live on the two-AP mesh)."""
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
     app = ThemeParkApp(http_client=mock_http_client, settings=sm)
@@ -271,10 +272,85 @@ async def test_radio_bounce_fires_every_third_consecutive_failure(
     for _ in range(7):
         await app.update_data()
 
-    assert bounces == [3, 6], bounces     # every 3rd failure, not every failure
-    # Reassociation alone does not cure the wedge (2026-07-15 overnight):
-    # every bounce must be completed by a FULL session rebuild.
-    assert rebuilds["n"] == 2
+    assert bounces == [], bounces         # no in-band radio recovery, ever
+    assert rebuilds["n"] == 0             # no in-band session recovery, ever
+    assert app.consecutive_refresh_failures == 7   # the budget still counts
+
+
+# --- update-check health ledger: the selective-wedge detector -----------------
+
+def _check_app(mock_http_client, settings_factory, tmp_path):
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=mock_http_client, settings=sm)
+    # Persist the reset budget somewhere writable (on-device this is "/...").
+    app.CHECK_RESET_BUDGET_PATH = str(tmp_path / "check_reset_count")
+    return app
+
+
+def test_check_failures_escalate_to_one_budgeted_reset(
+        mock_http_client, settings_factory, tmp_path):
+    """The selective wedge: park fetches succeed on their pooled socket while
+    every check (a NEW connection) fails — only the CHECK counter can see it.
+    After MAX_CHECK_FAILURES consecutive failures the app asks for exactly one
+    cold reset (returns True); the count restarts toward the next one."""
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+
+    results = [app.note_check_result(False, "check failed: OSError: 16")
+               for _ in range(app.MAX_CHECK_FAILURES)]
+    assert results[:-1] == [False] * (app.MAX_CHECK_FAILURES - 1)
+    assert results[-1] is True            # the threshold asks for the reset
+    assert app._consecutive_check_failures == 0   # re-counts toward the next
+
+    # Park-fetch success must NOT have cleared the ledger meanwhile — that is
+    # the whole point (pooled-socket success can't see the wedge). Simulate by
+    # confirming a fresh failure run escalates again on schedule.
+    for _ in range(app.MAX_CHECK_FAILURES - 1):
+        assert app.note_check_result(False, "still wedged") is False
+
+
+def test_check_reset_budget_caps_consecutive_resets(
+        mock_http_client, settings_factory, tmp_path):
+    """An external outage (check host down, DNS broken) is NOT curable by a
+    reset: after CHECK_RESET_BUDGET escalations with no definitive answer in
+    between, the app stops asking for resets instead of reboot-looping."""
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+
+    fired = 0
+    for _ in range(app.CHECK_RESET_BUDGET + 2):        # budget + 2 extra rounds
+        for _ in range(app.MAX_CHECK_FAILURES):
+            if app.note_check_result(False, "host down"):
+                fired += 1
+    assert fired == app.CHECK_RESET_BUDGET
+
+    # A definitive answer re-arms the budget (and clears the counter).
+    assert app.note_check_result(True) is False
+    for _ in range(app.MAX_CHECK_FAILURES - 1):
+        assert app.note_check_result(False, "wedged again") is False
+    assert app.note_check_result(False, "wedged again") is True
+
+
+def test_check_reset_budget_survives_reboot(
+        mock_http_client, settings_factory, tmp_path):
+    """The budget must persist across the very reboots it triggers — a fresh
+    app instance (post-reset boot) continues the same budget file."""
+    app = _check_app(mock_http_client, settings_factory, tmp_path)
+    for _ in range(app.MAX_CHECK_FAILURES):
+        app.note_check_result(False, "wedged")         # spends budget slot 1
+
+    app2 = _check_app(mock_http_client, settings_factory, tmp_path)
+    assert app2._read_check_reset_count() == 1
+
+    # Spend the remaining budget across "reboots"...
+    fired = 0
+    for _ in range(app2.CHECK_RESET_BUDGET + 1):
+        for _ in range(app2.MAX_CHECK_FAILURES):
+            if app2.note_check_result(False, "wedged"):
+                fired += 1
+    assert fired == app2.CHECK_RESET_BUDGET - 1        # slot 1 already spent
+
+    # ...and a definitive answer clears the file for good.
+    app2.note_check_result(True)
+    assert app2._read_check_reset_count() == 0
 
 
 async def test_failures_feed_base_watchdog_and_success_resets(

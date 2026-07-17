@@ -290,6 +290,36 @@ async def test_check_is_readonly_and_install_requests_boot_stage(mock_http_clien
     assert staged["n"] == 0                                 # runtime NEVER downloads
 
 
+async def test_failed_check_feeds_ledger_and_acks_before_recovery(
+        mock_http_client, settings_factory):
+    """ACK-then-recover (3.5.17): a non-definitive check feeds the app's
+    check-health ledger; when the ledger asks for escalation the handler STILL
+    returns the failure answer (the cold reset is scheduled behind the
+    response, never run inside the handler — the old in-handler recovery froze
+    the box for 40-45 s)."""
+    from src.web.config_server import check_update
+    app = await _app(mock_http_client, settings_factory)
+    app.ota.check_update = lambda: (False, None, "Update check failed: OSError: 16")
+
+    fed = []
+    def _note(definitive, reason=""):
+        fed.append(definitive)
+        return len(fed) >= 2                  # escalate on the second failure
+    app.note_check_result = _note
+
+    available, version, message = check_update(app)
+    assert available is False and fed == [False]
+    assert "restarting" not in message        # below threshold: plain failure
+
+    available, version, message = check_update(app)      # ledger fires now
+    assert available is False and fed == [False, False]
+    assert "restarting itself to recover" in message     # user told what happens
+
+    app.ota.check_update = lambda: (True, "9.9.9", "")   # definitive feeds True
+    check_update(app)
+    assert fed[-1] is True
+
+
 async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):
     """Full browser save cycle: POST /settings → follow 303 → GET / returns 200.
 
