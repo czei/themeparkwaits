@@ -268,12 +268,25 @@ class ThemeParkApp(ScrollKitApp):
 
         # Boot-loop breaker: if we've fault-rebooted repeatedly with no healthy run
         # in between (a deterministic crash — bad settings, an API change), stop
-        # fetching and just show a reconfigure message while the web/AP config UI
-        # stays reachable (network was brought up above). Prevents an endless
-        # reboot cycle from the watchdog / last-resort reset.
+        # fetching wait times and just show a reconfigure message while the web/AP
+        # config UI stays reachable (network was brought up above). Prevents an
+        # endless reboot cycle from the watchdog / last-resort reset.
         if self.diagnostics.safe_mode:
             self._safe_mode = True
             logger.error(None, "entering safe mode after repeated reboots")
+            # Safe mode guards the DATA loop, not reconfiguration — the park
+            # CATALOG must still be fetched, or the "reconfigure at
+            # themeparkwaits.local" page can offer nothing but "(none)" and the
+            # box is unrescuable (the 2026-07-17 customer trap: pre-3.5.16
+            # firmware watchdog-reset its way here, then the exit — a clean
+            # run — was unreachable because safe mode skipped all fetching).
+            # Guarded: if THIS fetch is the crasher, the breaker re-trips and
+            # we are no worse off than skipping it. Saving settings exits safe
+            # mode (config_server POST /settings -> note_clean_run + reboot).
+            try:
+                await self.service.initialize()
+            except Exception as e:
+                logger.error(e, "safe-mode catalog fetch failed")
             self._show_safe_mode_message()
             try:
                 await self._transition_to_first_queue_content()

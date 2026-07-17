@@ -612,6 +612,28 @@ class ThemeParkConfigServer:
                     apply_settings(app, _params(request))
                 except Exception as e:  # never 500 the form on a bad apply
                     print("apply_settings failed:", e)
+                # Saving settings IS the exit from safe mode: the panel says
+                # "reconfigure at themeparkwaits.local", so a completed save
+                # clears the boot-loop streak and reboots for a fresh try with
+                # the new configuration. If the original crasher persists, the
+                # breaker simply re-trips after RAPID_BOOT_LIMIT boots — no
+                # loop. (Without this exit, safe mode was a one-way trap:
+                # only a successful data fetch cleared it, and safe mode
+                # itself prevented all data fetching — 2026-07-17.)
+                if getattr(app, "_safe_mode", False):
+                    try:
+                        app.diagnostics.note_clean_run()
+                    except Exception as e:
+                        print("safe-mode exit: note_clean_run failed:", e)
+                    logger.error(None, "safe mode: settings saved — rebooting "
+                                       "for a fresh start")
+                    _schedule_reboot(app, delay=2.0)   # cold reset, post-flush
+                    return Response(request, _styled_page(
+                        "<h3>Settings saved</h3>"
+                        "<p>The sign is restarting to leave safe mode and "
+                        "load your parks. Give it about a minute, then "
+                        "<a class='btn' href='/'>reload this page</a>.</p>"),
+                        content_type="text/html")
                 # Fetch a newly-selected park now (async, non-blocking) so its wait
                 # times show within seconds instead of at the next update tick.
                 _schedule_refresh(app)

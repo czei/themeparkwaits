@@ -224,6 +224,54 @@ def test_diagnostics_open_is_noop_off_device():
     assert isinstance(d.summary(), dict)
 
 
+class _SafeModeDiag:
+    """Stub diagnostics pinned in safe mode (the NVM breaker has tripped)."""
+    safe_mode = True
+
+    def __init__(self):
+        self.clean_runs = 0
+    def record_boot(self, reason="UNKNOWN"):
+        return self
+    def note_clean_run(self):
+        self.clean_runs += 1
+    def note_fetch_result(self, ok, consecutive_failures=0):
+        pass
+    def record_crash(self, message):
+        pass
+    def summary(self):
+        return {"reset_reason": "WATCHDOG"}
+
+
+async def test_safe_mode_still_fetches_park_catalog(
+        mock_http_client, settings_factory):
+    """The 2026-07-17 customer trap: safe mode skipped the catalog fetch, so
+    the 'reconfigure' page it advertises could only offer '(none)' — with no
+    exit. Safe mode must still fetch the PARK CATALOG (guarded) while
+    continuing to skip wait-time fetching."""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    sm = settings_factory(selected_park_ids=[MAGIC_KINGDOM_ID])
+    app = ThemeParkApp(http_client=mock_http_client, settings=sm)
+    app.diagnostics = _SafeModeDiag()
+
+    fetched = {"catalog": 0}
+    real_init = app.service.initialize
+    async def _init():
+        fetched["catalog"] += 1
+        return await real_init()
+    app.service.initialize = _init
+
+    async def _never():
+        raise AssertionError("safe mode must not fetch wait times")
+    app.service.update_selected_parks = _never
+
+    await app._initialize_display()
+    await app.setup()
+
+    assert app._safe_mode is True
+    assert fetched["catalog"] == 1        # the reconfigure page gets its parks
+    assert app.service.park_list is not None
+
+
 def test_config_page_shows_diagnostics(mock_http_client, settings_factory):
     """The config web UI surfaces the diagnostics panel for field debugging."""
     from src.web.config_server import render_page

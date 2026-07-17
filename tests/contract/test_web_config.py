@@ -320,6 +320,26 @@ async def test_failed_check_feeds_ledger_and_acks_before_recovery(
     assert fed[-1] is True
 
 
+async def test_saving_settings_exits_safe_mode(mock_http_client, settings_factory):
+    """Safe mode's only documented remedy is 'reconfigure' — so a completed
+    settings save must BE the exit: clear the boot-loop streak and reboot for
+    a fresh try (2026-07-17: without this, safe mode was a one-way trap)."""
+    app = await _app(mock_http_client, settings_factory)
+    app._safe_mode = True
+
+    class _Diag:
+        def __init__(self): self.clean_runs = 0
+        def note_clean_run(self): self.clean_runs += 1
+    app.diagnostics = _Diag()
+
+    with _RunningServer(app, _PORT + 7) as srv:
+        code, body = _post_body(srv.base, "/settings",
+                                "park_1=%s" % MAGIC_KINGDOM_ID)
+    assert code == 200
+    assert "restarting to leave safe mode" in body    # user told what happens
+    assert app.diagnostics.clean_runs == 1            # NVM streak cleared
+
+
 async def test_save_settings_server_survives_and_redirects(mock_http_client, settings_factory):
     """Full browser save cycle: POST /settings → follow 303 → GET / returns 200.
 
