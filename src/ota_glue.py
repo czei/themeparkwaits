@@ -61,6 +61,50 @@ def read_current_version(default="0.0.0"):
         return default
 
 
+# Records the version we were running JUST BEFORE a staged update is applied.
+# install_pending() reboots on success and never returns, so the "what did we
+# come from" fact has to be written to flash beforehand or it is lost. The
+# diagnostics page reads it back to prove an OTA actually replaced running CODE
+# — a version string alone only proves the .version file landed.
+LAST_UPDATE_PATH = "/last_ota"
+
+
+def note_pre_update_version(version):
+    """Stamp the pre-apply version to flash. Best-effort: an unwritable FS
+    (USB-deploy mode, desktop) just means the page shows no OTA provenance."""
+    try:
+        with open(LAST_UPDATE_PATH, "w") as f:
+            f.write(str(version).strip() + "\n")
+    except OSError:
+        pass
+
+
+def read_pre_update_version():
+    """The version recorded before the last applied update, or None."""
+    try:
+        with open(LAST_UPDATE_PATH) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def describe_update_source(current=None):
+    """One line of update provenance for the diagnostics page.
+
+    "OTA (3.5.19 -> 3.5.20)" when the recorded pre-update version differs from
+    what is running now — i.e. an OTA apply really did swap the code. A stamp
+    equal to the running version means the staged apply did not change the
+    version (or was rolled back); no stamp at all means this build arrived some
+    other way (USB deploy / WiFi pull)."""
+    running = current or read_current_version()
+    previous = read_pre_update_version()
+    if not previous:
+        return "USB/local (no OTA recorded)"
+    if previous == running:
+        return "OTA staged but version unchanged (%s)" % running
+    return "OTA (%s -> %s)" % (previous, running)
+
+
 class OTAGlue:
     """Build a GitHub-channel OTAClient and drive it through the library's
     display-progress + staged-install adapter. Thin: config + delegation."""

@@ -45,6 +45,31 @@ class ThemeParkApp(ScrollKitApp):
     # reconnects on the next boot instead of the sign sitting in setup mode).
     WIFI_PORTAL_TIMEOUT_S = 300
 
+    # --- availability policy (2026-07-19 fault-tolerance redesign) ------------
+    # Design invariant: from any state the device returns to a normal-operation
+    # attempt within bounded time, forever, with no human intervention.
+    # "The app survived this long" IS a clean run: an uptime timer clears the
+    # NVM boot-loop counter and /safemode.py's escape-hatch streak, so
+    # deliberate reboots (outage auto-reboots, wedge cold resets, watchdog
+    # bites) can never accumulate into safe mode — only boots that die YOUNG
+    # (a genuine crash loop) still trip the breaker. Health for the breaker is
+    # "the app runs", never "the network works" (the old fetch-success
+    # definition walked a ~70-min internet outage into a bricked box).
+    STABLE_UPTIME_S = 600
+    # Recovery mode (the former terminal safe mode) self-heals: a guarded
+    # probation fetch every PROBE interval (success exits via clean-run +
+    # cold reset), plus a full reboot after SAFE_MODE_REBOOT_S that re-tests
+    # the whole boot path. Saving settings remains the immediate manual exit.
+    SAFE_MODE_PROBE_INTERVAL_S = 1800
+    SAFE_MODE_REBOOT_S = 3600
+    # A continuous hour of DEGRADED refreshes (any park failing, or full
+    # failure, or wedge evidence) earns one reboot attempt — the known cure for
+    # the CP9 fragmentation MemoryErrors is a fresh heap, and before 2026-07-19
+    # a partial refresh counted as full health so nothing ever fired while
+    # three of four parks sat frozen for hours. Per-boot timer = natural
+    # ~hourly rate limit; the never-park invariant holds (uptime clean-runs).
+    PARTIAL_ESCALATION_S = 3600
+
     # Refresh cadence: wait times move slowly; ~10 minutes is the product's
     # intent (owner, 2026-07-16). Halving network activity also halves the
     # box's exposure to the connect-path wedge. Stale retry stays at 60 s.
@@ -63,6 +88,10 @@ class ThemeParkApp(ScrollKitApp):
         # box's port was held, so it never actually ran armed). 60 s still turns a
         # frozen box into a self-heal within a minute, which is what matters; the
         # 8 s figure was precision the workload never supported.
+        # NOTE (2026-07-19): the library arms ONE window for boot AND runtime at
+        # max(watchdog_timeout, BOOT_WATCHDOG_TIMEOUT=120) — CP 9.2.8 rejects
+        # retightening a running watchdog (EINVAL, hardware-observed). So the
+        # effective device window is 120 s; this value is the floor/intent.
         # enable_auto_reboot: last-resort self-heal, fed via note_refresh_result()
         # in update_data(). 12 consecutive failures at the 60 s stale-retry cadence
         # ≈ 12+ minutes of continuous outage before the hammer — long enough that a
@@ -158,9 +187,21 @@ class ThemeParkApp(ScrollKitApp):
                             getattr(self.diagnostics, "boot_count", "?")))
         except Exception:
             pass
-        # Set when repeated fault-reboots tripped the breaker: skip network fetches
-        # and just keep the config UI reachable so the user can fix the cause.
+        # Set when repeated fault-reboots tripped the breaker. NOT a parking
+        # lot: recovery mode keeps the config UI reachable AND self-heals via
+        # probation fetches + a timed full reboot (_recovery_mode_tick).
         self._safe_mode = False
+        self._safe_mode_last_probe = None      # monotonic of the last probation fetch
+        self._safe_mode_reboot_fired = False   # the timed reboot fires once (sim no-op)
+        # Coalesce concurrent refreshes: a settings save schedules an extra
+        # update_data() task which could interleave with the periodic one
+        # (teardown/status/queue races). One runs; overlaps are dropped — the
+        # queue was already rebuilt synchronously and the next tick fetches.
+        self._refresh_busy = False
+        # Monotonic stamp of when continuous degradation (partial/failed/wedge
+        # refreshes) began; None while fully healthy. Drives the hourly
+        # degraded-streak reboot cure (PARTIAL_ESCALATION_S).
+        self._partial_since = None
 
     async def create_display(self):
         """Return the ScrollKit display (auto-detects sim/hardware).
@@ -217,6 +258,17 @@ class ThemeParkApp(ScrollKitApp):
             self.diagnostics.record_boot(diagnostics.read_reset_reason())
         except Exception as e:
             logger.error(e, "diagnostics.record_boot failed")
+        # Stable-uptime clean run: scheduled unconditionally (recovery mode
+        # included) so ANY boot that stays alive STABLE_UPTIME_S stops counting
+        # toward the boot-loop breaker and re-arms /safemode.py's fast retries.
+        # running is False when tests drive setup() directly — skip then (they
+        # call _note_stable_runtime themselves) so no orphan task outlives the
+        # test loop.
+        if self.running:
+            try:
+                asyncio.create_task(self._note_stable_runtime())
+            except Exception as e:
+                logger.error(e, "stable-runtime task failed to schedule")
         if hasattr(self.display, "create_window"):
             try:
                 await self.display.create_window("ThemeParkWaits")
@@ -245,6 +297,15 @@ class ThemeParkApp(ScrollKitApp):
         # Install a pending OTA update before fetching (reboots if one is staged).
         if self.ota is not None:
             try:
+                # Boot-time staging downloads now run under the armed boot
+                # watchdog: feed it per downloaded chunk (large release on
+                # slow WiFi can outlast any fixed timeout).
+                client = getattr(self.ota, "client", None)
+                if client is not None:
+                    client.watchdog_feed = self._feed_watchdog
+            except Exception:
+                pass
+            try:
                 self.ota.attach_display(self.display)
                 # A persisted /install request downloads HERE — right after
                 # network bring-up, before parks/content/web allocate — because
@@ -257,6 +318,17 @@ class ThemeParkApp(ScrollKitApp):
                 if stage_pending is not None:
                     await stage_pending()
                 had_pending = self.ota.has_pending()
+                if had_pending:
+                    # Record what we're running BEFORE the apply: install_pending()
+                    # reboots on success and never returns, so this is the only
+                    # moment the "came from" version can be captured. Proves on
+                    # the diagnostics page that an OTA replaced running code.
+                    try:
+                        from src.ota_glue import (note_pre_update_version,
+                                                  read_current_version)
+                        note_pre_update_version(read_current_version())
+                    except Exception as e:
+                        print("pre-update version stamp failed:", e)
                 installed = await self.ota.install_pending()
                 if had_pending and not installed:
                     # A staged update failed to apply — persist it (the panel
@@ -273,20 +345,31 @@ class ThemeParkApp(ScrollKitApp):
         # endless reboot cycle from the watchdog / last-resort reset.
         if self.diagnostics.safe_mode:
             self._safe_mode = True
-            logger.error(None, "entering safe mode after repeated reboots")
-            # Safe mode guards the DATA loop, not reconfiguration — the park
-            # CATALOG must still be fetched, or the "reconfigure at
-            # themeparkwaits.local" page can offer nothing but "(none)" and the
-            # box is unrescuable (the 2026-07-17 customer trap: pre-3.5.16
-            # firmware watchdog-reset its way here, then the exit — a clean
-            # run — was unreachable because safe mode skipped all fetching).
-            # Guarded: if THIS fetch is the crasher, the breaker re-trips and
-            # we are no worse off than skipping it. Saving settings exits safe
-            # mode (config_server POST /settings -> note_clean_run + reboot).
+            logger.error(None, "entering recovery mode after repeated reboots")
+            # Recovery mode guards the NORMAL data cadence, not reconfiguration
+            # or self-healing. The park CATALOG must still be fetched, or the
+            # "reconfigure at themeparkwaits.local" page can offer nothing but
+            # "(none)" and the box is unrescuable (the 2026-07-17 customer
+            # trap: pre-3.5.16 firmware watchdog-reset its way here, then the
+            # exit — a clean run — was unreachable because safe mode skipped
+            # all fetching). Guarded: if THIS fetch is the crasher, the breaker
+            # re-trips and we are no worse off than skipping it.
+            # NOT a parking lot (2026-07-19): update_data() now runs
+            # _recovery_mode_tick() — a guarded probation fetch every 30 min
+            # (success exits via clean-run + cold reset) and a full reboot at
+            # 60 min that re-tests the whole boot path; the stable-uptime task
+            # above clears the breaker so that next boot is a NORMAL one.
+            # Saving settings remains the immediate manual exit
+            # (config_server POST /settings -> note_clean_run + reboot).
+            try:
+                import time
+                self._safe_mode_last_probe = time.monotonic()
+            except Exception:
+                pass
             try:
                 await self.service.initialize()
             except Exception as e:
-                logger.error(e, "safe-mode catalog fetch failed")
+                logger.error(e, "recovery-mode catalog fetch failed")
             self._show_safe_mode_message()
             try:
                 await self._transition_to_first_queue_content()
@@ -317,9 +400,28 @@ class ThemeParkApp(ScrollKitApp):
                 # stranding on the splash, and retry sooner than the full cycle.
                 self._show_offline_fallback()
             if ok:
-                # Healthy boot: clear the reboot-loop streak so a single past crash
-                # never accumulates toward safe mode.
-                self.diagnostics.note_clean_run()
+                # Healthy boot: count it as a REAL fetch success, not just a
+                # clean run — "Last fetch OK" must include the boot fetch, or
+                # the page reads "(never)" for the first 10 min after every
+                # reboot while showing fresh data (2026-07-17). The session
+                # stamp feeds seconds_since_last_refresh_success(); the NVM
+                # stamp survives reboots; note_fetch_result's ok-path also
+                # clears the reboot-loop streak (note_clean_run).
+                try:
+                    self.note_refresh_result(True)
+                except Exception:
+                    pass
+                boot_full = not getattr(self.service, "last_failed_parks", None)
+                # rearm only on FULL success: a partial boot fetch stamps the
+                # success time but must not clean-run / end the failure-reboot
+                # epoch (review 2026-07-19).
+                self.diagnostics.note_fetch_result(True, 0, rearm=boot_full)
+                if not boot_full:
+                    # Boot-time PARTIAL: some park(s) failed even though the
+                    # fetch "succeeded" — show degraded and retry hot from the
+                    # first cycle (the full policy lives in _do_refresh).
+                    self._data_stale = True
+                    self.update_interval = self._stale_retry_interval
             else:
                 self._data_stale = True
                 self.update_interval = self._stale_retry_interval
@@ -347,8 +449,10 @@ class ThemeParkApp(ScrollKitApp):
             logger.error(e, "offline fallback failed")
 
     def _show_safe_mode_message(self) -> None:
-        """Replace the queue with a safe-mode notice when the boot-loop breaker
-        trips, pointing the user at the still-reachable config UI. Never raises."""
+        """Replace the queue with a recovery-mode notice when the boot-loop
+        breaker trips, pointing the user at the still-reachable config UI.
+        Honest about the self-heal: the box IS retrying on its own. Never
+        raises."""
         try:
             q = self.content_queue
             if q is None:
@@ -356,8 +460,9 @@ class ThemeParkApp(ScrollKitApp):
             q.clear()
             from scrollkit.display.content import ScrollingText
             domain = self.settings.get("domain_name", "themeparkwaits")
-            q.add(ScrollingText("Safe mode - reconfigure at %s.local" % domain,
-                                 y=13, color=0xFF0000, speed=20))
+            q.add(ScrollingText(
+                "Recovering - retrying soon; config at %s.local" % domain,
+                y=13, color=0xFF0000, speed=20))
         except Exception as e:
             logger.error(e, "safe mode message failed")
 
@@ -387,6 +492,10 @@ class ThemeParkApp(ScrollKitApp):
         so the per-attempt Wi-Fi retry callback doesn't wipe-spam. Defensive — never
         raises into boot. Keep ``step`` short: ~10 chars fit at the default font.
         """
+        # Boot now runs under an armed (boot-sized) watchdog; every stage
+        # transition paints a status frame, so feeding here marks boot
+        # progress. Safe when disarmed/desktop.
+        self._feed_watchdog()
         disp = self.display
         if not disp:
             return
@@ -764,10 +873,30 @@ class ThemeParkApp(ScrollKitApp):
         concurrent display-loop drawing the same screen.
         """
         if self._safe_mode:
-            return  # boot-loop breaker tripped: no fetching until reconfigured
+            # Boot-loop breaker tripped — but recovery mode is NOT a parking
+            # lot (2026-07-19): probation fetches + a timed full reboot
+            # self-heal it without a human.
+            await self._recovery_mode_tick()
+            return
         if self._skip_initial_update:
             self._skip_initial_update = False
             return
+        # Coalesce concurrent refreshes: a settings save fire-and-forgets an
+        # extra update_data() task (_schedule_refresh); if one is already
+        # mid-flight, drop the overlap — the save already rebuilt the queue
+        # synchronously and the next tick fetches the new park.
+        if self._refresh_busy:
+            return
+        self._refresh_busy = True
+        try:
+            await self._do_refresh()
+        finally:
+            self._refresh_busy = False
+
+    async def _do_refresh(self) -> None:
+        """One full refresh: status frame, fetch/build, health accounting,
+        wedge ledger, socket drain, and (when the ledger says so) the budgeted
+        cold reset. Runs only via update_data()'s coalescing guard."""
         # Every refresh hits the internet (themeparks.wiki); the synchronous fetch
         # freezes the display, so paint a frame first or a hang looks like a dead screen.
         if self._initial_refresh_done:
@@ -785,6 +914,16 @@ class ThemeParkApp(ScrollKitApp):
             self._initial_refresh_done = True
             ok = await self._fetch_and_build()
 
+        # Heap telemetry after the build (the leak-vs-frag gate): the service
+        # stamped cycle-start/after-parks; this adds the post-UI-rebuild point.
+        try:
+            from src.api.theme_park_service import _heap_note
+            note = _heap_note()
+            if note:
+                self.service.heap_stats["after build"] = note
+        except Exception:
+            pass
+
         # Wedge evidence for THIS run: any park whose terminal error carried
         # the errno-16 signature. Checked on success too — a refresh that
         # updated one park over a surviving pooled socket while another died
@@ -792,22 +931,53 @@ class ThemeParkApp(ScrollKitApp):
         # sat wedged for hours with every counter at zero (2026-07-16).
         errors = getattr(self.service, "last_refresh_errors", None) or []
         wedge_evidence = any(self._is_wedge_error(e) for e in errors)
+        # Per-park failures for THIS run (parse failures included — they never
+        # reach last_refresh_errors, which feeds the wedge classifier only).
+        failed_parks = getattr(self.service, "last_failed_parks", None) or []
 
         # Track staleness and retry faster while stale, so a transient network
-        # blip doesn't strand the user on hours-old times.
-        self._data_stale = not ok
+        # blip doesn't strand the user on hours-old times. Wedge evidence OR
+        # any per-park failure makes a "success" degraded, not healthy — three
+        # big parks failed MemoryError for hours behind an all-green dashboard
+        # because partial success rode the full-health path (2026-07-19).
+        self._data_stale = (not ok) or wedge_evidence or bool(failed_parks)
+        # FULL health is the only state that re-arms recovery machinery
+        # (budget, safemode streak, clean run, failure-reboot epoch) — a
+        # partial success must never masquerade as it (review 2026-07-19).
+        full_health = ok and not wedge_evidence and not failed_parks
         reset_wanted = False
         if ok:
             self._consecutive_fetch_failures = 0
             if wedge_evidence:
                 # Partial success with wedge evidence: keep the content, but
-                # keep the short retry cadence and count the strike.
+                # keep the short retry cadence and count the strike. Stamp THIS
+                # refresh's success to NVM first: the strike's escalating
+                # record_crash flushes the last-ok epoch, and a cold reset right
+                # here would otherwise lose the freshest success to the 30-min
+                # persist throttle — the page would understate "Last fetch OK"
+                # (review, 2026-07-17).
                 self.update_interval = self._stale_retry_interval
+                try:
+                    # Stamp the time only (rearm=False): a wedge-partial is
+                    # degraded — it must not clean-run or end the epoch.
+                    self.diagnostics.note_fetch_result(True, 0, rearm=False)
+                except Exception:
+                    pass
                 reset_wanted = self.note_wedge_strike(
                     "refresh-partial", errors[-1] if errors else "?")
+            elif failed_parks:
+                # PARTIAL, non-wedge (the CP9 fragmentation shape): degraded.
+                # Stay on the hot retry cadence — the repeated gc across 60 s
+                # retries is what lets fragmentation self-heal in-session — and
+                # do NOT re-arm the budget or the safemode streak (full health
+                # only). Escalation is time-based below.
+                self.update_interval = self._stale_retry_interval
+                logger.error(None, "partial refresh: %d park(s) failed (%s)"
+                                   % (len(failed_parks), ", ".join(failed_parks)))
             else:
                 self.update_interval = self._default_update_interval
                 self._write_recovery_reset_count(0)   # full health re-arms budget
+                self._clear_safemode_streak()         # /safemode.py's loop guard
         else:
             self._consecutive_fetch_failures += 1
             self.update_interval = self._stale_retry_interval
@@ -822,13 +992,18 @@ class ThemeParkApp(ScrollKitApp):
                     "refresh", errors[-1] if errors else "?")
         # Feed the base watchdog ladder (enable_auto_reboot): the 12-consecutive
         # budget stays as the total-outage backstop behind the windowed wedge
-        # ledger. No intermediate radio bounce (falsified on hardware).
+        # ledger. ``ok`` (any park succeeded) is the right diet for THAT counter
+        # — it measures total outages; partial degradation is the degraded-hour
+        # escalation's job. No intermediate radio bounce (falsified on hardware).
         try:
             self.note_refresh_result(ok, reason=None if ok else "fetch failed")
         except Exception:
             pass
         try:
-            self.diagnostics.note_fetch_result(ok, self._consecutive_fetch_failures)
+            # rearm gated on FULL health: a partial stamps "Last fetch OK"
+            # but leaves clean-run and the failure-reboot epoch untouched.
+            self.diagnostics.note_fetch_result(
+                ok, self._consecutive_fetch_failures, rearm=full_health)
         except Exception:
             pass
         # Idle with ZERO open outbound sockets (owner's design rule, 2026-07-16):
@@ -849,6 +1024,123 @@ class ThemeParkApp(ScrollKitApp):
             logger.error(None, "wedge confirmed: cold reset now")
             await asyncio.sleep(0.5)
             self._hardware_reset()   # cold reset on device; no-op on desktop
+
+        # Degraded-streak escalation (2026-07-19): a continuous hour of ANY
+        # degradation — partial, full failure, or wedge evidence — earns one
+        # reboot attempt (fresh heap = the known fragmentation cure). The
+        # per-boot timer is the rate limit; full health clears it.
+        import time
+        now = time.monotonic()
+        if full_health:
+            self._partial_since = None
+        elif self._partial_since is None:
+            self._partial_since = now
+        if (self._partial_since is not None
+                and now - self._partial_since >= self.PARTIAL_ESCALATION_S):
+            reason = ("degraded for %dmin (failed: %s) — reboot cure"
+                      % (int((now - self._partial_since) // 60),
+                         ", ".join(failed_parks) or "all"))
+            logger.error(None, "escalation: " + reason)
+            try:
+                self.diagnostics.record_crash(reason)
+                self.diagnostics.note_deliberate_reboot()
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
+            self._hardware_reset()               # never returns on device
+            self._partial_since = time.monotonic()   # desktop/sim: re-arm timer
+
+    async def _note_stable_runtime(self) -> None:
+        """Uptime-based clean run — the 2026-07-19 root fix.
+
+        Surviving STABLE_UPTIME_S of running IS health for the boot-loop
+        breaker: it zeroes rapid_boots and /safemode.py's escape-hatch streak,
+        so deliberate reboots (outage auto-reboots, wedge cold resets, watchdog
+        bites) never accumulate into safe mode — only boots that die YOUNG (a
+        genuine crash loop) still trip it. Deliberately does NOT clear the
+        failure-reboot epoch flag (that needs a real fetch success — it exists
+        to rate-limit reboots of a box that stays up but keeps failing) and
+        does NOT re-arm the wedge reset budget (same reason)."""
+        try:
+            await asyncio.sleep(self.STABLE_UPTIME_S)
+        except Exception:
+            return
+        if not self.running:
+            return
+        try:
+            self.diagnostics.note_clean_run()
+        except Exception:
+            pass
+        self._clear_safemode_streak()
+        logger.error(None, "stable %ds uptime: boot-loop counter and safemode "
+                           "streak cleared" % self.STABLE_UPTIME_S)
+
+    async def _recovery_mode_tick(self) -> None:
+        """Self-heal while in recovery mode (the former TERMINAL safe mode).
+
+        Runs on the data loop's normal cadence instead of fetching. Two rungs,
+        both keyed on uptime (recovery mode is entered at boot, so monotonic
+        time ≈ time in recovery):
+          * a PROBATION fetch every SAFE_MODE_PROBE_INTERVAL_S — fully
+            guarded; success proves the crash cause cleared (a transient API
+            break, corrupted payload...), so prove health to NVM and cold
+            reset into a clean NORMAL boot;
+          * a full re-test reboot at SAFE_MODE_REBOOT_S — covers crashers that
+            live in setup() where a probe can't reach; the stable-uptime task
+            cleared the breaker minutes ago, so that boot IS normal. If the
+            cause persists, the box young-crashes back here and the cycle
+            repeats forever at ~hourly cost: retry-forever, never parked.
+        Saving settings remains the immediate manual exit."""
+        import time
+        now = time.monotonic()
+        up = self._uptime_s()   # app-relative: raw monotonic is huge on desktop
+        if (not self._safe_mode_reboot_fired) and up >= self.SAFE_MODE_REBOOT_S:
+            self._safe_mode_reboot_fired = True   # reset is a no-op on desktop
+            logger.error(None, "recovery mode: timed re-test reboot")
+            try:
+                self.diagnostics.record_crash("recovery mode: timed re-test reboot")
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
+            self._hardware_reset()
+            return
+        last = self._safe_mode_last_probe
+        if last is not None and now - last < self.SAFE_MODE_PROBE_INTERVAL_S:
+            return
+        self._safe_mode_last_probe = now
+        logger.error(None, "recovery mode: probation fetch")
+        try:
+            ok = await self._fetch_and_build()
+        except Exception as e:
+            logger.error(e, "recovery-mode probation fetch failed")
+            return
+        if not ok:
+            return
+        # Probation success: prove health (note_fetch_result's ok-path zeroes
+        # the breaker and ends the failure-reboot epoch), then reboot into a
+        # clean normal boot — known-good state beats resuming mid-recovery.
+        try:
+            self.diagnostics.note_fetch_result(True, 0)
+        except Exception:
+            pass
+        try:
+            self.note_refresh_result(True)
+        except Exception:
+            pass
+        self._clear_safemode_streak()
+        logger.error(None, "recovery mode: probation fetch succeeded - "
+                           "rebooting to normal")
+        await asyncio.sleep(0.5)
+        self._hardware_reset()
+        # Desktop/sim (the reset above is a no-op): exit recovery in place so
+        # the simulator and tests observe the recovery without a reboot.
+        self._safe_mode = False
+        self._data_stale = False
+        self.update_interval = self._default_update_interval
+        try:
+            await self._transition_to_first_queue_content()
+        except Exception:
+            pass
 
     @staticmethod
     def _bssid() -> str:
@@ -882,6 +1174,13 @@ class ThemeParkApp(ScrollKitApp):
                                   # a flapping half-hour — both self-cure
     WEDGE_WINDOW_S = 30 * 60      # rolling evidence window
     RECOVERY_RESET_BUDGET = 3     # resets per unhealthy epoch; health re-arms
+    # Exhausted budget is a RATE LIMIT, not a terminal fuse (2026-07-19): after
+    # this much uptime one more reset is allowed anyway. Stateless — monotonic
+    # restarts at boot, so each cooled-down reset first requires surviving
+    # another 6 h. The old behavior ("not resetting", forever, until a healthy
+    # run the wedge itself may prevent) left a persistently wedged box stale
+    # for good.
+    RECOVERY_BUDGET_COOLDOWN_S = 6 * 3600
     RECOVERY_BUDGET_PATH = "/check_reset_count"   # keep the fielded 3.5.17 name
 
     @staticmethod
@@ -919,6 +1218,19 @@ class ThemeParkApp(ScrollKitApp):
         except OSError:
             pass
 
+    def _clear_safemode_streak(self) -> None:
+        # /safemode.py auto-resets the board out of CircuitPython safe mode
+        # (watchdog bites etc.) with a consecutive-reset counter in NVM as its
+        # loop guard. A fully healthy refresh proves the app runs, so the
+        # streak starts over. Same NVM offsets as safemode.py (240/241).
+        try:
+            import microcontroller
+            nvm = microcontroller.nvm
+            if nvm is not None and nvm[240] == 0x5A and nvm[241]:
+                nvm[241] = 0
+        except Exception:
+            pass
+
     def note_wedge_strike(self, source: str, reason) -> bool:
         """Record one classified wedge event. Returns True when the caller
         should perform ONE budgeted cold reset (web handlers schedule it AFTER
@@ -938,16 +1250,32 @@ class ThemeParkApp(ScrollKitApp):
             self._wedge_strikes = []          # count afresh toward the next reset
             spent = self._read_recovery_reset_count()
             if spent >= self.RECOVERY_RESET_BUDGET:
-                logger.error(None, "recovery reset budget exhausted (%d/%d) — "
-                                   "not resetting"
-                                   % (spent, self.RECOVERY_RESET_BUDGET))
-                return False
-            self._write_recovery_reset_count(spent + 1)
+                if self._uptime_s() < self.RECOVERY_BUDGET_COOLDOWN_S:
+                    logger.error(None, "recovery reset budget exhausted (%d/%d) — "
+                                       "not resetting"
+                                       % (spent, self.RECOVERY_RESET_BUDGET))
+                    return False
+                # Cooled-down trickle: the budget bounds reset BURSTS; it must
+                # never end recovery outright (design invariant 2026-07-19).
+                logger.error(None, "recovery reset budget exhausted but %dh "
+                                   "uptime — allowing one cooled-down reset"
+                                   % int(self._uptime_s() // 3600))
+            else:
+                self._write_recovery_reset_count(spent + 1)
             logger.error(None, "escalation: %d wedge strikes in %d min -> cold "
                                "reset (budget %d/%d)"
                                % (self.WEDGE_STRIKES_MAX,
-                                  self.WEDGE_WINDOW_S // 60, spent + 1,
+                                  self.WEDGE_WINDOW_S // 60,
+                                  min(spent + 1, self.RECOVERY_RESET_BUDGET),
                                   self.RECOVERY_RESET_BUDGET))
+            # Stamp WHY+WHEN to NVM before the reset: without this the config
+            # page's "Last error" still shows some OLDER message after a wedge
+            # reset, which misreads as a different failure (2026-07-17).
+            try:
+                self.diagnostics.record_crash(
+                    "wedge cold reset (%s): %s" % (source, reason))
+            except Exception:
+                pass
             return True
         except Exception:
             return False

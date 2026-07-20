@@ -356,18 +356,17 @@ def _schedule_reboot(app, delay=2.0):
     async def _reboot():
         await asyncio.sleep(delay)
         try:
-            # COLD reset, not supervisor.reload(): a warm-radio restart leaves
-            # the next session's new outbound connects failing EBUSY (ledger,
-            # 2026-07-15) — which would sabotage the very boot-time staging
-            # this reboot exists to reach.
-            from scrollkit.utils.system_utils import cold_reset
-            cold_reset()
-        except Exception:
-            try:
-                import supervisor
-                supervisor.reload()
-            except Exception:
-                print("reboot skipped (desktop) — staged OTA would install on next boot")
+            # hard_reset = the full ladder: COLD reset first (a warm-radio
+            # restart leaves the next session's new outbound connects failing
+            # EBUSY — ledger 2026-07-15 — which would sabotage the very
+            # boot-time staging this reboot exists to reach), falling through
+            # to a raw reset, then supervisor.reload(). A decided reboot must
+            # never silently no-op. Returns only on desktop.
+            from scrollkit.utils.system_utils import hard_reset
+            hard_reset()
+            print("reboot skipped (desktop) — staged OTA would install on next boot")
+        except Exception as e:
+            print("reboot failed:", e)
     try:
         asyncio.get_running_loop().create_task(_reboot())
     except RuntimeError:
@@ -386,10 +385,61 @@ def _read_version() -> str:
         return "?"
 
 
+def _update_source() -> str:
+    """How the running build arrived (OTA with the version transition, or
+    USB/local). Never raises into the page."""
+    try:
+        from src.ota_glue import describe_update_source
+        return describe_update_source(_read_version())
+    except Exception:
+        return "?"
+
+
+def _fmt_epoch(ts) -> str:
+    """Epoch -> 'YYYY-MM-DD HH:MM:SS' in the device clock, '' when 0/unknown."""
+    if not ts:
+        return ""
+    try:
+        import time
+        t = time.localtime(int(ts))
+        return ("%04d-%02d-%02d %02d:%02d:%02d"
+                % (t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec))
+    except Exception:
+        return str(ts)
+
+
+def _fmt_dur(secs) -> str:
+    """Seconds -> compact 'Ns' / 'NmSSs' / 'NhMMm'."""
+    try:
+        secs = int(secs)
+    except Exception:
+        return "?"
+    if secs < 60:
+        return "%ds" % secs
+    if secs < 3600:
+        return "%dm%02ds" % (secs // 60, secs % 60)
+    return "%dh%02dm" % (secs // 3600, (secs % 3600) // 60)
+
+
+def _now_epoch() -> int:
+    """Device wall clock, or 0 while it was never set (pre-NTP epochs)."""
+    try:
+        import time
+        t = int(time.time())
+        return t if t >= 1577836800 else 0        # 2020-01-01: unset-RTC filter
+    except Exception:
+        return 0
+
+
 def _diagnostics_html(app) -> str:
     """Read-only health panel so a field user can see WHY the device misbehaved
     (last reset reason, last crash, fetch failures) without a serial cable — the
-    gap that made the previous black-screen failures undiagnosable."""
+    gap that made the previous black-screen failures undiagnosable.
+
+    WHEN matters as much as WHY (2026-07-17): a bare error text cannot
+    distinguish "one blip yesterday" from "fetched once at boot, failing ever
+    since", so every error carries its wall time / uptime / boot#, next to the
+    last SUCCESSFUL fetch time and the current device time."""
     diag = getattr(app, "diagnostics", None)
     summary = {}
     if diag is not None:
@@ -400,16 +450,127 @@ def _diagnostics_html(app) -> str:
     stale = getattr(app, "_data_stale", False)              # live runtime state
     consec = getattr(app, "_consecutive_fetch_failures", 0)
     safe = getattr(app, "_safe_mode", False) or summary.get("safe_mode", False)
-    status = ("SAFE MODE - reconfigure" if safe
-              else "STALE (network issues)" if stale else "OK")
+    svc = getattr(app, "service", None)
+    failed_parks = getattr(svc, "last_failed_parks", None) or []
+    selected = list(getattr(getattr(svc, "park_list", None), "selected_parks", None) or [])
+    if safe:
+        status = "RECOVERY MODE (self-healing; save settings to exit now)"
+    elif failed_parks and selected:
+        # Partial success must never read as healthy again (2026-07-19: three
+        # big parks failed MemoryError for hours behind an all-green page).
+        status = "PARTIAL (%d/%d parks updating; failing: %s)" % (
+            max(len(selected) - len(failed_parks), 0), len(selected),
+            ", ".join(failed_parks))
+    elif stale:
+        status = "STALE (network issues)"
+    else:
+        status = "OK"
+
+    # Per-park freshness: how long since each selected park last updated.
+    park_ages = "(none selected)"
+    try:
+        import time
+        now_mono = time.monotonic()
+        last_map = getattr(svc, "park_last_updated", None) or {}
+        ages = []
+        for p in selected:
+            t = last_map.get(p.id)
+            ages.append("%s: %s" % (p.name,
+                                    (_fmt_dur(now_mono - t) + " ago")
+                                    if t is not None else "never"))
+        if ages:
+            park_ages = "; ".join(ages)
+    except Exception:
+        park_ages = "?"
+
+    # Heap telemetry by refresh phase (leak-vs-fragmentation gate): free +
+    # largest contiguous block at cycle start / after parks / after build.
+    heap = getattr(svc, "heap_stats", None) or {}
+    heap_row = "; ".join("%s: %s" % (k, v) for k, v in heap.items()) or "(device only)"
+
+    now = _now_epoch()
+    try:
+        import time
+        uptime = int(time.monotonic())
+    except Exception:
+        uptime = 0
+    device_time = ("%s (up %s)" % (_fmt_epoch(now) or "clock not set",
+                                   _fmt_dur(uptime)))
+
+    # When the last recorded error happened. Error time 0 with a nonzero
+    # uptime/boot means the clock wasn't set yet when it was recorded; all-zero
+    # stamps mean the record predates the WHEN fields.
+    err_when = "(none)"
+    if summary.get("last_error"):
+        e_time = summary.get("last_error_time", 0)
+        e_up = summary.get("last_error_uptime", 0)
+        e_boot = summary.get("last_error_boot", 0)
+        if not (e_time or e_up or e_boot):
+            err_when = "(unknown - recorded before timestamps existed)"
+        else:
+            err_when = "%s, %s after power-up" % (
+                _fmt_epoch(e_time) or "clock not set", _fmt_dur(e_up))
+            if e_boot:
+                err_when += ", boot #%d" % e_boot
+                if e_boot != summary.get("boot_count", 0):
+                    err_when += " (a previous boot)"
+
+    # Last successful data fetch: exact this session, NVM across reboots.
+    ago = None
+    try:
+        ago = app.seconds_since_last_refresh_success()
+    except Exception:
+        pass
+    if ago is not None:
+        last_ok = "%s ago" % _fmt_dur(ago)
+        if now:
+            last_ok = "%s (%s ago)" % (_fmt_epoch(now - int(ago)), _fmt_dur(ago))
+    elif summary.get("last_ok_time"):
+        last_ok = "%s (before this boot)" % _fmt_epoch(summary["last_ok_time"])
+    else:
+        last_ok = "(never)"
+
+    # Recovery-machinery state (2026-07-19 redesign): each escalation
+    # mechanism's live state, so a field report can say WHERE in the ladder
+    # the box is instead of guessing.
+    try:
+        budget_used = app._read_recovery_reset_count()
+        budget_max = getattr(app, "RECOVERY_RESET_BUDGET", 3)
+        budget = "%d/%d used" % (budget_used, budget_max)
+        if budget_used >= budget_max:
+            budget += " (cooldown: one reset per 6h uptime)"
+    except Exception:
+        budget = "?"
+    safemode_streak = 0
+    try:
+        import microcontroller
+        _nvm = microcontroller.nvm
+        if _nvm is not None and len(_nvm) > 241 and _nvm[240] == 0x5A:
+            safemode_streak = _nvm[241]
+    except Exception:
+        pass
+
     rows = (
         ("Status", status),
+        ("Device time", device_time),
+        ("Last fetch OK", last_ok),
+        ("Parks (last updated)", park_ages),
+        ("Heap by phase", heap_row),
         ("Fetch failures (current)", consec),
+        ("Last error", summary.get("last_error", "") or "(none)"),
+        ("Last error when", err_when),
         ("Last reset reason", summary.get("reset_reason", "UNKNOWN")),
         ("Boot count", summary.get("boot_count", 0)),
         ("Reboot streak", summary.get("reboot_streak", 0)),
-        ("Last error", summary.get("last_error", "") or "(none)"),
+        ("Failure-reboot epoch", ("yes (reboots rate-limited hourly)"
+                                  if summary.get("failure_reboot_epoch")
+                                  else "no")),
+        ("Wedge reset budget", budget),
+        ("Safe-mode auto-resets", safemode_streak),
         ("App version", _read_version()),
+        # Update provenance: proves an OTA actually swapped running CODE, not
+        # just the .version stamp (see ota_glue.describe_update_source).
+        ("Update source", _update_source()),
         ("OTA", ("ready" if getattr(app, "ota", None) is not None
                  else "unavailable: %s" % (getattr(app, "ota_error", None) or "?"))),
         # A DISARMED watchdog must be visible (2026-07-16: the serial-console

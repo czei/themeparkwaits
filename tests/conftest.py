@@ -19,6 +19,13 @@ for _p in (_LIB_SRC, _REPO_ROOT, os.path.join(_REPO_ROOT, "src")):
     if os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
 
+# The vendored device bundle (src/lib) — APPENDED, never inserted: it holds an
+# ``asyncio/`` tree that must lose to the stdlib on desktop. Needed on desktop
+# only for pure-python vendored modules (adafruit_json_stream).
+_BUNDLE = os.path.join(_REPO_ROOT, "src", "lib")
+if os.path.isdir(_BUNDLE) and _BUNDLE not in sys.path:
+    sys.path.append(_BUNDLE)
+
 
 # --- canned themeparks.wiki payloads ---------------------------------------
 # Loaded from tests/fixtures/ (captured/trimmed from the real API). The catalog

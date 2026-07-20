@@ -403,3 +403,53 @@ async def test_create_web_server_returns_native_server(mock_http_client, setting
     finally:
         await server.stop()
         assert server.is_running is False
+
+
+# --------------------------------------------------------------------------- #
+# diagnostics panel: WHEN, not just WHY (2026-07-17)
+# --------------------------------------------------------------------------- #
+async def test_diagnostics_panel_shows_when(mock_http_client, settings_factory):
+    """The Last-error line must say WHEN it happened (wall time / uptime /
+    boot#) and when data last fetched OK — a bare error text can't distinguish
+    'one blip yesterday' from 'fetched once at boot, failing ever since'."""
+    from src.web.config_server import _diagnostics_html
+    app = await _app(mock_http_client, settings_factory)
+
+    class _Diag:
+        def summary(self):
+            return {"boot_count": 131, "reboot_streak": 0,
+                    "reset_reason": "WATCHDOG", "safe_mode": False,
+                    "consecutive_failures": 3,
+                    "last_error": "wedge cold reset (refresh): OSError: 16",
+                    "last_error_time": 0,          # clock wasn't set yet
+                    "last_error_uptime": 1385, "last_error_boot": 130,
+                    "last_ok_time": 1789000600}
+    app.diagnostics = _Diag()
+    app.seconds_since_last_refresh_success = lambda: None  # none THIS session
+
+    html = _diagnostics_html(app)
+    assert "Last error when" in html
+    assert "clock not set, 23m05s after power-up" in html
+    assert "boot #130 (a previous boot)" in html
+    assert "before this boot" in html     # NVM last-ok used when session has none
+
+
+async def test_diagnostics_panel_pre_timestamp_record(mock_http_client, settings_factory):
+    """A v1 record (error text but all-zero WHEN stamps) must say the stamps are
+    missing rather than render a misleading 'boot #0, 0s after power-up'."""
+    from src.web.config_server import _diagnostics_html
+    app = await _app(mock_http_client, settings_factory)
+
+    class _Diag:
+        def summary(self):
+            return {"boot_count": 7, "reboot_streak": 0,
+                    "reset_reason": "POWER_ON", "safe_mode": False,
+                    "consecutive_failures": 0, "last_error": "old text",
+                    "last_error_time": 0, "last_error_uptime": 0,
+                    "last_error_boot": 0, "last_ok_time": 0}
+    app.diagnostics = _Diag()
+    app.seconds_since_last_refresh_success = lambda: 123.4  # 2m03s this session
+
+    html = _diagnostics_html(app)
+    assert "recorded before timestamps existed" in html
+    assert "2m03s ago" in html

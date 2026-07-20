@@ -19,6 +19,7 @@ settings, logs, caches. Run on desktop as part of the release pipeline:
 Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import argparse
+import binascii
 import hashlib
 import json
 import os
@@ -70,6 +71,13 @@ def build_manifest(src, out_dir, *, device_root="/src", version="0.0.0"):
         files[device_path] = {
             "size": len(content),
             "checksum": hashlib.sha256(content).hexdigest(),
+            # crc32 alongside sha256: CircuitPython 9.2.x has NO sha256 in its
+            # built-in hashlib (hashlib.new("sha256") raises), so 9.x devices
+            # could never verify a download and every OTA rolled back. The
+            # client picks the strongest digest it can actually compute
+            # (scrollkit.ota.client._new_digest). Extra keys are tolerated by
+            # the device validator, so this stays backward compatible.
+            "crc32": "%08x" % (binascii.crc32(content) & 0xFFFFFFFF),
             # Fielded devices may run the old frozen validator that hard-requires
             # this key (relaxed in the library's 2026-07 fix) — always emit it.
             "required": True,

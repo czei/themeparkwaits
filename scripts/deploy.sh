@@ -43,14 +43,47 @@ DRY=0
 
 RSYNC_OPTS=(-rt --no-perms --no-owner --no-group --modify-window=2
             --exclude=__pycache__ --exclude='*.pyc' --exclude='.DS_Store' --exclude='._*')
+# WORKTREE staging creates fresh mtimes every run, so timestamp comparison
+# recopies the ENTIRE tree over full-speed-USB MSC (~10+ min). Content
+# checksums skip everything bit-identical (the big src/images payload) at the
+# cost of reading both sides — minutes faster on this board (2026-07-19).
+[ "${WORKTREE:-0}" = "1" ] && RSYNC_OPTS+=(-c)
 [ "$DRY" = 1 ] && RSYNC_OPTS+=(-n -v) && echo "== DRY RUN — nothing will be written =="
 
 # Clean tracked app tree from git (no dead code / error_log / caches).
+# WORKTREE=1 stages the working tree as it stands — tracked files with their
+# CURRENT contents PLUS untracked-but-not-ignored files — for bench iteration
+# on uncommitted changes (2026-07-19). Untracked inclusion is load-bearing:
+# the src/ mirror below runs with --delete, so a new-but-uncommitted file
+# (e.g. the vendored src/lib/adafruit_json_stream.py the streaming parse
+# imports) would otherwise be staged-out and then DELETED off the device,
+# breaking the build this mode exists to test (2026-07-20). .gitignore still
+# excludes junk, so this stays a clean tree.
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
-git -C "$REPO_ROOT" archive HEAD | tar -x -C "$WORK"
+if [ "${WORKTREE:-0}" = "1" ]; then
+  echo "==> staging WORKING-TREE files: tracked + untracked (uncommitted bench deploy)"
+  { git -C "$REPO_ROOT" ls-files -z
+    git -C "$REPO_ROOT" ls-files -z --others --exclude-standard; } > "$WORK/.filelist"
+  rsync -a --from0 --files-from="$WORK/.filelist" "$REPO_ROOT/" "$WORK/"
+  rm -f "$WORK/.filelist"
+else
+  git -C "$REPO_ROOT" archive HEAD | tar -x -C "$WORK"
+fi
 
-echo "==> app: code.py, boot.py, src/  ->  $DEST"
+echo "==> app: code.py, boot.py, safemode.py, src/  ->  $DEST"
 rsync "${RSYNC_OPTS[@]}" "$WORK/code.py" "$WORK/boot.py" "$DEST/"
+# /safemode.py is the CircuitPython-safe-mode escape hatch (a watchdog bite
+# must end in a reboot, never a dark parking lot) — it ships like boot.py.
+# Tracked-tree copy first; fall back to the working tree until its first
+# commit lands, so a bench deploy can never silently omit the escape hatch.
+if [ -f "$WORK/safemode.py" ]; then
+  rsync "${RSYNC_OPTS[@]}" "$WORK/safemode.py" "$DEST/"
+elif [ -f "$REPO_ROOT/safemode.py" ]; then
+  echo "==> safemode.py: untracked — deploying the WORKING-TREE copy" >&2
+  rsync "${RSYNC_OPTS[@]}" "$REPO_ROOT/safemode.py" "$DEST/"
+else
+  echo "deploy: warning — no safemode.py found; CP safe mode will park dark" >&2
+fi
 # Clean MIRROR of the tracked src/ tree: --delete prunes files removed from the repo
 # (retired modules, the old dead src/config|network|ota|utils dirs) and
 # --delete-excluded clears stale __pycache__/.pyc/._* AppleDouble cruft, so the board

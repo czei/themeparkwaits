@@ -4,7 +4,6 @@ Copyright (c) 2024-2026 Michael Czeiszperger
 """
 import asyncio
 import gc
-import json
 
 from src.models.theme_park_list import ThemeParkList
 from src.models.vacation import Vacation
@@ -32,15 +31,18 @@ def _close_response(response):
 def _largest_block():
     """Best-effort size (bytes) of the largest contiguous block we can allocate.
 
-    The field fetch failures are ``MemoryError`` raised while allocating the TLS
-    *socket* (adafruit_connection_manager._get_connected_socket), not while
-    reading the body — and CircuitPython's GC is non-compacting, so
-    ``gc.mem_free()`` can report plenty of free heap while no single ~16 KB span
-    survives the display's intro-bitmap churn. Probing a few TLS-relevant sizes
-    tells fragmentation (ample free, small largest block) apart from exhaustion
-    (little free at all), which decides the real fix. Each probe is freed at once;
-    returns 0 if even 4 KB won't allocate, -1 where ``bytearray`` isn't the limit."""
-    for size in (32768, 24576, 20480, 16384, 12288, 8192, 4096):
+    CircuitPython's GC is non-compacting, so ``gc.mem_free()`` can report over a
+    megabyte free while no single ~54 KB span exists (the 2026-07-19 kitchen
+    failure: big-park bodies dying at 53,737 B with 1.37 MB free). Probing a
+    ladder of sizes tells fragmentation (ample free, small largest block) apart
+    from a leak/exhaustion (little free at all) — the owner's gate for the
+    streaming refactor. The old ladder topped out at 32 KB, BELOW the observed
+    failure sizes, so it could never see the zone that mattered; it now spans
+    4 KB–256 KB. Each probe is freed immediately; returns 0 if even 4 KB won't
+    allocate. Run sparingly (once per cycle/error) — the probe itself briefly
+    perturbs the heap."""
+    for size in (262144, 131072, 98304, 65536, 49152, 32768,
+                 24576, 16384, 8192, 4096):
         try:
             probe = bytearray(size)
         except MemoryError:
@@ -57,6 +59,125 @@ def _heap_note():
         return "%d free, largest block >=%d B" % (gc.mem_free(), _largest_block())
     except Exception:      # gc.mem_free() is device-only; desktop/tests skip the note
         return ""
+
+
+def _iter_chunks(response, chunk_size=512):
+    """Bytes chunks from ANY response shape.
+
+    Native/StreamingResponse expose ``iter_content`` (true streaming); desktop
+    mocks and recording stubs carry only ``.text`` — those yield the whole body
+    as one chunk, keeping every backend on the SAME parse path (the OTA
+    client's proven fallback idiom)."""
+    it = getattr(response, "iter_content", None)
+    if it is not None:
+        return it(chunk_size)
+    text = getattr(response, "text", "") or ""
+    return iter((text.encode("utf-8"),))
+
+
+def _extract_destinations(chunks):
+    """Incrementally extract the park catalog from a /destinations byte stream.
+
+    Returns the SAME ``{"destinations": [{"name", "parks": [{"id", "name"}]}]}``
+    shape ``ThemeParkList`` already consumes, carrying only the three fields it
+    reads (destination name + each park's id/name) and dropping slug/externalId
+    and every other key. Peak allocation is one chunk + the accumulating park
+    list, never the ~41 KB body string or its full dict tree — the last
+    whole-body allocation in the app (2026-07-20). Destinations with no usable
+    parks are omitted: ``ThemeParkList`` only ever appends parks, so they
+    contribute nothing but RAM. Nested transients (each destination's ``parks``
+    array) are consumed inline while active, which the parser supports.
+    Raises KeyError/ValueError/EOFError on malformed payloads."""
+    import adafruit_json_stream as json_stream
+    try:
+        obj = json_stream.load(chunks)
+        dests = []
+        for dest in obj["destinations"]:
+            dname = None
+            parks = []
+            for key, value in dest.items():
+                if key == "name":
+                    dname = value
+                elif key == "parks":
+                    for entry in value:
+                        pid = pname = None
+                        for pkey, pval in entry.items():
+                            if pkey == "id":
+                                pid = pval
+                            elif pkey == "name":
+                                pname = pval
+                        if pid and pname:
+                            parks.append({"id": pid, "name": pname})
+            if parks:
+                dests.append({"name": dname or "", "parks": parks})
+        # Finish the ROOT object so a truncated body raises instead of passing
+        # as a short-but-valid catalog (same contract as _extract_live_rides).
+        if hasattr(obj, "finish"):
+            obj.finish()
+        return {"destinations": dests}
+    except (AttributeError, TypeError, BufferError) as e:
+        # Valid JSON, wrong SHAPE -> normalize to the parse-failure class.
+        raise ValueError("malformed destinations payload: %s" % e)
+
+
+def _extract_live_rides(chunks):
+    """Incrementally extract ATTRACTION entries from a /live JSON byte stream.
+
+    Returns the SAME ``{"liveData": [...]}`` shape the old whole-tree
+    ``json.loads`` produced — each entry a minimal dict of the four fields the
+    model layer reads (entityType/name/id/status + queue.STANDBY.waitTime) —
+    so ``ThemePark.get_rides_from_json`` is unchanged. Peak allocation is one
+    chunk + one small entry, never the ~50-90 KB body string or its full dict
+    tree: holding those (twice, with the old eager ``.content`` copy) between
+    long-lived UI/model objects is what shattered the non-compacting heap
+    (2026-07-19 kitchen failure). Field order within each item doesn't matter:
+    keys are consumed in stream order via ``items()``; non-attractions are
+    abandoned at ``entityType`` and the stream skips the rest of the item.
+    Raises KeyError/ValueError/EOFError on malformed payloads — callers treat
+    those as parse failures."""
+    import adafruit_json_stream as json_stream
+    try:
+        obj = json_stream.load(chunks)
+        rides = []
+        for item in obj["liveData"]:
+            etype = name = rid = status = None
+            queue = None
+            for key, value in item.items():
+                if key == "entityType":
+                    etype = value
+                    if etype != "ATTRACTION":
+                        break      # stream auto-skips the rest of this item
+                elif key == "name":
+                    name = value
+                elif key == "id":
+                    rid = value
+                elif key == "status":
+                    status = value
+                elif key == "queue":
+                    # The queue subtree is tiny (~100 B) — materialize it whole
+                    # so STANDBY position within it never matters.
+                    queue = value.as_object() if hasattr(value, "as_object") else value
+            if etype != "ATTRACTION":
+                continue
+            entry = {"entityType": etype, "name": name, "id": rid, "status": status}
+            if isinstance(queue, dict):
+                std = queue.get("STANDBY")
+                if isinstance(std, dict):
+                    entry["queue"] = {"STANDBY": {"waitTime": std.get("waitTime")}}
+            rides.append(entry)
+        # Finish the ROOT object: drains trailing keys and demands the closing
+        # brace, so a body truncated after a well-formed liveData array raises
+        # (EOFError) instead of passing as a silent success (review 2026-07-19).
+        if hasattr(obj, "finish"):
+            obj.finish()
+        return {"liveData": rides}
+    except (AttributeError, TypeError, BufferError) as e:
+        # Valid JSON, wrong SHAPE (scalar root, non-object liveData entries...):
+        # normalize to the parse-failure class so callers retry WITHOUT feeding
+        # last_refresh_errors — schema surprises are not reset-curable wedge
+        # evidence, and blanket-catching these at the fetch level would hide
+        # real implementation bugs elsewhere.
+        raise ValueError("malformed live payload: %s" % e)
 
 
 class ThemeParkService:
@@ -87,6 +208,14 @@ class ThemeParkService:
         # pooled socket — partial success masking the wedge is how the box sat
         # degraded for hours with its failure counter at zero (2026-07-16).
         self.last_refresh_errors = []
+        # Per-park visibility (2026-07-19: three big parks failed for hours
+        # behind an all-green dashboard). Names that failed the CURRENT run,
+        # and per-park last-success stamps for the diagnostics page.
+        self.last_failed_parks = []
+        self.park_last_updated = {}    # park id -> time.monotonic() of last success
+        # Heap telemetry per refresh phase (the leak-vs-fragmentation gate):
+        # phase name -> _heap_note() string; rendered on the diagnostics page.
+        self.heap_stats = {}
 
     async def initialize(self):
         """Initialize the service by fetching park list and setting clock"""
@@ -153,149 +282,143 @@ class ThemeParkService:
             
     async def fetch_park_list(self):
         """
-        Fetch the list of theme parks
-        
+        Fetch the list of theme parks, STREAMING the body (2026-07-20).
+
+        The ~41 KB /destinations catalog was the last whole-body allocation in
+        the app: read as one contiguous string and json.loads'd into a full
+        dict tree to keep three fields per park. It runs once at boot on a
+        clean heap so it never failed in the field, but it is the same
+        fragmentation-driving shape the /live path shed. Now chunked through
+        the incremental extractor; the socket is ALWAYS released in ``finally``.
+
         Returns:
-            A ThemeParkList object, or None if fetch failed
+            A ThemeParkList object (empty if every attempt failed)
         """
         max_retries = 3
         retry_count = 0
-        
+
         while retry_count < max_retries:
+            response = None
             try:
                 url = "https://api.themeparks.wiki/v1/destinations"
                 logger.info(f"Fetching park list from {url} (attempt {retry_count + 1}/{max_retries})")
-                
-                gc.collect()  # free heap before the response buffer + parse spike
-                response = await self.http_client.get(url)
 
-                if not response or not hasattr(response, 'text'):
-                    logger.error(None, f"Invalid response when fetching park list (attempt {retry_count + 1})")
-                    _close_response(response)
+                gc.collect()  # free heap before the TLS socket
+                response = await self.http_client.get(url, stream=True)
+
+                status = getattr(response, "status_code", 200)
+                if not response or status != 200:
+                    logger.error(None, f"HTTP {status} fetching park list (attempt {retry_count + 1})")
                     retry_count += 1
                     await asyncio.sleep(1)
                     continue
 
-                # Read the body, then ALWAYS release the socket before parsing.
-                try:
-                    text = response.text
-                finally:
-                    _close_response(response)
-                    response = None
+                data = _extract_destinations(_iter_chunks(response))
+                gc.collect()   # drop parser transients before building models
 
-                # Try to parse JSON
-                try:
-                    data = json.loads(text)
-                    del text
-                    gc.collect()  # drop the raw payload string before building models
-                    if not data:
-                        logger.error(None, f"Empty JSON data from park list API (attempt {retry_count + 1})")
-                        retry_count += 1
-                        await asyncio.sleep(1)
-                        continue
-                    
-                    # Create park list
-                    self.park_list = ThemeParkList(data)
-                    
-                    # Verify park list has parks
-                    if not self.park_list.park_list:
-                        logger.error(None, f"Park list created but no parks were found (attempt {retry_count + 1})")
-                        retry_count += 1
-                        await asyncio.sleep(1)
-                        continue
-                    
-                    logger.info(f"Successfully fetched {len(self.park_list.park_list)} parks")
-                    return self.park_list
-                    
-                except ValueError as json_error:  # CircuitPython uses ValueError instead of JSONDecodeError
-                    logger.error(json_error, f"JSON decode error for park list (attempt {retry_count + 1})")
+                # Create park list
+                self.park_list = ThemeParkList(data)
+
+                # Verify park list has parks
+                if not self.park_list.park_list:
+                    logger.error(None, f"Park list created but no parks were found (attempt {retry_count + 1})")
                     retry_count += 1
                     await asyncio.sleep(1)
                     continue
-                
-            except Exception as e:
-                logger.error(e, f"Error fetching park list (attempt {retry_count + 1})")
+
+                logger.info(f"Successfully fetched {len(self.park_list.park_list)} parks")
+                return self.park_list
+
+            except (ValueError, KeyError, EOFError) as parse_error:
+                # Malformed/truncated catalog: retry. Catalog failures never fed
+                # the wedge classifier (boot-only path) — unchanged here.
+                logger.error(parse_error, f"JSON decode error for park list (attempt {retry_count + 1})")
                 retry_count += 1
                 await asyncio.sleep(1)
-        
+
+            except Exception as e:
+                note = _heap_note()
+                logger.error(e, "Error fetching park list (attempt %d)%s"
+                             % (retry_count + 1, (" [heap: " + note + "]") if note else ""))
+                retry_count += 1
+                await asyncio.sleep(1)
+
+            finally:
+                # ALWAYS release the (socket-owning) streaming response.
+                _close_response(response)
+                response = None
+
         # All retries failed
         logger.error(None, f"Failed to fetch park list after {max_retries} attempts")
-        
+
         # Create empty park list as fallback
         self.park_list = ThemeParkList([])
         return self.park_list
             
     async def fetch_park_data(self, park_id):
         """
-        Fetch data for a specific park (optimized for speed)
+        Fetch data for a specific park, STREAMING the body (2026-07-19).
+
+        The old path read the ~50-90 KB body as one contiguous string (held
+        twice, with the client's eager bytes copy) and json.loads'd the whole
+        tree to keep four fields per ride — the prime fragmentation driver on
+        the non-compacting CP9 heap. This path consumes the socket in ~512 B
+        chunks through an incremental parser and never materializes the body.
+        The socket is ALWAYS released in ``finally`` (a leaked socket exhausts
+        the ~4-socket pool — the old EBUSY wedge); parse errors retry without
+        polluting the wedge-classifier evidence, network/memory errors retry
+        AND surface in ``last_refresh_errors``.
 
         Args:
             park_id: The ID of the park
 
         Returns:
-            Park data as a dictionary, or None if fetch failed
+            ``{"liveData": [minimal ride dicts]}`` (the shape the model layer
+            already consumes), or None if every attempt failed
         """
-        max_retries = 2  # Reduced from 3 to 2
+        max_retries = 2
         retry_count = 0
 
         while retry_count < max_retries:
+            response = None
             try:
                 # themeparks.wiki live data endpoint for a single park
                 url = f"https://api.themeparks.wiki/v1/entity/{park_id}/live"
                 logger.info(f"Fetching data for park ID {park_id} from {url} (attempt {retry_count + 1}/{max_retries})")
 
-                # Reclaim heap before the TLS socket + ~90 KB response. The yield
-                # between the two collects is the actual fix for the field
-                # MemoryError on the socket allocation: update_data() tears down the
-                # on-screen ride right before this fetch, but the content's async
-                # stop() — which frees its intro overlay layers and the animator's
-                # writable bitmap copy (e.g. the Big Thunder goat) — only runs when
-                # we yield to the display loop. Without the yield those bitmaps are
-                # still held when adafruit allocates the TLS socket, starving it; the
-                # yield lets them free and the second collect reclaims them. Verified
-                # on hardware: every-attempt MemoryError -> 11/11 fetches, ~1.5 MB free.
+                # Reclaim heap before the TLS socket. The yield between the two
+                # collects lets the display loop run the outgoing content's async
+                # stop() — freeing its intro overlay/writable bitmaps — so those
+                # aren't still held when adafruit allocates the TLS socket.
+                # Verified on hardware (pre-streaming): every-attempt MemoryError
+                # -> 11/11 fetches. Still required: the TLS handshake itself
+                # needs contiguous room regardless of how we read the body.
                 gc.collect()
                 await asyncio.sleep(0)
                 gc.collect()
-                response = await self.http_client.get(url)
+                response = await self.http_client.get(url, stream=True)
 
-                if not response or not hasattr(response, 'text'):
-                    logger.error(None, f"Invalid response when fetching park data (attempt {retry_count + 1})")
-                    _close_response(response)
+                status = getattr(response, "status_code", 200)
+                if not response or status != 200:
+                    logger.error(None, f"HTTP {status} fetching park data (attempt {retry_count + 1})")
                     retry_count += 1
                     if retry_count < max_retries:
-                        await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
+                        await asyncio.sleep(0.5)
                     continue
 
-                # Read the body, then ALWAYS release the socket before parsing
-                # (see _close_response: a leaked socket exhausts the ~4-socket pool).
-                try:
-                    text = response.text
-                finally:
-                    _close_response(response)
-                    response = None
+                data = _extract_live_rides(_iter_chunks(response))
+                gc.collect()   # drop parser transients before the model rebuild
+                logger.info(f"Successfully fetched data for park ID {park_id}")
+                return data
 
-                # Try to parse JSON
-                try:
-                    data = json.loads(text)
-                    del text
-                    gc.collect()  # drop the ~90 KB raw payload as soon as it's parsed
-                    if not data:
-                        logger.error(None, f"Empty JSON data from park API (attempt {retry_count + 1})")
-                        retry_count += 1
-                        if retry_count < max_retries:
-                            await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
-                        continue
-
-                    logger.info(f"Successfully fetched data for park ID {park_id}")
-                    return data
-
-                except ValueError as json_error:  # CircuitPython uses ValueError instead of JSONDecodeError
-                    logger.error(json_error, f"JSON decode error for park data (attempt {retry_count + 1})")
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
-                    continue
+            except (ValueError, KeyError, EOFError) as parse_error:
+                # Malformed/truncated body: retry, but do NOT feed
+                # last_refresh_errors — a bad payload is not reset-curable
+                # evidence (wedge classifier reads that list).
+                logger.error(parse_error, f"JSON decode error for park data (attempt {retry_count + 1})")
+                retry_count += 1
+                if retry_count < max_retries:
+                    await asyncio.sleep(0.5)
 
             except Exception as e:
                 note = _heap_note()
@@ -309,7 +432,13 @@ class ThemeParkService:
                     pass
                 retry_count += 1
                 if retry_count < max_retries:
-                    await asyncio.sleep(0.5)  # Reduced from 1s to 0.5s
+                    await asyncio.sleep(0.5)
+
+            finally:
+                # ALWAYS release the (socket-owning) streaming response — on
+                # success, parse failure, and network failure alike.
+                _close_response(response)
+                response = None
 
         # All retries failed
         logger.error(None, f"Failed to fetch park data for park ID {park_id} after {max_retries} attempts")
@@ -350,6 +479,11 @@ class ThemeParkService:
 
         total_parks = len(self.park_list.selected_parks)
         self.last_refresh_errors = []   # fresh evidence set for this run
+        self.last_failed_parks = []
+        note = _heap_note()             # leak-vs-frag telemetry (device-only)
+        if note:
+            self.heap_stats["cycle start"] = note
+            logger.info("heap @ cycle start: " + note)
 
         logger.info(f"Starting sequential update of {total_parks} selected parks")
 
@@ -370,6 +504,10 @@ class ThemeParkService:
             if self.watchdog_feed is not None:
                 self.watchdog_feed()
 
+        note = _heap_note()
+        if note:
+            self.heap_stats["after parks"] = note
+            logger.info("heap @ after parks: " + note)
         logger.info(f"Updated {updated_count}/{total_parks} selected parks")
         return updated_count
     
@@ -388,12 +526,22 @@ class ThemeParkService:
             park_data = await self.fetch_park_data(park.id)
             if park_data:
                 park.update(park_data)
+                try:
+                    import time
+                    self.park_last_updated[park.id] = time.monotonic()
+                except Exception:
+                    pass
                 logger.debug(f"Successfully updated park: {park.name}")
                 return True
             else:
                 logger.error(None, f"Failed to fetch data for park: {park.name}")
+                self.last_failed_parks.append(park.name)
                 return False
         except Exception as e:
             logger.error(e, f"Error updating park: {park.name}")
+            try:
+                self.last_failed_parks.append(park.name)
+            except Exception:
+                pass
             return False
 

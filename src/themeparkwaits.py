@@ -69,9 +69,19 @@ else:
     _here = os.path.dirname(os.path.abspath(__file__))   # .../themeparkwaits/src
     _repo = os.path.dirname(_here)                        # .../themeparkwaits
     _workspace = os.path.dirname(_repo)                   # .../ScrollKit
-    for _p in (_repo, os.path.join(_workspace, "ScrollKit Library", "src")):
+    # The library checkout may be named "ScrollKit Library" (the author's) or
+    # "scrollkit" (a fresh `git clone`); PYTHONPATH overrides both.
+    for _p in (_repo,
+               os.path.join(_workspace, "ScrollKit Library", "src"),
+               os.path.join(_workspace, "scrollkit", "src")):
         if os.path.isdir(_p) and _p not in sys.path:
             sys.path.insert(0, _p)
+    # Vendored bundle APPENDED (never inserted): src/lib carries an asyncio/
+    # tree that must lose to the stdlib on desktop; appending still lets pure
+    # python vendored modules (adafruit_json_stream) import in the simulator.
+    _bundle = os.path.join(_here, "lib")
+    if os.path.isdir(_bundle) and _bundle not in sys.path:
+        sys.path.append(_bundle)
 
 import asyncio
 

@@ -104,8 +104,27 @@ mkdir -p "$TREE" "$OUT"
 git -C "$REPO_ROOT" archive "$SHA" | tar -x -C "$TREE"
 
 # 2) decide library policy
+#    The 276 KB Adafruit .mpy bundle is device-resident and rarely changes, so
+#    it is NOT shipped by default. EXCEPTION: vendored modules the app IMPORTS
+#    at runtime must always ride along, or an update lands code whose import
+#    fails on any box that predates the vendoring (adafruit_json_stream is the
+#    streaming parse's hard dependency — 10 KB, added 2026-07-19). Keep this
+#    list in step with every `import` of a src/lib module in app code.
+VENDORED_REQUIRED="adafruit_json_stream.py"
 if [ "$INCLUDE_LIB" != "1" ]; then
+  KEEP="$WORK/keep-lib"
+  mkdir -p "$KEEP"
+  for f in $VENDORED_REQUIRED; do
+    if [ -f "$TREE/src/lib/$f" ]; then
+      cp "$TREE/src/lib/$f" "$KEEP/$f"
+    else
+      echo "publish.sh: ABORT — required vendored module missing: src/lib/$f" >&2
+      exit 1
+    fi
+  done
   rm -rf "$TREE/src/lib"
+  mkdir -p "$TREE/src/lib"
+  for f in $VENDORED_REQUIRED; do cp "$KEEP/$f" "$TREE/src/lib/$f"; done
 fi
 
 # 3) stamp the version into the shipped tree so the device records it post-apply
@@ -130,6 +149,18 @@ fi
 #    unrecoverable brick — update it only via a supervised USB deploy.
 python3 "$MAKE_MANIFEST" "$TREE/src"     "$OUT" --root /src --version "$VERSION"
 python3 "$MAKE_MANIFEST" "$TREE/code.py" "$OUT" --root /    --version "$VERSION"
+
+# 4a) /safemode.py — the CircuitPython-safe-mode escape hatch — is OTA-deliverable
+#     only by clients whose scrollkit allowlist includes it (added 2026-07-19).
+#     A fielded client with the OLD allowlist rejects the WHOLE manifest if the
+#     file appears ("Unsafe manifest path(s)"), stranding it on its current
+#     version. Two-stage rollout: release N ships the new scrollkit (allowlist
+#     update) with SHIP_SAFEMODE unset; once the fleet runs it, release N+1
+#     sets SHIP_SAFEMODE=1. USB deploys/zips ship the file unconditionally
+#     (deploy.sh), so bench boxes are covered either way.
+if [ "${SHIP_SAFEMODE:-0}" = "1" ]; then
+  python3 "$MAKE_MANIFEST" "$TREE/safemode.py" "$OUT" --root / --version "$VERSION"
+fi
 
 # 4b) bundle the ScrollKit library under /lib/scrollkit so a release that changed
 #     BOTH repos lands ATOMICALLY (the app may import a class that only exists in
@@ -210,9 +241,13 @@ if manifest.compare_version("0.0.0") <= 0:
     sys.exit("preflight FAILED: manifest version %r does not compare as newer "
              "than 0.0.0" % manifest.version)
 def allowed(k):
+    # Mirrors the CURRENT device-side allowlist (scrollkit ota/client.py
+    # _key_allowed, incl. /safemode.py since 2026-07-19). The SHIP_SAFEMODE
+    # gate above — not this check — is what sequences the two-stage rollout
+    # for fielded clients still running the old allowlist.
     if not k or ".." in k.split("/"):
         return False
-    if k in ("/code.py", "/boot.py"):
+    if k in ("/code.py", "/boot.py", "/safemode.py"):
         return True
     return k.startswith("/src/") or k.startswith("/lib/scrollkit/")
 bad = [k for k in data["files"] if not allowed(k)]
