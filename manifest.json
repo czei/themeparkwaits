@@ -1,0 +1,1085 @@
+{
+  "version": "3.5.20",
+  "files": {
+    "/code.py": {
+      "size": 72,
+      "checksum": "9134c8151fa8329df3ae1dced6b19b8cbcd792d30eec4f8f9a19825184e82fcf",
+      "crc32": "cb6ddf09",
+      "required": true
+    },
+    "/lib/scrollkit/__init__.mpy": {
+      "size": 67,
+      "checksum": "538003bddf1099275bceb4682c7a6f097bc2754645dbcd5f020c7af8021de517",
+      "crc32": "d96c65a8",
+      "required": true
+    },
+    "/lib/scrollkit/app/__init__.mpy": {
+      "size": 112,
+      "checksum": "c7480c205028f9724b36cfbd4a555ea07e6a25f2b94845eb85382ad0169685ce",
+      "crc32": "a014ae55",
+      "required": true
+    },
+    "/lib/scrollkit/app/base.mpy": {
+      "size": 9909,
+      "checksum": "2623955b2b684a0b8b16f1352b75f83a912cd22ce1085378cf51a6193d3b1f18",
+      "crc32": "6729976a",
+      "required": true
+    },
+    "/lib/scrollkit/app/memory.mpy": {
+      "size": 433,
+      "checksum": "8c470d6a1e29cf93d0707ad5384aeae41d6bfdf20ed970f9d274c3c9b4eaa4e8",
+      "crc32": "34476aa7",
+      "required": true
+    },
+    "/lib/scrollkit/config/__init__.mpy": {
+      "size": 47,
+      "checksum": "20794b26f3858ea1577493887f14445c373c9e9addfc53bbb73251d837f8f6f7",
+      "crc32": "842cdeed",
+      "required": true
+    },
+    "/lib/scrollkit/config/settings_manager.mpy": {
+      "size": 1940,
+      "checksum": "8b359031baade563b5649519ef0e74a22269a9879ee1e38d01cdba9c79649085",
+      "crc32": "95495f48",
+      "required": true
+    },
+    "/lib/scrollkit/config/transition_names.mpy": {
+      "size": 302,
+      "checksum": "f1effbe2e81b4b9d6850970d70043846991b2f4897157d9969df6ee0762835b0",
+      "crc32": "f51be70e",
+      "required": true
+    },
+    "/lib/scrollkit/display/__init__.mpy": {
+      "size": 210,
+      "checksum": "0e7c68f97c962c4492da8f473a8e07458711c3f974ddfb4dc9bc50e69fa5344c",
+      "crc32": "ae47107a",
+      "required": true
+    },
+    "/lib/scrollkit/display/_graphics.mpy": {
+      "size": 2843,
+      "checksum": "77ae43893a7c6cb249c5b8a9fefb0d4ab8360363fcb70db1d7f8f463d97f7206",
+      "crc32": "03b1dec1",
+      "required": true
+    },
+    "/lib/scrollkit/display/_recording.mpy": {
+      "size": 2559,
+      "checksum": "8bff3e486057555c719be91af1079af42ad80811d80dad2ffdca0c99b9565d85",
+      "crc32": "6fef3f19",
+      "required": true
+    },
+    "/lib/scrollkit/display/_sim_backend.mpy": {
+      "size": 1109,
+      "checksum": "68c4efccb3de0568593ac04f52357f75ac64b257a2dfdbb19742431289ee6309",
+      "crc32": "d643dfae",
+      "required": true
+    },
+    "/lib/scrollkit/display/bitmap_text.mpy": {
+      "size": 5391,
+      "checksum": "caa9761d9caa39946c6306df36ee2dc4070bc3c52087222fc9871206b440636f",
+      "crc32": "efdcca1b",
+      "required": true
+    },
+    "/lib/scrollkit/display/boards.mpy": {
+      "size": 1963,
+      "checksum": "dc9721b13bbad04b3aa0241510649e6f78877469dab7081611f2bed2a2d5bfab",
+      "crc32": "fd846a0d",
+      "required": true
+    },
+    "/lib/scrollkit/display/colors.mpy": {
+      "size": 1381,
+      "checksum": "49b72cebcbf8b5c971006958ac85a2182c7ec5e41b1a9d5e755b3b6a982b497c",
+      "crc32": "ae8f988f",
+      "required": true
+    },
+    "/lib/scrollkit/display/content.mpy": {
+      "size": 4873,
+      "checksum": "ccf42f941d4bf0f6a2a0965960ece6e33ff874599d37e655a42b6790b30f6dba",
+      "crc32": "d732d71c",
+      "required": true
+    },
+    "/lib/scrollkit/display/gradient_text.mpy": {
+      "size": 1628,
+      "checksum": "3223e99c31aa268cf8ca3cce2c1cf338c6a56122a3b65f63a1644f9566bed7c7",
+      "crc32": "3ee65cc2",
+      "required": true
+    },
+    "/lib/scrollkit/display/interface.mpy": {
+      "size": 1513,
+      "checksum": "e35e793a1857c4dd8d85e286d96d2767fe4b0a5349e7d6c636b22ada950fad39",
+      "crc32": "266d9f5e",
+      "required": true
+    },
+    "/lib/scrollkit/display/simulator.mpy": {
+      "size": 848,
+      "checksum": "c5e1662dbd38c086f5324ba6314dc542970c3de66f3383c9d79168adeefa213d",
+      "crc32": "78bd62b4",
+      "required": true
+    },
+    "/lib/scrollkit/display/text_fill.mpy": {
+      "size": 463,
+      "checksum": "ca3875875dc2f2a29363ca8f3a7fe1e2292279afd1a951351d5927862ffd43ac",
+      "crc32": "1cc6f8d3",
+      "required": true
+    },
+    "/lib/scrollkit/display/text_pixels.mpy": {
+      "size": 1631,
+      "checksum": "7257f5f6bc19dca3998b51cfd40a4633a1220258ca11e5417208825bfe46e8e2",
+      "crc32": "ad5f1f61",
+      "required": true
+    },
+    "/lib/scrollkit/display/unified.mpy": {
+      "size": 5494,
+      "checksum": "58ad71fbf02a70ce83ad42c85318795c83577570dff6f2ab6162f2e1ad2a9213",
+      "crc32": "7e6cbbf4",
+      "required": true
+    },
+    "/lib/scrollkit/effects/__init__.mpy": {
+      "size": 49,
+      "checksum": "681fb5da22e2ae7dd81399b073a42a523e780a9d96f86cf486d8cce6ed52c086",
+      "crc32": "824c9f84",
+      "required": true
+    },
+    "/lib/scrollkit/effects/drip_splash.mpy": {
+      "size": 1788,
+      "checksum": "fbd5c68d4be7176b2dcab9ad7d198f2f831922d959605e85dcce8df6267159bc",
+      "crc32": "caf85d9d",
+      "required": true
+    },
+    "/lib/scrollkit/effects/easing.mpy": {
+      "size": 1250,
+      "checksum": "90ba174a29fede256c9230327079c8f76c7d7d09edccb6a78c03ffddc88979b4",
+      "crc32": "78624d7f",
+      "required": true
+    },
+    "/lib/scrollkit/effects/image_animators.mpy": {
+      "size": 15162,
+      "checksum": "0af47e1001172433c174b143ab6206b5743ab57dfa95cd1fe968da93bb4df6bc",
+      "crc32": "88cf99e2",
+      "required": true
+    },
+    "/lib/scrollkit/effects/overlay.mpy": {
+      "size": 1167,
+      "checksum": "36ab8385efdde898050ad35569cfa295517006fcc1cc67a46bdd0a8e0b8b7634",
+      "crc32": "99cbfb86",
+      "required": true
+    },
+    "/lib/scrollkit/effects/palette_partition.mpy": {
+      "size": 3202,
+      "checksum": "a7567f909fd62fc8e41f529b56f7d31d32bf54a538ccd8c7e61c5e7502163b9d",
+      "crc32": "ece205ca",
+      "required": true
+    },
+    "/lib/scrollkit/effects/palette_treatments.mpy": {
+      "size": 7063,
+      "checksum": "e8f798293145924f05c383fce50cafab7b236f241d84a2f68c99cffef5d173aa",
+      "crc32": "98d9814f",
+      "required": true
+    },
+    "/lib/scrollkit/effects/particles.mpy": {
+      "size": 2932,
+      "checksum": "2726c7f94052e69e906e772599d97dbdf0a60c742541788d84b80b87098095f2",
+      "crc32": "6d632c19",
+      "required": true
+    },
+    "/lib/scrollkit/effects/reveal_splash.mpy": {
+      "size": 1063,
+      "checksum": "787e9961fe932f559fa6e7e1bbd1090d7ee88e81c75d1d89d851db540551d008",
+      "crc32": "30754751",
+      "required": true
+    },
+    "/lib/scrollkit/effects/scrolling.mpy": {
+      "size": 3621,
+      "checksum": "c5015f55a1622e2219c47f5d1e0b7c488c6ef2295bafb44b573ebc8d4031102b",
+      "crc32": "c864c5e5",
+      "required": true
+    },
+    "/lib/scrollkit/effects/swarm_reveal.mpy": {
+      "size": 5049,
+      "checksum": "4086a255c186b622ab8f06382ba742d220688c4eff054ae1070abbbaddacb7c2",
+      "crc32": "db2b2c36",
+      "required": true
+    },
+    "/lib/scrollkit/effects/swirl_in.mpy": {
+      "size": 1121,
+      "checksum": "cfb7272af33c1b3a2706699f6468cdfb0cd49dd197a065e4c6149e713cb6b0df",
+      "crc32": "1a8e759a",
+      "required": true
+    },
+    "/lib/scrollkit/effects/text_render.mpy": {
+      "size": 199,
+      "checksum": "14c3195793403682caf2abb1b5b50d06e412dbc9668f7f229bab80ba6be5c99d",
+      "crc32": "d8a5a965",
+      "required": true
+    },
+    "/lib/scrollkit/effects/transitions.mpy": {
+      "size": 9399,
+      "checksum": "55a947f8e12c79537fcae358f180be84224a8d363447e142159bb51512a35194",
+      "crc32": "7ab7dc34",
+      "required": true
+    },
+    "/lib/scrollkit/exceptions.mpy": {
+      "size": 264,
+      "checksum": "4cb03ab01d63f161f2e7e0f2615b5b9b6bfd4a3789a32b0a850dea2cee532e6b",
+      "crc32": "171206e1",
+      "required": true
+    },
+    "/lib/scrollkit/network/__init__.mpy": {
+      "size": 48,
+      "checksum": "ae32dfa4281582c5ea367522c76ec9731d99f73a4706391b4e2c4e2a270f8076",
+      "crc32": "8e7ef411",
+      "required": true
+    },
+    "/lib/scrollkit/network/http_client.mpy": {
+      "size": 5376,
+      "checksum": "af7809114e1bb4669db667c8dabc7657eb6dc2b7e5a62ceac2abec5997345b4c",
+      "crc32": "a4ba93b4",
+      "required": true
+    },
+    "/lib/scrollkit/network/mdns.mpy": {
+      "size": 412,
+      "checksum": "c1d5b69337669e17a714ecc249049805c042c2e20dcf82774886781c1113bf23",
+      "crc32": "fa0061b1",
+      "required": true
+    },
+    "/lib/scrollkit/network/wifi_manager.mpy": {
+      "size": 4824,
+      "checksum": "c900eb97bfb01cb3013c0608fe4d498b3a627643d5ac490aaac0a56d7a500070",
+      "crc32": "e578d887",
+      "required": true
+    },
+    "/lib/scrollkit/ota/__init__.mpy": {
+      "size": 45,
+      "checksum": "f45c6fcd092be15e447f1a0c7ed9a1115713f3488d7e3523aaa7eb6aa12a4df1",
+      "crc32": "64ad0079",
+      "required": true
+    },
+    "/lib/scrollkit/ota/client.mpy": {
+      "size": 10001,
+      "checksum": "946c2098f0463d3aff4cf3038cbf5bba738b7276a22600a689f0ea55ca9cd3e0",
+      "crc32": "c2d75c4d",
+      "required": true
+    },
+    "/lib/scrollkit/ota/display_progress.mpy": {
+      "size": 1641,
+      "checksum": "94b10ad301db6ae5e322aad5048a1c5afac6964248a60c14914b3cf0420ba7a1",
+      "crc32": "ebc9003b",
+      "required": true
+    },
+    "/lib/scrollkit/ota/manifest.mpy": {
+      "size": 2040,
+      "checksum": "f335088faa17f43e636cd889d53c89f657e2becf24ed5cf6885ecfbe5588c5c2",
+      "crc32": "ea802c7d",
+      "required": true
+    },
+    "/lib/scrollkit/utils/__init__.mpy": {
+      "size": 46,
+      "checksum": "a74ac152953e32103473b3559fa89cebce65c564ed58a0880ba6328b27501703",
+      "crc32": "5187b6b5",
+      "required": true
+    },
+    "/lib/scrollkit/utils/color_utils.mpy": {
+      "size": 812,
+      "checksum": "6060e12dfeda71ca6346203edbdc001c61fb308553a8abcb69256c4d504f1722",
+      "crc32": "2e5f11b3",
+      "required": true
+    },
+    "/lib/scrollkit/utils/diagnostics.mpy": {
+      "size": 3404,
+      "checksum": "7261d1ad27c940bbfe8efdfbd9a037e4a2a3715c10bfe80b15c4e7afdcb47bf6",
+      "crc32": "b6c5d193",
+      "required": true
+    },
+    "/lib/scrollkit/utils/error_handler.mpy": {
+      "size": 2749,
+      "checksum": "4da5abbc3bc101e5d26d64e92c432c84c28b73fac76f49968e0b497abbbb8871",
+      "crc32": "3f92c709",
+      "required": true
+    },
+    "/lib/scrollkit/utils/scheduler.mpy": {
+      "size": 542,
+      "checksum": "7e3ba2997192bb908bde6e44a8567c0c264e61255cb04146f6d75f3f3387d9d4",
+      "crc32": "04373c04",
+      "required": true
+    },
+    "/lib/scrollkit/utils/system_utils.mpy": {
+      "size": 3584,
+      "checksum": "2a1913994ef584b5d95810e9e26b1a026aa9f42a26dff6d6221283426a905124",
+      "crc32": "14542542",
+      "required": true
+    },
+    "/lib/scrollkit/utils/url_utils.mpy": {
+      "size": 438,
+      "checksum": "ed194f3dad2be777bddcc18b3da07ff748de7cfd5d0df307b74b4c04ffc16ef8",
+      "crc32": "93929834",
+      "required": true
+    },
+    "/lib/scrollkit/web/__init__.mpy": {
+      "size": 111,
+      "checksum": "140e0bf57ac9480093185398bae1bdd045f78f4e836486e1c7df28decc68d9f2",
+      "crc32": "6a984ec3",
+      "required": true
+    },
+    "/lib/scrollkit/web/settings_server.mpy": {
+      "size": 5150,
+      "checksum": "e4c4b6baa06ff13b6824df8d7b436304f572fc4f55af302c0e1ffe7314796d56",
+      "crc32": "0e23bbfe",
+      "required": true
+    },
+    "/lib/scrollkit/web/wifi_setup.mpy": {
+      "size": 5007,
+      "checksum": "1828c7c1021405778a2771beedf438fab901ad684f5a535e154a0d77cfa3d4e2",
+      "crc32": "d6eb3c3a",
+      "required": true
+    },
+    "/src/.version": {
+      "size": 7,
+      "checksum": "ef28c375ed9bb118be808f1289ec014128db3f586f212366909895cd87a9c340",
+      "crc32": "0811051f",
+      "required": true
+    },
+    "/src/__init__.py": {
+      "size": 641,
+      "checksum": "58e01691ea1242e7c93a31e12af4d52850b739c39799f2bd771202cd34932742",
+      "crc32": "f3717e3f",
+      "required": true
+    },
+    "/src/api/__init__.py": {
+      "size": 133,
+      "checksum": "731ab6940c3443d05a0efdcb256398af76e09b5fc9ef6c1bb8ae63af5d3cea10",
+      "crc32": "3dc747c6",
+      "required": true
+    },
+    "/src/api/theme_park_service.py": {
+      "size": 25121,
+      "checksum": "65afd589f79853a51a84eb8766c424ea875947c792bd5de6a52d06360a5c5187",
+      "crc32": "392a4cc0",
+      "required": true
+    },
+    "/src/app.py": {
+      "size": 72730,
+      "checksum": "fa8f6cefac8c91d8fdaa9a0440e8d54c606595694153bf89ab769b0d41ef9222",
+      "crc32": "fb56e7dd",
+      "required": true
+    },
+    "/src/data/coasters/1c84a229-8862-4648-9c71-378ddd2c7693.json": {
+      "size": 44,
+      "checksum": "ea67bf20eac9bd4e595fd5bb1c1280cfd88c56f9ee535b86f3b36bf5fddb6af9",
+      "crc32": "bcdfd3b0",
+      "required": true
+    },
+    "/src/data/coasters/288747d1-8b4f-4a64-867e-ea7c9b27bad8.json": {
+      "size": 86,
+      "checksum": "f595768ba94f0f1b4926db477c13efdd4569b77d0b34827aa19475d06dba428f",
+      "crc32": "a9fe67d3",
+      "required": true
+    },
+    "/src/data/coasters/47f90d2c-e191-4239-a466-5892ef59a88b.json": {
+      "size": 44,
+      "checksum": "a3e4bec5a394929c37dfc709ab7c7b7f200c944d3d5a309e4a3943d6329b13a4",
+      "crc32": "5fabc0fb",
+      "required": true
+    },
+    "/src/data/coasters/75ea578a-adc8-4116-a54d-dccb60765ef9.json": {
+      "size": 212,
+      "checksum": "b71c119208a576e84df8cfed8a8b8672a504b6d63b2f722458ce3dd7a976e53b",
+      "crc32": "66486483",
+      "required": true
+    },
+    "/src/diagnostics.py": {
+      "size": 911,
+      "checksum": "483be1cbf576b3220bfb81bc8ddf4e3c3e65726e0bf324397a2b1ce30792dfed",
+      "crc32": "5ec23f00",
+      "required": true
+    },
+    "/src/images/OpeningLEDLogo.bmp": {
+      "size": 6198,
+      "checksum": "30c8613460dd776454614091e243e0b570e5866b8286ea3a5d63b3070a060838",
+      "crc32": "bd14ebb7",
+      "required": true
+    },
+    "/src/images/rides/airplane.bmp": {
+      "size": 2202,
+      "checksum": "c31c2d84bf025e2b8cf3f1bc94ebaef6bd6ddd9f8dab32ba4a1d6e9b94006534",
+      "crc32": "d066a2d6",
+      "required": true
+    },
+    "/src/images/rides/barn.bmp": {
+      "size": 2294,
+      "checksum": "e29c658253bfd5ac18f7a4381e5c538a6db18630c3929102359b279010e923b8",
+      "crc32": "622836c3",
+      "required": true
+    },
+    "/src/images/rides/bat.bmp": {
+      "size": 2150,
+      "checksum": "5ef338feb23f2ef43a86f337a694b1d4689f61a9fe497a9c6c5fa4f9274e504e",
+      "crc32": "326378f3",
+      "required": true
+    },
+    "/src/images/rides/bear.bmp": {
+      "size": 2206,
+      "checksum": "b4d6b3490eccf916fd9c31e13903cd696db4533c6cfa7bb9105a71067d6ea95d",
+      "crc32": "488ae81c",
+      "required": true
+    },
+    "/src/images/rides/big_ben.bmp": {
+      "size": 2254,
+      "checksum": "5a58369b411063be9a11a0f714da72b2b0eebbdc5b2c16e393e9e98bc3040298",
+      "crc32": "2a5158c7",
+      "required": true
+    },
+    "/src/images/rides/big_thunder_goat.bmp": {
+      "size": 2198,
+      "checksum": "e7952f5b5891bb2f283cc944c787907caef3968e6f71b516282d28001b0e5a1b",
+      "crc32": "0639bcb6",
+      "required": true
+    },
+    "/src/images/rides/bird.bmp": {
+      "size": 2226,
+      "checksum": "55bda4f4e43ec7994bb5f570958f2e6166dd578f0fba0e8b8286280a26e437e7",
+      "crc32": "752d0a64",
+      "required": true
+    },
+    "/src/images/rides/bobsled.bmp": {
+      "size": 2278,
+      "checksum": "2175db4f861c9903baca509b8689cc903de7a24ae037a7b8deeeff95e6c16f55",
+      "crc32": "c430217b",
+      "required": true
+    },
+    "/src/images/rides/canoe.bmp": {
+      "size": 2230,
+      "checksum": "288267d216d3c7898ce858c2ad30543b8a157053dcdf89fd48ae6f3d3ccf115d",
+      "crc32": "d09b2f9c",
+      "required": true
+    },
+    "/src/images/rides/carousel_horse.bmp": {
+      "size": 2222,
+      "checksum": "77b730bc9f1796d77831ea583473bceef7d5ad333ac42406b62f948eb15d39fb",
+      "crc32": "8de3938d",
+      "required": true
+    },
+    "/src/images/rides/cassette.bmp": {
+      "size": 2242,
+      "checksum": "4053e22a088a4b787f48f0a4a238ef0084717d585bd40a583e7d9ff75021f3cf",
+      "crc32": "2a5ea6eb",
+      "required": true
+    },
+    "/src/images/rides/castle.bmp": {
+      "size": 2222,
+      "checksum": "b65429d5d85584e2627243495ebef05ac70f2a31dfd0b51ef4ce77a91a9d1a2f",
+      "crc32": "b3c752d7",
+      "required": true
+    },
+    "/src/images/rides/child.bmp": {
+      "size": 2218,
+      "checksum": "c495612a01fd36a22f81d07e869bb9fab26c0d09ce03cb79cedb3d092843ac81",
+      "crc32": "32aa997b",
+      "required": true
+    },
+    "/src/images/rides/clownfish.bmp": {
+      "size": 2234,
+      "checksum": "76ea73bfc271e8b04f9a26e5489bfd50f62d420c51ccc86bd968205e707522da",
+      "crc32": "a3aead7d",
+      "required": true
+    },
+    "/src/images/rides/coaster_car.bmp": {
+      "size": 2286,
+      "checksum": "a2bbd17a3f67ffb6288d39539bc3e89651c31c41070aa80ce9d885690f4bc997",
+      "crc32": "52700c83",
+      "required": true
+    },
+    "/src/images/rides/crocodile.bmp": {
+      "size": 2210,
+      "checksum": "bf1abff38027a9140bbf8a61651c1c374347a40dd62dcd0c13485479511c036a",
+      "crc32": "f210aa76",
+      "required": true
+    },
+    "/src/images/rides/dinosaur.bmp": {
+      "size": 2230,
+      "checksum": "e361ce47e0a2478c3168fe7ef9024977cca606e5f3e7499e107381387ca61f97",
+      "crc32": "c469d8f8",
+      "required": true
+    },
+    "/src/images/rides/donut.bmp": {
+      "size": 2318,
+      "checksum": "d954301686f8ef4acfb8c4102c59f01a2aea920d672a23c1cc1587dd70b5c0c4",
+      "crc32": "2e0d5c5b",
+      "required": true
+    },
+    "/src/images/rides/door.bmp": {
+      "size": 2278,
+      "checksum": "f196a457477ce383010ccc3e5cf19f5ae6fc5ec5229bc4a1642389b4f452a058",
+      "crc32": "7972cf83",
+      "required": true
+    },
+    "/src/images/rides/dragon.bmp": {
+      "size": 2298,
+      "checksum": "0242062fd8266e8a02d3e57b917af07e1b5e6b5e1d1c8aa0e6f83855517ad556",
+      "crc32": "33a8dfd3",
+      "required": true
+    },
+    "/src/images/rides/elephant.bmp": {
+      "size": 2186,
+      "checksum": "417b3d45aa3f9b7ce4c4a7c30d9bf3aaa9fc261fd434f0e64771c5ec0e132c5d",
+      "crc32": "3f94c389",
+      "required": true
+    },
+    "/src/images/rides/everest.bmp": {
+      "size": 2186,
+      "checksum": "a57e54c1eb5b78fbf852cd5703adbc66233b8357a8e73d4143d875f896a0f141",
+      "crc32": "c7bbf4af",
+      "required": true
+    },
+    "/src/images/rides/fairy.bmp": {
+      "size": 2210,
+      "checksum": "5618decb140298f611d5346dd9b6c3ff979c214e892458c3c13b06a1c96dee1b",
+      "crc32": "120cb0bd",
+      "required": true
+    },
+    "/src/images/rides/falcon.bmp": {
+      "size": 2190,
+      "checksum": "9ed9b3343b3895b07bebc19f29919223250cfb003d8d560b191d3b074b340bd4",
+      "crc32": "5e5fdf9f",
+      "required": true
+    },
+    "/src/images/rides/firetruck.bmp": {
+      "size": 2286,
+      "checksum": "4d6de8767bf1a7d36ac8db610dcbb45366d083b9da75955f68a2db0b9c649931",
+      "crc32": "62c20232",
+      "required": true
+    },
+    "/src/images/rides/fish.bmp": {
+      "size": 2238,
+      "checksum": "92ba7afb95c8442473ce46d9c4bfd8a2809fa6e202ca67dadc835db5eafb2eb5",
+      "crc32": "0ae4ebf1",
+      "required": true
+    },
+    "/src/images/rides/flag.bmp": {
+      "size": 2250,
+      "checksum": "e7c83bb6f03afb95e1137e6396cb86f9ea17a70f823cf7aa1d6dcf834311d02e",
+      "crc32": "e3233a01",
+      "required": true
+    },
+    "/src/images/rides/frog.bmp": {
+      "size": 2206,
+      "checksum": "30df3ed5943f0c52c450f0c8e61602fff508068bc4866df1ef49dd16a6cf2452",
+      "crc32": "29374635",
+      "required": true
+    },
+    "/src/images/rides/gems.bmp": {
+      "size": 2250,
+      "checksum": "4afbcd71731647608c0a015d15c1987ee0523fb92936c9a1dc49884f5123461a",
+      "crc32": "7f7b8749",
+      "required": true
+    },
+    "/src/images/rides/giraffe.bmp": {
+      "size": 2318,
+      "checksum": "8b96a5eed10d43ad83483874bbee0af494fc25fc997c1f0bcd75f85f98f98e66",
+      "crc32": "a079a652",
+      "required": true
+    },
+    "/src/images/rides/hang_glider.bmp": {
+      "size": 2234,
+      "checksum": "742144a4bbdfbad7e2bc30872fa171e23e77f6cdd1081fc619380a2d6c015a1c",
+      "crc32": "c2b11512",
+      "required": true
+    },
+    "/src/images/rides/haunted_mansion.bmp": {
+      "size": 2170,
+      "checksum": "bd91910498685288fb28cfe58cd54c6b83ae3626ddbf9abd3718ac9930570d7d",
+      "crc32": "7eb9521a",
+      "required": true
+    },
+    "/src/images/rides/helicopter.bmp": {
+      "size": 2254,
+      "checksum": "9c288cf689135e0b654772c50df5789ac0a7c9334696782fc1edf6ff7044b4b7",
+      "crc32": "7c769c53",
+      "required": true
+    },
+    "/src/images/rides/honey_pot.bmp": {
+      "size": 2298,
+      "checksum": "66eb1d82dc44d070a98188f905783274bd70cd5f39b8c422a2f613787e109901",
+      "crc32": "50d67d66",
+      "required": true
+    },
+    "/src/images/rides/indiana_hat.bmp": {
+      "size": 2210,
+      "checksum": "66dc982cb4f173709bcf6062529b37caef6b8c86eb1ae15b80bece63dd6945f1",
+      "crc32": "04e8835a",
+      "required": true
+    },
+    "/src/images/rides/iron_man.bmp": {
+      "size": 2214,
+      "checksum": "7bf2a2a5000e9b0ac22b4153e5432634edc2f9752db609b91c7e452a74c0e526",
+      "crc32": "4765d7fc",
+      "required": true
+    },
+    "/src/images/rides/jack_in_box.bmp": {
+      "size": 2330,
+      "checksum": "a5c2719b070e09a480ed28c7b1b5aba18484aeb0de5ca3b60f73873b47a25ee5",
+      "crc32": "72295f69",
+      "required": true
+    },
+    "/src/images/rides/jellyfish.bmp": {
+      "size": 2230,
+      "checksum": "a18641440e9089bd2218c05f04f31e44f36924b78846790874b7601b56e4e0f4",
+      "crc32": "059f1664",
+      "required": true
+    },
+    "/src/images/rides/jungle_cruise.bmp": {
+      "size": 2342,
+      "checksum": "098900043678ce2e0976074f081f02f2ac5f630eed3a33649a5b69e6a4e53be3",
+      "crc32": "4c837245",
+      "required": true
+    },
+    "/src/images/rides/laser_blaster.bmp": {
+      "size": 2234,
+      "checksum": "476c1369c47b3af0401ce5e0613455db9a864c36d2089b6ad61fe64ce8eb4e70",
+      "crc32": "92c4ffd2",
+      "required": true
+    },
+    "/src/images/rides/light_bulb.bmp": {
+      "size": 2234,
+      "checksum": "d82c218f9670cc56a99b0aa7a4616559259660cd0a0ba6ab6f6fad7067160b86",
+      "crc32": "68b5acf7",
+      "required": true
+    },
+    "/src/images/rides/locomotive.bmp": {
+      "size": 2318,
+      "checksum": "37af8bda79c3f5669b74e97710009e166cc2361550e8d67dde44c54441045f29",
+      "crc32": "2574f921",
+      "required": true
+    },
+    "/src/images/rides/magic_carpet.bmp": {
+      "size": 2218,
+      "checksum": "c85695d67fc802e9f0e0f789bd5467a1a237ecf5c534870d544ac814ccd0e11f",
+      "crc32": "58432617",
+      "required": true
+    },
+    "/src/images/rides/manifest.json": {
+      "size": 24446,
+      "checksum": "521d91d2754b3aec6e7a8dbf04b8ef6b35f5881c225c8fe0c9166ae3c9e7649b",
+      "crc32": "17e02075",
+      "required": true
+    },
+    "/src/images/rides/minion.bmp": {
+      "size": 2294,
+      "checksum": "6ea2d8b5c5979be8fb193d79bf94ba7ef6199e6bf854d9c650bce1f8083c55f1",
+      "crc32": "cea36002",
+      "required": true
+    },
+    "/src/images/rides/monkey.bmp": {
+      "size": 2218,
+      "checksum": "c61d8b71f8a35033aaecdc75fd1babe841eecae9ca75dda8ce0fa3531c44d305",
+      "crc32": "a8bf9d22",
+      "required": true
+    },
+    "/src/images/rides/mop_bucket.bmp": {
+      "size": 2222,
+      "checksum": "deda2202a0433657de2d84103d74c04f2be73ceef7cdc0b01a2eb6a6168604fc",
+      "crc32": "37cb9e4f",
+      "required": true
+    },
+    "/src/images/rides/motorcycle.bmp": {
+      "size": 2226,
+      "checksum": "61f876b8640fb32d5651ceb5ef488e829a65802e53b8fe1ac57ac1acac3fb907",
+      "crc32": "3c8101c5",
+      "required": true
+    },
+    "/src/images/rides/mountain_falls.bmp": {
+      "size": 2266,
+      "checksum": "2fea8d10e46b03760436b865e619290fcc46818e2c7a0bc045804f158cfd1ca9",
+      "crc32": "8a71bd95",
+      "required": true
+    },
+    "/src/images/rides/mummy.bmp": {
+      "size": 2306,
+      "checksum": "98e8208a3aadd13820fe9b1517555ea91d0a9ea99409da9003b2f728cfda90a6",
+      "crc32": "c9e24d94",
+      "required": true
+    },
+    "/src/images/rides/mushroom.bmp": {
+      "size": 2214,
+      "checksum": "723d4ac0e67ca95a667d1f093dc36da17e69fa7895341e47587d9e84f8d01d9e",
+      "crc32": "7e56ae9d",
+      "required": true
+    },
+    "/src/images/rides/old_car.bmp": {
+      "size": 2242,
+      "checksum": "4b3da08f4aa044e89846336dbc85874e7187222d80552d3ddb6b356ec2f306d8",
+      "crc32": "1457e72c",
+      "required": true
+    },
+    "/src/images/rides/ostrich.bmp": {
+      "size": 2186,
+      "checksum": "bfef7e0f202bb91793e142bf8446dddddf2ea6068fc9cdf35013fc2c0db2b7b1",
+      "crc32": "1e7e7f7e",
+      "required": true
+    },
+    "/src/images/rides/ostrich_walk.bmp": {
+      "size": 8266,
+      "checksum": "88b7dde58e3ab163b75424df000f3677aac74cccb2c2c5507aaf1418edbee3a3",
+      "crc32": "bc9d3da1",
+      "required": true
+    },
+    "/src/images/rides/pagoda.bmp": {
+      "size": 2250,
+      "checksum": "5d40e845c1b2ceffdf48db00afcfeff821bd391e558048f0eab0e1401435b1c8",
+      "crc32": "38083159",
+      "required": true
+    },
+    "/src/images/rides/panda.bmp": {
+      "size": 2126,
+      "checksum": "d819525241503df23f0749abdb1ca62f1210627eaeb66366706412fe414aa9a6",
+      "crc32": "792d12de",
+      "required": true
+    },
+    "/src/images/rides/pirates.bmp": {
+      "size": 2262,
+      "checksum": "e66226fd0434c0af15c06a8b110cff041c7bb80d572a5e2d9b2a62f136a63abf",
+      "crc32": "50547780",
+      "required": true
+    },
+    "/src/images/rides/plant.bmp": {
+      "size": 2242,
+      "checksum": "b7e48f729eeb57c38d2dabcf6a635067ec491d93220d467a722c2cd912fe4790",
+      "crc32": "25c11e52",
+      "required": true
+    },
+    "/src/images/rides/poison_apple.bmp": {
+      "size": 2238,
+      "checksum": "cb6ea3f3ee164f76b72b52979be755489e6bf6be1fb69aa12583e48ca1b85ea9",
+      "crc32": "06c834b1",
+      "required": true
+    },
+    "/src/images/rides/pyramid.bmp": {
+      "size": 2314,
+      "checksum": "ab4478501ef1035db8615aa070861f30c285b5abbc2717eb0b339e2dabdea94b",
+      "crc32": "0a4919b6",
+      "required": true
+    },
+    "/src/images/rides/race_car.bmp": {
+      "size": 2250,
+      "checksum": "7c3556c75e4d06eb6b236622480b0f2d8676d66b036ea3df8670a6b25069dca6",
+      "crc32": "976d2023",
+      "required": true
+    },
+    "/src/images/rides/rat.bmp": {
+      "size": 2202,
+      "checksum": "ea2dec106fe14056c83fb5c047dbf3f1e39b7c4f04fc6af9f88690fed881d254",
+      "crc32": "06a12997",
+      "required": true
+    },
+    "/src/images/rides/river.bmp": {
+      "size": 2210,
+      "checksum": "5ef2bc9b4d8b92b1c9c87ec352b1764ef196a8f095ae917847167ebfc0bf4f60",
+      "crc32": "867f277b",
+      "required": true
+    },
+    "/src/images/rides/riverboat.bmp": {
+      "size": 2306,
+      "checksum": "bb4e33bd67e3f0245e2664ee8d68779556ce5ee69deaf0f7f93e6f16b89ba6fc",
+      "crc32": "a23dbd7d",
+      "required": true
+    },
+    "/src/images/rides/rock_roller.bmp": {
+      "size": 2366,
+      "checksum": "3636a2742ae1e62023e7a20b8bc08bb93bebcdcb1d8265e047c57477f5a00a6f",
+      "crc32": "e532cdef",
+      "required": true
+    },
+    "/src/images/rides/rocket.bmp": {
+      "size": 2234,
+      "checksum": "8d79bc8251005b38a866a6b25eadee8e5bd00d51f17e247b42e95b9e5b6ec425",
+      "crc32": "f5b711f5",
+      "required": true
+    },
+    "/src/images/rides/seashell.bmp": {
+      "size": 2210,
+      "checksum": "3e8186a61bc7eb484e18ccbf6c233c4820ad7399e42571dc7ed9530c343d3ce5",
+      "crc32": "edd303f1",
+      "required": true
+    },
+    "/src/images/rides/shark.bmp": {
+      "size": 2258,
+      "checksum": "4024d8c843ed59d35fe1417caee8bf36287c584be6f12eecdec4fb314f7145c8",
+      "crc32": "bf142095",
+      "required": true
+    },
+    "/src/images/rides/skull.bmp": {
+      "size": 2194,
+      "checksum": "a3a0a5cd033d80df7f4066b1b2df85582253d8518c85deb676abef0d526e8d84",
+      "crc32": "a2fa275d",
+      "required": true
+    },
+    "/src/images/rides/slinky_dog.bmp": {
+      "size": 2242,
+      "checksum": "73901845f24d3343926239ecb20cbdfc85b6ca9f702283131b16efa71b397b10",
+      "crc32": "a11150bb",
+      "required": true
+    },
+    "/src/images/rides/snake.bmp": {
+      "size": 2218,
+      "checksum": "7d9135bcb3117eb25cfc3fb72b75fc5d5919822de5c7bf3c958b06b4976ded71",
+      "crc32": "9674d755",
+      "required": true
+    },
+    "/src/images/rides/snowflake.bmp": {
+      "size": 2174,
+      "checksum": "beadb84418b12fc49f7af524a5b8b24c73a417cd6728d8182b0f6bb6e447d3f7",
+      "crc32": "386a8a79",
+      "required": true
+    },
+    "/src/images/rides/space_mountain.bmp": {
+      "size": 2222,
+      "checksum": "dddca17f72a391d39e89612076118855a5af8d066f3e1e47bd812fcdb09c64f8",
+      "crc32": "ad3647f0",
+      "required": true
+    },
+    "/src/images/rides/spaceship_earth.bmp": {
+      "size": 2170,
+      "checksum": "1d730798121deba9b3ae25e7df24150b09f844d7c8f578594f642a16d4dcf1cb",
+      "crc32": "eaccc304",
+      "required": true
+    },
+    "/src/images/rides/splash.bmp": {
+      "size": 2174,
+      "checksum": "33c31a3810c853367f4cf2f97d91d63d4c3cb743710ccbe0021d678402b824fd",
+      "crc32": "7828535e",
+      "required": true
+    },
+    "/src/images/rides/submarine.bmp": {
+      "size": 2274,
+      "checksum": "621ab09ecd11193aef4f468f4b389bf4125f7d48d32a733d34fb5b1200c33ab4",
+      "crc32": "950d8c2e",
+      "required": true
+    },
+    "/src/images/rides/tea_cup.bmp": {
+      "size": 2234,
+      "checksum": "4d63b2730e2cd16061cf79192b96a3ec1c562923f566a91919af6fdfd7095d6e",
+      "crc32": "d33f7b49",
+      "required": true
+    },
+    "/src/images/rides/tiger.bmp": {
+      "size": 2258,
+      "checksum": "a7092d5dc85f9f53f4d015f8fb01b877b1873ae4705931226de5ab27b23411ff",
+      "crc32": "c293fa19",
+      "required": true
+    },
+    "/src/images/rides/tiki_bird.bmp": {
+      "size": 2222,
+      "checksum": "36648467bd07e97a0a0bbfe0da61dbf02281e0850a2674e03057dbb65aa0374f",
+      "crc32": "1620c401",
+      "required": true
+    },
+    "/src/images/rides/tower_of_terror.bmp": {
+      "size": 2246,
+      "checksum": "91c35f62c6bd0f7bb0ed825dc7494b0b1ce498736603d5ebcc17b678fad25396",
+      "crc32": "f806cc5a",
+      "required": true
+    },
+    "/src/images/rides/transformers.bmp": {
+      "size": 2266,
+      "checksum": "37f1ae1d38ecb1c348246086b4a10df0b526188edaf2a1369498044299e483f2",
+      "crc32": "3240fa0d",
+      "required": true
+    },
+    "/src/images/rides/tree.bmp": {
+      "size": 2238,
+      "checksum": "c65a4e2a40d92302421ae6ba14391abe87ff1a0415763232dc154fd97586af61",
+      "crc32": "3aa4ee13",
+      "required": true
+    },
+    "/src/images/rides/tron.bmp": {
+      "size": 2226,
+      "checksum": "8dd972c5fb87f64269ceb5f013199b6b6ab5778e1cfca87e5cd7e63a84270adb",
+      "crc32": "3932aa70",
+      "required": true
+    },
+    "/src/images/rides/turtle.bmp": {
+      "size": 2258,
+      "checksum": "e76866d9f99091c86916a5bb438b2e927ce5dcd8af46be6723e6327cdcb1416c",
+      "crc32": "329b5be7",
+      "required": true
+    },
+    "/src/images/rides/volcano.bmp": {
+      "size": 2186,
+      "checksum": "570605402ebc71b9cdbfebc59da4f906e7ad283f6d75c42e9c4391c79198daf1",
+      "crc32": "6aa0c9f2",
+      "required": true
+    },
+    "/src/images/rides/waves.bmp": {
+      "size": 2254,
+      "checksum": "858930de45af6429cfe73c1f259a24ed97953b226d133c0d28732494296f1c20",
+      "crc32": "7a875d70",
+      "required": true
+    },
+    "/src/images/rides/witch.bmp": {
+      "size": 2266,
+      "checksum": "4113d1ad8b310ea3bcec3d798dc8700fbbeb91230634c1b1fbccb79c3b14aa84",
+      "crc32": "673b4c7a",
+      "required": true
+    },
+    "/src/images/rides/xwing.bmp": {
+      "size": 2238,
+      "checksum": "ba69d8d3df19e89a2a865888c26b26cfc95a52e046532230fa4167fd22122369",
+      "crc32": "205cfd04",
+      "required": true
+    },
+    "/src/images/rides/yoshi.bmp": {
+      "size": 2194,
+      "checksum": "8d751fd9077f1cc85d3df00dd56890144eebd403f6e7726abda3a1852d7e2470",
+      "crc32": "0eb8dbcf",
+      "required": true
+    },
+    "/src/lib/adafruit_json_stream.py": {
+      "size": 10164,
+      "checksum": "223beeb83520b243caf39791a3e9f17e067dba2534ff1d627d6a227ab8850652",
+      "crc32": "bc73d7d5",
+      "required": true
+    },
+    "/src/main.py": {
+      "size": 1287,
+      "checksum": "97a62e9b074dad81b8cb074fde45f8ef81800f89e6a131964993c5d1bb59f5ec",
+      "crc32": "a1ae4be1",
+      "required": true
+    },
+    "/src/models/__init__.py": {
+      "size": 152,
+      "checksum": "34cbceef365ae865d4d51e08ca31e1ae3371277c2e4031ef7c2585ebd624d9f0",
+      "crc32": "b8c47cf3",
+      "required": true
+    },
+    "/src/models/theme_park.py": {
+      "size": 7384,
+      "checksum": "a5721cf8af7d4bb911568a11846db4395e079b4b9d538de42a0cda215e239aa7",
+      "crc32": "bab68109",
+      "required": true
+    },
+    "/src/models/theme_park_list.py": {
+      "size": 6381,
+      "checksum": "aa12baa0a9aa342d09460041a439d726380cfa03e9b1b2a2480aacba1e3fd460",
+      "crc32": "5089d9ef",
+      "required": true
+    },
+    "/src/models/theme_park_ride.py": {
+      "size": 1108,
+      "checksum": "cbd91f47f6d141efac5ddeffb1e89a166ee93a93471041930d72096330ed0590",
+      "crc32": "8bd41578",
+      "required": true
+    },
+    "/src/models/vacation.py": {
+      "size": 3454,
+      "checksum": "003ce99c58db05bb781397028928e7d525fe6258e0852d06fd13d546ea28e95e",
+      "crc32": "ef485c34",
+      "required": true
+    },
+    "/src/ota_glue.py": {
+      "size": 17389,
+      "checksum": "6e0905f560871b9964fe3fc00102638ababd9b2367cbf628e4be6f57c9fe9e17",
+      "crc32": "b48f292d",
+      "required": true
+    },
+    "/src/settings_schema.py": {
+      "size": 2134,
+      "checksum": "9b2eacf206e062e696ca0763aa9f394dd2a15ce638b161bba42549261a1973e7",
+      "crc32": "2d99fb26",
+      "required": true
+    },
+    "/src/themeparkwaits.py": {
+      "size": 6074,
+      "checksum": "8300a4a9bcaf523b25225d2c5d0207c2a9d07352cae3544a8fc51e9edc1dd596",
+      "crc32": "19442c19",
+      "required": true
+    },
+    "/src/ui/README.md": {
+      "size": 4558,
+      "checksum": "1235377f4f85de3a040f81e188e464039b4551bb004140809dc7b3395a7b6d04",
+      "crc32": "a6b09810",
+      "required": true
+    },
+    "/src/ui/__init__.py": {
+      "size": 131,
+      "checksum": "7e6db19a1d6d3fbb051d1ed8f0cb138061cf74a531fde55a2732217e10486406",
+      "crc32": "2616cb3e",
+      "required": true
+    },
+    "/src/ui/content_builder.py": {
+      "size": 18432,
+      "checksum": "e8140cd90ca4d3d79443e0f3ba89a90e2dabbea5c09702863ab8f4d8d66e42ca",
+      "crc32": "5fbf2949",
+      "required": true
+    },
+    "/src/ui/effect_catalog.py": {
+      "size": 4738,
+      "checksum": "8c57b654cddcf9f51e3af7c617a5ca30d106fd3989a9a6ebb27e19e4a057c072",
+      "crc32": "d08ce657",
+      "required": true
+    },
+    "/src/ui/reveal_splash.py": {
+      "size": 10770,
+      "checksum": "655e22c475677f9f5ebf4cc890fd94a1a8284893b9fd7c9402d9b29006fe6242",
+      "crc32": "c8b9506c",
+      "required": true
+    },
+    "/src/ui/ride_animations.py": {
+      "size": 25663,
+      "checksum": "0ac6fad1cb7be10742a4f57cf31623b0e5510b3c02f00009eeaef0ffe798e8e9",
+      "crc32": "3a32a5af",
+      "required": true
+    },
+    "/src/ui/ride_images.py": {
+      "size": 2276,
+      "checksum": "32dc3f631cfb741834e577147cc0c6fa55c88434b72bb0f25211b76f88800366",
+      "crc32": "23c8944d",
+      "required": true
+    },
+    "/src/ui/ride_screen_content.py": {
+      "size": 49222,
+      "checksum": "2ba8c88350534b8669b2d1511d637c9cd85abe78d28a73dd847fc93aa187355b",
+      "crc32": "e023a32f",
+      "required": true
+    },
+    "/src/ui/ride_types.py": {
+      "size": 1649,
+      "checksum": "ebb439a47df4e983b9a01d1738b674dcdebfafafb93fe93cdc0e9c7b9d21bb0c",
+      "crc32": "98c50ee1",
+      "required": true
+    },
+    "/src/web/__init__.py": {
+      "size": 47,
+      "checksum": "09f55d54f49d037db5aa85e321e71452400d0da0da8a1c879e26fc4468673e1e",
+      "crc32": "94f47413",
+      "required": true
+    },
+    "/src/web/config_server.py": {
+      "size": 41088,
+      "checksum": "b07db32c8e5062e941d6aca11532a6c783a0693de7ae53b6c82143a2a2ccb88f",
+      "crc32": "f0657e8e",
+      "required": true
+    },
+    "/src/www/gear.jpg": {
+      "size": 15976,
+      "checksum": "958be5ffe161263e550ae6ba8fea8afca9982ecb926c84cd59c932ad28069a14",
+      "crc32": "7c7df1a3",
+      "required": true
+    },
+    "/src/www/gear.png": {
+      "size": 66997,
+      "checksum": "94251b63b443e10d0583c68408db6e02091945281473981a828d21b64af6f88e",
+      "crc32": "93b5decb",
+      "required": true
+    },
+    "/src/www/style.css": {
+      "size": 1961,
+      "checksum": "903bdac16b95bbc8736874704741a569be9893d2d3641170d108691cbffd3350",
+      "crc32": "48820e97",
+      "required": true
+    },
+    "/src/www/wifi_style.css": {
+      "size": 3323,
+      "checksum": "82b51004cff92039ac18d9c804c69ab324bfc27171f48e03e70e645d70b7e0be",
+      "crc32": "f2fcbe8c",
+      "required": true
+    }
+  }
+}

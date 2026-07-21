@@ -1,0 +1,102 @@
+/* ThemeParkWaits config UI styles.
+   These selectors must match the markup emitted by PAGE_TEMPLATE in
+   src/web/config_server.py: .container > .header (h1) + .content, with
+   .form-group rows holding .form-control fields, and .btn submit buttons. */
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 1rem;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.header {
+    background-color: #faa538;
+    padding: 1rem 1.5rem;
+}
+
+.header h1 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.6rem;
+}
+
+.content {
+    padding: 1.5rem;
+}
+
+h3 {
+    color: #faa538;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.35rem;
+    margin: 1.5rem 0 0.75rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+/* Field label (block) — for the Park/Sort/Color/etc. rows. */
+.form-group > label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    background: #fff;
+}
+
+select.form-control {
+    height: 2.4rem;
+}
+
+input[type="color"].form-control {
+    height: 2.5rem;
+    padding: 0.2rem;
+    cursor: pointer;
+}
+
+input[type="range"].form-control {
+    padding: 0;
+}
+
+/* Checkbox rows render as <label><input type=checkbox> Text</label>; the box
+   must stay inline and natural-width, not stretch like a .form-control field. */
+.form-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+.btn {
+    background-color: #faa538;
+    border: none;
+    border-radius: 4px;
+    padding: 0.7rem 2rem;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.05rem;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background-color: #e89400;
+}
